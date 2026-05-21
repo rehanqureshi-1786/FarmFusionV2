@@ -1,6 +1,11 @@
 from typing import Any, Dict, Optional
 
+from app.agents.openai_client import OpenAIClient
+
 
 class GeminiClient:
+    def __init__(self, model: Optional[str] = None):
+        self.client = OpenAIClient(model=model)
+
     def generate(self, prompt: str) -> str:
-        return f"Gemini response for: {prompt}"
+        return self.client.complete(prompt)

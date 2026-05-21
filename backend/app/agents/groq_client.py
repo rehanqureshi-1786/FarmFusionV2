@@ -1,6 +1,11 @@
-from typing import Any
+from typing import Any, Optional
+
+from app.agents.openai_client import OpenAIClient
 
 
 class GroqClient:
+    def __init__(self, model: Optional[str] = None):
+        self.client = OpenAIClient(model=model)
+
     def complete(self, prompt: str) -> str:
-        return f"Groq completed: {prompt}"
+        return self.client.complete(prompt)
