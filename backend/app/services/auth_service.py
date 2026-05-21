@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from typing import Any, Dict, Optional
 
@@ -6,6 +7,8 @@ import firebase_admin
 from firebase_admin import auth, credentials
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -35,5 +38,6 @@ class AuthService:
             AuthService._initialize()
             decoded = auth.verify_id_token(token)
             return decoded
-        except Exception:
+        except Exception as exc:
+            logger.exception("Firebase token verification failed")
             return None
