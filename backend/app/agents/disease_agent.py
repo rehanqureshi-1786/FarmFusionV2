@@ -2,7 +2,7 @@ import json
 import re
 from typing import Dict, Any
 
-from app.agents.openai_client import OpenAIClient
+from app.agents.groq_client import GroqClient
 
 
 class DiseaseDetectionAgent:
@@ -14,7 +14,7 @@ class DiseaseDetectionAgent:
             "Return only valid JSON with keys disease and confidence. "
             f"Image URL: {image_url}"
         )
-        client = OpenAIClient()
+        client = GroqClient()
         try:
             data = client.complete_json(prompt)
         except RuntimeError:

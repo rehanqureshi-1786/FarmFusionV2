@@ -1,6 +1,6 @@
 from typing import Optional
 
-from app.agents.openai_client import OpenAIClient
+from app.agents.groq_client import GroqClient
 
 
 class MarketAnalysisAgent:
@@ -10,7 +10,7 @@ class MarketAnalysisAgent:
             f"for {commodity} in {region or 'India'} over the next 30 days. "
             "Respond with a single numeric value only, in Indian rupees per kilogram."
         )
-        client = OpenAIClient()
+        client = GroqClient()
         raw = client.complete(prompt)
         try:
             return float(raw.strip().split()[0].replace(',', ''))

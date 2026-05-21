@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.agents.openai_client import OpenAIClient
+from app.agents.groq_client import GroqClient
 
 
 class CropRecommendationAgent:
@@ -10,5 +10,5 @@ class CropRecommendationAgent:
             "Include pest management, irrigation, and nutrient guidance in plain language. "
             "Respond with a short paragraph only."
         )
-        client = OpenAIClient()
+        client = GroqClient()
         return client.complete(prompt)
