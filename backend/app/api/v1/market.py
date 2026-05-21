@@ -12,8 +12,13 @@ router = APIRouter(prefix="/market", tags=["market"])
 
 
 @router.get("/prices", response_model=MarketPriceListResponse)
-async def get_market_prices(db: AsyncSession = Depends(get_db)):
-    return await MarketService.get_market_prices(db)
+async def get_market_prices(
+    state: str | None = Query(None),
+    district: str | None = Query(None),
+    crop: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    return await MarketService.get_market_prices(state, district, crop, db)
 
 
 @router.get("/mandis", response_model=List[str])

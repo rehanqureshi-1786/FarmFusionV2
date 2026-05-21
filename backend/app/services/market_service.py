@@ -15,10 +15,23 @@ from app.schemas.market import MarketPriceListResponse, MarketPredictionRequest,
 
 class MarketService:
     @staticmethod
-    async def get_market_prices(db: AsyncSession) -> MarketPriceListResponse:
+    async def get_market_prices(state: str | None, district: str | None, crop: str | None, db: AsyncSession) -> MarketPriceListResponse:
         result = await db.execute(select(MarketData).limit(20))
-        prices = [MarketPriceResponse(commodity=row.commodity, price=row.price, mandi=row.mandi, created_at=row.created_at) for row in result.scalars().all()]
-        return MarketPriceListResponse(prices=prices)
+        rows = result.scalars().all()
+        prices = [MarketPriceResponse(
+            state=state or "India",
+            district=district or "Unknown",
+            market=row.mandi or "Local Mandi",
+            commodity=row.commodity,
+            variety="Standard",
+            grade="A",
+            arrival_date=row.created_at.isoformat() if row.created_at else "",
+            min_price=row.price,
+            max_price=row.price,
+            modal_price=row.price,
+            source="farmfusion-ai"
+        ) for row in rows]
+        return MarketPriceListResponse(data=prices, count=len(prices), region=state or "India")
 
     @staticmethod
     async def get_all_mandis(db: AsyncSession) -> List[str]:

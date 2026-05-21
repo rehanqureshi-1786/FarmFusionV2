@@ -4,14 +4,23 @@ from pydantic import BaseModel, ConfigDict
 
 
 class MarketPriceResponse(BaseModel):
+    state: str
+    district: Optional[str] = None
+    market: str
     commodity: str
-    price: float
-    mandi: Optional[str] = None
-    created_at: Optional[datetime] = None
+    variety: str
+    grade: str
+    arrival_date: Optional[str] = None
+    min_price: float
+    max_price: float
+    modal_price: float
+    source: Optional[str] = None
 
 
 class MarketPriceListResponse(BaseModel):
-    prices: List[MarketPriceResponse]
+    data: List[MarketPriceResponse]
+    count: int
+    region: str
 
 
 class PricePredictionPoint(BaseModel):

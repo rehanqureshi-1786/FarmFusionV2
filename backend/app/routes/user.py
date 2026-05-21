@@ -8,7 +8,7 @@ DELETE /users/farms/{id} - Delete farm
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-from app.db import get_db
+from app.api.deps import get_db
 from app.services.user_service import UserService
 from app.services.auth_service import AuthService
 
