@@ -14,6 +14,8 @@ services:
         fromSecret: DATABASE_URL
       - key: FIREBASE_CREDENTIALS_JSON
         fromSecret: FIREBASE_CREDENTIALS_JSON
+      - key: FIREBASE_CREDENTIALS_PATH
+        value: "/etc/secrets/FIREBASE_CREDENTIALS_JSON"
       - key: CORS_ORIGINS
         value: "*"
       - key: SECRET_KEY

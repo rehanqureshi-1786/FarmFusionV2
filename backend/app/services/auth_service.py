@@ -1,4 +1,5 @@
 import json
+import os
 from typing import Any, Dict, Optional
 
 import firebase_admin
@@ -15,6 +16,14 @@ class AuthService:
                 cred = credentials.Certificate(settings.firebase_credentials_path)
             elif settings.firebase_credentials_json:
                 json_data = json.loads(settings.firebase_credentials_json)
+                cred = credentials.Certificate(json_data)
+            elif os.path.exists("/etc/secrets/FIREBASE_CREDENTIALS_JSON"):
+                with open("/etc/secrets/FIREBASE_CREDENTIALS_JSON", "r", encoding="utf-8") as f:
+                    json_data = json.load(f)
+                cred = credentials.Certificate(json_data)
+            elif os.path.exists("/etc/secrets/firebase_credentials.json"):
+                with open("/etc/secrets/firebase_credentials.json", "r", encoding="utf-8") as f:
+                    json_data = json.load(f)
                 cred = credentials.Certificate(json_data)
             else:
                 cred = credentials.ApplicationDefault()
