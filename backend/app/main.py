@@ -8,7 +8,10 @@ from app.core.config import settings
 from app.db.database import init_db
 from app.api.v1.auth import router as auth_router
 from app.api.v1.crops import router as crops_router
+from app.api.v1.crop import router as crop_router
+from app.api.v1.disease import router as disease_router
 from app.api.v1.market import router as market_router
+from app.api.v1.weather import router as weather_router
 from app.api.v1.voice import router as voice_router
 from app.api.v1.marketplace import router as marketplace_router
 from app.api.v1.labour import router as labour_router
@@ -69,8 +72,11 @@ async def root():
     }
 
 app.include_router(auth_router, prefix=settings.api_v1_prefix)
+app.include_router(crop_router, prefix=settings.api_v1_prefix)
 app.include_router(crops_router, prefix=settings.api_v1_prefix)
+app.include_router(disease_router, prefix=settings.api_v1_prefix)
 app.include_router(market_router, prefix=settings.api_v1_prefix)
+app.include_router(weather_router, prefix=settings.api_v1_prefix)
 app.include_router(voice_router, prefix=settings.api_v1_prefix)
 app.include_router(marketplace_router, prefix=settings.api_v1_prefix)
 app.include_router(labour_router, prefix=settings.api_v1_prefix)

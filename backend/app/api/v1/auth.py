@@ -84,3 +84,21 @@ async def verify(
             created_at=user.created_at,
         ),
     )
+
+
+@router.get("/user/{uid}")
+async def get_user_info(uid: str, db: AsyncSession = Depends(get_db)):
+    user = await UserService.get_user_by_firebase_uid(uid, db)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "success": True,
+        "user": {
+            "uid": user.firebase_uid,
+            "phone_number": user.phone_number,
+            "email": user.email,
+            "name": user.name,
+            "photo_url": None,
+            "disabled": False,
+        },
+    }

@@ -63,11 +63,7 @@ fun AppNav() {
     
     val showBottomBar = currentRoute in mainRoutes
 
-    val startDestination = if (AuthStore.getLanguage(context).isNullOrBlank()) {
-        NavRoutes.LanguageSelection
-    } else {
-        NavRoutes.Splash
-    }
+    val startDestination = NavRoutes.Splash
 
     Scaffold(
         bottomBar = {
@@ -103,9 +99,10 @@ fun AppNav() {
             startDestination = startDestination,
             modifier = Modifier.padding(if (showBottomBar) innerPadding else androidx.compose.foundation.layout.PaddingValues(0.dp))
         ) {
-            composable(NavRoutes.LanguageSelection) {
-                LanguageSelectionScreen(navController)
-            }
+            // Language selection screen has been disabled.
+            // composable(NavRoutes.LanguageSelection) {
+            //     LanguageSelectionScreen(navController)
+            // }
 
             composable(NavRoutes.Splash) {
                 SplashScreen(navController, authViewModel)
