@@ -10,6 +10,15 @@ from app.services.crop_service import CropService
 router = APIRouter(prefix="/crop", tags=["crop"])
 
 
+@router.get("/")
+async def crop_index():
+    return {
+        "success": True,
+        "available": ["/recommend (POST)", "/history", "/test"],
+        "note": "POST /api/v1/crop/recommend with JSON body matching CropRecommendRequest",
+    }
+
+
 @router.post("/recommend", response_model=CropRecommendResponse)
 async def recommend_crop(request: CropRecommendRequest, db: AsyncSession = Depends(get_db)):
     return await CropService.get_recommendations(request, db)

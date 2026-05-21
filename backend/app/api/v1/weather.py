@@ -8,6 +8,15 @@ from app.services.weather_service import WeatherService
 router = APIRouter(prefix="/weather", tags=["weather"])
 
 
+@router.get("/")
+async def weather_index():
+    return {
+        "success": True,
+        "available": ["/current?lat=<>&lon=<>", "/forecast?lat=<>&lon=<>", "/farming?lat=<>&lon=<>"] ,
+        "note": "Use query parameters lat and lon for location; example: /api/v1/weather/current?lat=12.97&lon=77.59",
+    }
+
+
 def build_current_weather(latitude: float, longitude: float) -> dict:
     weather = WeatherService.get_weather(latitude, longitude)
     # Expect the agent to return real values; fail if missing so clients know it's not real data
