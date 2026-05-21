@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "993434214349",
+    "project_id": "farmfusion-00",
+    "storage_bucket": "farmfusion-00.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:993434214349:android:3634656b78e0de5ffa6e84",
+        "android_client_info": {
+          "package_name": "com.example.farmfusionapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATFI7pHe7dJ6zIMbftRxsNgr8xS5zrcYQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

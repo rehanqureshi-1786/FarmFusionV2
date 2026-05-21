@@ -1,0 +1,88 @@
+<resources>
+    <string name="app_name">FarmFusion</string>
+    
+    <!-- Navigation Labels -->
+    <string name="nav_home">Home</string>
+    <string name="nav_weather">Weather</string>
+    <string name="nav_mandi">Mandi</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_scan">Scan</string>
+    
+    <!-- Dashboard Strings -->
+    <string name="welcome_to">Welcome</string>
+    <string name="locating_farm">Locating your farm...</string>
+    <string name="live_forecast">LIVE FORECAST</string>
+    <string name="humidity">Humidity: %1$s%%</string>
+    <string name="wind">Wind: %1$s m/s</string>
+    <string name="farm_actions">Farm Actions</string>
+    <string name="ai_briefing">AI Farm Briefing</string>
+    <string name="default_ai_briefing">Once live weather loads, FarmFusion will crunch the numbers and provide an actionable farm recommendation right here.</string>
+    
+    <!-- Action Titles & Subtitles -->
+    <string name="action_disease_scan">Disease Scan</string>
+    <string name="action_disease_scan_sub">Camera diagnosis</string>
+    <string name="action_crop_advice">Crop Advice</string>
+    <string name="action_crop_advice_sub">AI farm planning</string>
+    <string name="action_market_rates">Market Rates</string>
+    <string name="action_market_rates_sub">Live mandi trends</string>
+    <string name="action_weather">Weather</string>
+    <string name="action_weather_sub">Full forecast</string>
+    <string name="action_crop_services">Crop Services</string>
+    <string name="action_crop_services_sub">Field support</string>
+    <string name="action_farm_store">Farm Store</string>
+    <string name="action_farm_store_sub">Inputs &amp; tools</string>
+    <string name="action_labour_help">Labour Help</string>
+    <string name="action_labour_help_sub">Find workers</string>
+    
+    <!-- Language Selection -->
+    <string name="choose_app_language">Choose app language</string>
+    <string name="select_lang_desc">Choose the language for the whole app: menus, crop and disease AI answers, voice assistant, and alerts.</string>
+    <string name="lang_usage_info">The app will restart briefly. English uses English everywhere; Hindi uses Hindi text where translations exist, and AI replies in Hindi.</string>
+    <string name="lang_local_english">English</string>
+    <string name="lang_local_hindi">हिन्दी</string>
+
+    <!-- Crop Recommendation -->
+    <string name="crop_advice_title">Crop Advice</string>
+    <string name="soil_type_selection_title">What is your Soil Type?</string>
+    <string name="soil_color_help">Choose by color you see in your field:</string>
+    <string name="has_soil_health_card">Do you have a Soil Health Card?</string>
+    <string name="yes_have_report">YES, I HAVE REPORT</string>
+    <string name="no_use_auto_analysis">NO, USE AUTO ANALYSIS</string>
+    <string name="basic_details_title">Basic Details</string>
+    <string name="soil_type_selected">Soil Type For AI</string>
+    <string name="village_district_label">Village / District</string>
+    <string name="farm_size_label">Farm Size (Acres)</string>
+    <string name="annual_rainfall_label">Estimated Annual Rainfall (mm)</string>
+    <string name="avg_temp_label">Avg Temperature (°C)</string>
+    <string name="refresh_autofill">Refresh auto-filled values</string>
+    <string name="scan_soil_report">Scan your Soil Report</string>
+    <string name="take_photo">TAKE PHOTO</string>
+    <string name="continue_button">CONTINUE</string>
+    <string name="error">Error</string>
+    <string name="ok">OK</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Profile</string>
+    <string name="profile_farm_section_title">Farm profile</string>
+    <string name="profile_farm_section_sub">Identity, preferences and app mode</string>
+    <string name="profile_theme">Theme</string>
+    <string name="profile_theme_light">Light</string>
+    <string name="profile_theme_dark">Dark</string>
+    <string name="profile_theme_system">System</string>
+    <string name="profile_language">Language</string>
+    <string name="profile_notifications">Notifications</string>
+    <string name="profile_notifications_sub">Weather and alert updates</string>
+    <string name="profile_voice">Voice assistant</string>
+    <string name="profile_voice_sub">Hands-free farming help</string>
+    <string name="profile_display">Display mode</string>
+    <string name="profile_display_sub">Outdoor readable UI</string>
+    <string name="profile_lang_display_en">English</string>
+    <string name="profile_lang_display_hi">Hindi (हिन्दी)</string>
+    <string name="profile_lang_display_mr">Marathi</string>
+    <string name="profile_lang_display_gu">Gujarati</string>
+    <string name="profile_lang_display_pa">Punjabi</string>
+    <string name="profile_lang_display_te">Telugu</string>
+
+    <!-- Dashboard carousel -->
+    <string name="dashboard_carousel_alert_badge">ALERT</string>
+</resources>

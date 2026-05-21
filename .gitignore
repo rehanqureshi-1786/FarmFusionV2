@@ -1,0 +1,38 @@
+# Android
+*.iml
+.gradle
+/local.properties
+/.idea/
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+ai-env/
+ai-venv/
+.env
+
+# Database
+*.db
+*.sqlite3
+
+# Tools
+.aider*
+.claude/
+.vscode/
+
+# Local env files
+backend/.env
+frontend/.env
+.recover-env/
+
+# Local Python environments
+backend/venv/
+backend/ai-venv/
+backend/credentials/

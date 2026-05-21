@@ -1,0 +1,85 @@
+<resources>
+    <string name="app_name">फार्मफ्यूजन</string>
+    
+    <!-- Navigation Labels -->
+    <string name="nav_home">होम</string>
+    <string name="nav_weather">मौसम</string>
+    <string name="nav_mandi">मंडी</string>
+    <string name="nav_profile">प्रोफाइल</string>
+    <string name="nav_scan">स्कैन</string>
+    
+    <!-- Dashboard Strings -->
+    <string name="welcome_to">स्वागत है</string>
+    <string name="locating_farm">आपका खेत खोजा जा रहा है...</string>
+    <string name="live_forecast">लाइव पूर्वानुमान</string>
+    <string name="humidity">नमी: %1$s%%</string>
+    <string name="wind">हवा: %1$s मीटर/सेकंड</string>
+    <string name="farm_actions">खेत के कार्य</string>
+    <string name="ai_briefing">AI खेत की सलाह</string>
+    <string name="default_ai_briefing">लाइव मौसम लोड होने के बाद, फार्मफ्यूजन डेटा को समझकर आपको कृषि सम्बन्धी एक बेहतरीन सलाह यहीं पर देगा।</string>
+    
+    <!-- Action Titles & Subtitles -->
+    <string name="action_disease_scan">बीमारी स्कैन</string>
+    <string name="action_disease_scan_sub">कैमरा द्वारा निदान</string>
+    <string name="action_crop_advice">फसल सलाह</string>
+    <string name="action_crop_advice_sub">AI द्वारा नियोजन</string>
+    <string name="action_market_rates">मंडी भाव</string>
+    <string name="action_market_rates_sub">लाइव मंडी रुझान</string>
+    <string name="action_weather">मौसम</string>
+    <string name="action_weather_sub">पूरा पूर्वानुमान</string>
+    <string name="action_crop_services">फसल सेवाएँ</string>
+    <string name="action_crop_services_sub">फील्ड समर्थन</string>
+    <string name="action_farm_store">कृषि स्टोर</string>
+    <string name="action_farm_store_sub">कृषि उपकरण व साधन</string>
+    <string name="action_labour_help">मजदूर सहायता</string>
+    <string name="action_labour_help_sub">मजदूर खोजें</string>
+    
+    <!-- Language Selection -->
+    <string name="choose_app_language">ऐप की भाषा चुनें</string>
+    <string name="select_lang_desc">पूरे ऐप की भाषा चुनें: मेनू, फसल व रोग AI जवाब, आवाज़ सहायक और अलर्ट।</string>
+    <string name="lang_usage_info">ऐप थोड़ी देर के लिए फिर से खुलेगा। अंग्रेज़ी में सब कुछ अंग्रेज़ी; हिन्दी में जहाँ अनुवाद हैं वहाँ हिन्दी, और AI जवाब हिन्दी में।</string>
+    <string name="lang_local_english">English</string>
+    <string name="lang_local_hindi">हिन्दी</string>
+
+    <!-- Crop Recommendation -->
+    <string name="crop_advice_title">फसल सलाह</string>
+    <string name="soil_type_selection_title">आपकी मिट्टी का प्रकार क्या है?</string>
+    <string name="soil_color_help">अपनी मिट्टी के रंग के अनुसार चुनें:</string>
+    <string name="has_soil_health_card">क्या आपके पास मृदा स्वास्थ्य कार्ड है?</string>
+    <string name="yes_have_report">हाँ, मेरे पास रिपोर्ट है</string>
+    <string name="no_use_auto_analysis">नहीं, स्वचालित विश्लेषण करें</string>
+    <string name="basic_details_title">बुनियादी विवरण</string>
+    <string name="soil_type_selected">AI के लिए मिट्टी का प्रकार</string>
+    <string name="village_district_label">गाँव / जिला</string>
+    <string name="farm_size_label">खेत का आकार (एकड़)</string>
+    <string name="annual_rainfall_label">अनुमानित वार्षिक वर्षा (मिमी)</string>
+    <string name="avg_temp_label">औसत तापमान (°C)</string>
+    <string name="refresh_autofill">सहेजी गई जानकारी ताज़ा करें</string>
+    <string name="scan_soil_report">अपनी मृदा रिपोर्ट स्कैन करें</string>
+    <string name="take_photo">फोटो खींचें</string>
+    <string name="continue_button">जारी रखें</string>
+    <string name="error">त्रुटि</string>
+    <string name="ok">ठीक है</string>
+
+    <string name="profile_title">प्रोफाइल</string>
+    <string name="profile_farm_section_title">खेत प्रोफाइल</string>
+    <string name="profile_farm_section_sub">पहचान, सेटिंग्स और ऐप मोड</string>
+    <string name="profile_theme">थीम</string>
+    <string name="profile_theme_light">लाइट</string>
+    <string name="profile_theme_dark">डार्क</string>
+    <string name="profile_theme_system">सिस्टम</string>
+    <string name="profile_language">भाषा</string>
+    <string name="profile_notifications">सूचनाएँ</string>
+    <string name="profile_notifications_sub">मौसम और अलर्ट अपडेट</string>
+    <string name="profile_voice">आवाज़ सहायक</string>
+    <string name="profile_voice_sub">हाथ-मुक्त खेती सहायता</string>
+    <string name="profile_display">डिस्प्ले मोड</string>
+    <string name="profile_display_sub">धूप में पढ़ने योग्य UI</string>
+    <string name="profile_lang_display_en">English</string>
+    <string name="profile_lang_display_hi">हिन्दी</string>
+    <string name="profile_lang_display_mr">मराठी</string>
+    <string name="profile_lang_display_gu">ગુજરાતી</string>
+    <string name="profile_lang_display_pa">ਪੰਜਾਬੀ</string>
+    <string name="profile_lang_display_te">తెలుగు</string>
+    <string name="dashboard_carousel_alert_badge">अलर्ट</string>
+</resources>

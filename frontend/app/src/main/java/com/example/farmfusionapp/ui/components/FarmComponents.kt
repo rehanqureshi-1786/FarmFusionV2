@@ -1,0 +1,1506 @@
+package com.example.farmfusionapp.ui.components
+
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import com.example.farmfusionapp.ui.theme.FarmColors
+import com.example.farmfusionapp.ui.theme.FarmTypography
+import com.example.farmfusionapp.ui.theme.extendedColors
+
+// ============================================
+// DESIGN SYSTEM CONSTANTS
+// ============================================
+object FarmDesignSystem {
+    // Spacing
+    val Space1 = 4.dp
+    val Space2 = 8.dp
+    val Space3 = 12.dp
+    val Space4 = 16.dp
+    val Space5 = 20.dp
+    val Space6 = 24.dp
+    val Space8 = 32.dp
+    val Space10 = 40.dp
+    val Space12 = 48.dp
+
+    // Border Radius
+    val RadiusSmall = 8.dp
+    val RadiusMedium = 12.dp
+    val RadiusLarge = 16.dp
+    val RadiusXLarge = 20.dp
+    val RadiusPill = 50.dp
+
+    // Touch Targets (minimum 48dp for accessibility)
+    val MinTouchTarget = 48.dp
+    val ButtonHeightLarge = 56.dp
+    val ButtonHeightMedium = 48.dp
+    val FABSize = 64.dp
+    val IconSizeSmall = 20.dp
+    val IconSizeMedium = 24.dp
+    val IconSizeLarge = 32.dp
+
+    // Animation
+    const val PressScale = 0.98f
+    val ElevationDefault = 2.dp
+    val ElevationRaised = 4.dp
+    val ElevationFloating = 8.dp
+}
+
+// ============================================
+// PREMIUM BUTTONS
+// ============================================
+@Composable
+fun PremiumButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    enabled: Boolean = true,
+    isLoading: Boolean = false,
+    colors: ButtonColors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    ),
+    shape: Shape = RoundedCornerShape(FarmDesignSystem.RadiusMedium)
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) FarmDesignSystem.PressScale else 1f,
+        label = "buttonScale"
+    )
+
+    Button(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(FarmDesignSystem.ButtonHeightLarge)
+            .scale(scale),
+        shape = shape,
+        enabled = enabled && !isLoading,
+        colors = colors,
+        interactionSource = interactionSource
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+                strokeWidth = 3.dp
+            )
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                icon?.let {
+                    Icon(
+                        imageVector = it,
+                        contentDescription = null,
+                        modifier = Modifier.size(FarmDesignSystem.IconSizeMedium)
+                    )
+                    Spacer(modifier = Modifier.width(FarmDesignSystem.Space3))
+                }
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun PremiumSecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null
+) {
+    PremiumButton(
+        text = text,
+        onClick = onClick,
+        modifier = modifier,
+        icon = icon,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.primary
+        ),
+        shape = RoundedCornerShape(FarmDesignSystem.RadiusMedium)
+    )
+}
+
+@Composable
+fun PremiumOutlinedButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null
+) {
+    OutlinedButton(
+        onClick = onClick,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(FarmDesignSystem.ButtonHeightLarge),
+        shape = RoundedCornerShape(FarmDesignSystem.RadiusMedium),
+        border = BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            icon?.let {
+                Icon(
+                    imageVector = it,
+                    contentDescription = null,
+                    modifier = Modifier.size(FarmDesignSystem.IconSizeMedium)
+                )
+                Spacer(modifier = Modifier.width(FarmDesignSystem.Space3))
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+    }
+}
+
+// ============================================
+// PREMIUM CARDS
+// ============================================
+@Composable
+fun PremiumCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    backgroundColor: Color = MaterialTheme.colorScheme.surface,
+    elevation: androidx.compose.ui.unit.Dp = FarmDesignSystem.ElevationDefault,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val cardModifier = modifier.fillMaxWidth()
+
+    if (onClick != null) {
+        val interactionSource = remember { MutableInteractionSource() }
+        val isPressed by interactionSource.collectIsPressedAsState()
+        val scale by animateFloatAsState(
+            targetValue = if (isPressed) FarmDesignSystem.PressScale else 1f,
+            label = "cardScale"
+        )
+
+        ElevatedCard(
+            onClick = onClick,
+            modifier = cardModifier.scale(scale),
+            shape = RoundedCornerShape(FarmDesignSystem.RadiusLarge),
+            colors = CardDefaults.elevatedCardColors(containerColor = backgroundColor),
+            elevation = CardDefaults.elevatedCardElevation(
+                defaultElevation = if (isPressed) elevation + 2.dp else elevation
+            ),
+            interactionSource = interactionSource
+        ) {
+            Column(
+                modifier = Modifier.padding(FarmDesignSystem.Space4),
+                content = content
+            )
+        }
+    } else {
+        Card(
+            modifier = cardModifier,
+            shape = RoundedCornerShape(FarmDesignSystem.RadiusLarge),
+            colors = CardDefaults.cardColors(containerColor = backgroundColor),
+            elevation = CardDefaults.cardElevation(defaultElevation = elevation)
+        ) {
+            Column(
+                modifier = Modifier.padding(FarmDesignSystem.Space4),
+                content = content
+            )
+        }
+    }
+}
+
+@Composable
+fun PremiumHeroCard(
+    modifier: Modifier = Modifier,
+    gradient: List<Color> = listOf(
+        MaterialTheme.colorScheme.primary,
+        MaterialTheme.colorScheme.primaryContainer
+    ),
+    content: @Composable BoxScope.() -> Unit
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(FarmDesignSystem.RadiusXLarge),
+        elevation = CardDefaults.cardElevation(defaultElevation = FarmDesignSystem.ElevationFloating)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.linearGradient(gradient)
+                )
+                .padding(FarmDesignSystem.Space5),
+            content = content
+        )
+    }
+}
+
+// ============================================
+// NEO + GLASS HYBRID SYSTEM
+// ============================================
+
+object NeoGlassTokens {
+    val ScreenPadding = 20.dp
+    val SectionGap = 18.dp
+    val LargeCardRadius = 28.dp
+    val MediumCardRadius = 22.dp
+    val SmallCardRadius = 18.dp
+    val FloatingOrbSize = 74.dp
+    val BlurRadius = 18.dp
+}
+
+@Composable
+fun NeoScaffoldBackground(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    // Ultimate Premium Background with Multi-Layered Atmospheric Mesh
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFFFBFDFA)) // New Ultra-Clean Paper Base
+    ) {
+        // Layer 1: Soft Dynamic Gradient Flow (Main)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to Color(0xFFE8F5E9).copy(alpha = 0.4f),
+                        0.5f to Color(0xFFF1F8E9).copy(alpha = 0.2f),
+                        1.0f to Color(0xFFE3F2FD).copy(alpha = 0.5f)
+                    )
+                )
+        )
+
+        // Layer 2: Top-Right Celestial Blue Glow
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(500.dp)
+                .offset(x = 100.dp, y = (-100).dp)
+                .background(
+                    Brush.radialGradient(
+                        0.0f to Color(0xFF81D4FA).copy(alpha = 0.25f),
+                        1.0f to Color.Transparent
+                    )
+                )
+        )
+
+        // Layer 3: Bottom-Left Vitality Green Glow
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .size(600.dp)
+                .offset(x = (-150).dp, y = 150.dp)
+                .background(
+                    Brush.radialGradient(
+                        0.0f to Color(0xFFA5D6A7).copy(alpha = 0.35f),
+                        1.0f to Color.Transparent
+                    )
+                )
+        )
+
+        // Layer 4: Floating Soft Amber (Center Right)
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .size(350.dp)
+                .offset(x = 80.dp, y = 40.dp)
+                .background(
+                    Brush.radialGradient(
+                        0.0f to Color(0xFFFFE082).copy(alpha = 0.2f),
+                        1.0f to Color.Transparent
+                    )
+                )
+        )
+
+        // Content Container
+        Box(modifier = Modifier.fillMaxSize(), content = content)
+    }
+}
+
+@Composable
+fun NeoCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    containerColor: Color = MaterialTheme.colorScheme.surface,
+    contentPadding: PaddingValues = PaddingValues(20.dp),
+    content: @Composable ColumnScope.() -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val cardModifier = modifier
+        .shadow(
+            elevation = if (isPressed) 4.dp else 10.dp,
+            shape = RoundedCornerShape(NeoGlassTokens.LargeCardRadius),
+            ambientColor = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) {
+                Color.White.copy(alpha = 0.7f)
+            } else {
+                Color.Black.copy(alpha = 0.55f)
+            },
+            spotColor = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) {
+                Color.Black.copy(alpha = 0.12f)
+            } else {
+                MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)
+            }
+        )
+        .border(
+            width = 1.dp,
+            color = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) {
+                Color.White.copy(alpha = 0.75f)
+            } else {
+                Color.White.copy(alpha = 0.08f)
+            },
+            shape = RoundedCornerShape(NeoGlassTokens.LargeCardRadius)
+        )
+
+    val body: @Composable () -> Unit = {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(contentPadding),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            content = content
+        )
+    }
+
+    if (onClick != null) {
+        Surface(
+            modifier = cardModifier.clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+            color = containerColor,
+            shape = RoundedCornerShape(NeoGlassTokens.LargeCardRadius),
+            tonalElevation = 0.dp
+        ) { body() }
+    } else {
+        Surface(
+            modifier = cardModifier,
+            color = containerColor,
+            shape = RoundedCornerShape(NeoGlassTokens.LargeCardRadius),
+            tonalElevation = 0.dp
+        ) { body() }
+    }
+}
+
+@Composable
+fun GlassPanel(
+    modifier: Modifier = Modifier,
+    contentPadding: PaddingValues = PaddingValues(18.dp),
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) 0.56f else 0.20f),
+        shape = RoundedCornerShape(NeoGlassTokens.MediumCardRadius),
+        tonalElevation = 0.dp,
+        border = BorderStroke(
+            1.dp,
+            Color.White.copy(alpha = if (MaterialTheme.colorScheme.background.luminance() > 0.5f) 0.44f else 0.14f)
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .blur(0.dp)
+                .background(Color.Transparent)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(contentPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                content = content
+            )
+        }
+    }
+}
+
+@Composable
+fun NeoSectionTitle(
+    title: String,
+    subtitle: String? = null,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
+        )
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun GlassFloatingVoiceButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .size(76.dp)
+            .shadow(12.dp, CircleShape, spotColor = Color(0xFF0288D1)),
+        shape = CircleShape,
+        color = Color.White,
+        border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF4FC3F7), Color(0xFF0288D1)))),
+        tonalElevation = 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFE1F5FE),
+                            Color(0xFFB3E5FC)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.GraphicEq,
+                contentDescription = "Voice Assistant",
+                tint = Color(0xFF0277BD),
+                modifier = Modifier.size(34.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun StatusCard(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    status: StatusType,
+    modifier: Modifier = Modifier,
+    action: @Composable (() -> Unit)? = null
+) {
+    val (backgroundColor, contentColor, borderColor) = when (status) {
+        StatusType.SUCCESS -> Triple(
+            MaterialTheme.extendedColors.success.copy(alpha = 0.1f),
+            MaterialTheme.extendedColors.success,
+            MaterialTheme.extendedColors.success.copy(alpha = 0.3f)
+        )
+        StatusType.WARNING -> Triple(
+            MaterialTheme.extendedColors.warning.copy(alpha = 0.1f),
+            MaterialTheme.extendedColors.warning,
+            MaterialTheme.extendedColors.warning.copy(alpha = 0.3f)
+        )
+        StatusType.ERROR -> Triple(
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.error,
+            MaterialTheme.colorScheme.error.copy(alpha = 0.3f)
+        )
+        StatusType.INFO -> Triple(
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.tertiary,
+            MaterialTheme.colorScheme.tertiary.copy(alpha = 0.3f)
+        )
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(FarmDesignSystem.RadiusLarge),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Row(
+            modifier = Modifier.padding(FarmDesignSystem.Space4),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(FarmDesignSystem.MinTouchTarget)
+                    .background(
+                        color = contentColor.copy(alpha = 0.1f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(FarmDesignSystem.IconSizeLarge),
+                    tint = contentColor
+                )
+            }
+
+            Spacer(modifier = Modifier.width(FarmDesignSystem.Space3))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold,
+                        color = contentColor
+                    )
+                )
+                Spacer(modifier = Modifier.height(FarmDesignSystem.Space1))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = contentColor.copy(alpha = 0.8f)
+                    ),
+                    maxLines = 2
+                )
+            }
+
+            action?.let {
+                Spacer(modifier = Modifier.width(FarmDesignSystem.Space3))
+                it()
+            }
+        }
+    }
+}
+
+enum class StatusType { SUCCESS, WARNING, ERROR, INFO }
+
+// ============================================
+// SERVICE / QUICK ACTION CARDS
+// ============================================
+@Composable
+fun QuickActionCard(
+    title: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    badge: String? = null
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.97f else 1f,
+        label = "quickActionScale"
+    )
+
+    ElevatedCard(
+        onClick = onClick,
+        modifier = modifier
+            .aspectRatio(1f)
+            .scale(scale),
+        shape = RoundedCornerShape(FarmDesignSystem.RadiusLarge),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = if (isPressed) FarmDesignSystem.ElevationRaised else FarmDesignSystem.ElevationDefault
+        ),
+        interactionSource = interactionSource
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(FarmDesignSystem.Space3),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(FarmDesignSystem.Space2))
+
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            badge?.let {
+                Badge(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(FarmDesignSystem.Space2)
+                ) {
+                    Text(it, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RecentlyUsedButton(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    colors: List<Color> = listOf(Color(0xFFF5F5F5), Color.White),
+    iconTint: Color = MaterialTheme.colorScheme.primary
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.95f else 1f,
+        label = "recentScale"
+    )
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .scale(scale)
+            .clickable(
+                onClick = onClick,
+                interactionSource = interactionSource,
+                indication = null
+            )
+    ) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            modifier = Modifier
+                .size(68.dp)
+                .shadow(
+                    elevation = if (isPressed) 1.dp else 4.dp,
+                    shape = RoundedCornerShape(20.dp),
+                    spotColor = iconTint.copy(alpha = 0.25f)
+                ),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFF0F0F0))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(colors[0].copy(alpha = 0.7f), Color.White)
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = label,
+                    modifier = Modifier.size(28.dp),
+                    tint = iconTint
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF444444),
+                letterSpacing = 0.sp
+            ),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+    }
+}
+
+// ============================================
+// SELECTION COMPONENTS
+// ============================================
+@Composable
+fun SelectionCard(
+    title: String,
+    subtitle: String? = null,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    leadingContent: @Composable (() -> Unit)? = null
+) {
+    val borderColor = if (isSelected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.outlineVariant
+    }
+    val backgroundColor = if (isSelected) {
+        MaterialTheme.colorScheme.primaryContainer
+    } else {
+        MaterialTheme.colorScheme.surface
+    }
+
+    OutlinedCard(
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(FarmDesignSystem.RadiusLarge),
+        colors = CardDefaults.outlinedCardColors(containerColor = backgroundColor),
+        border = BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = borderColor
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(FarmDesignSystem.Space4),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            leadingContent?.let {
+                it()
+                Spacer(modifier = Modifier.width(FarmDesignSystem.Space3))
+            }
+
+            icon?.let {
+                Box(
+                    modifier = Modifier
+                        .size(FarmDesignSystem.MinTouchTarget)
+                        .background(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = it,
+                        contentDescription = null,
+                        modifier = Modifier.size(FarmDesignSystem.IconSizeMedium),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Spacer(modifier = Modifier.width(FarmDesignSystem.Space3))
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.SemiBold
+                    )
+                )
+                subtitle?.let {
+                    Spacer(modifier = Modifier.height(FarmDesignSystem.Space1))
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    )
+                }
+            }
+
+            if (isSelected) {
+                Icon(
+                    imageVector = Icons.Rounded.CheckCircle,
+                    contentDescription = "Selected",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+// ============================================
+// INPUT COMPONENTS
+// ============================================
+@Composable
+fun PremiumTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    label: String? = null,
+    placeholder: String? = null,
+    leadingIcon: ImageVector? = null,
+    trailingIcon: ImageVector? = null,
+    isError: Boolean = false,
+    singleLine: Boolean = true
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        label = label?.let { { Text(it) } },
+        placeholder = placeholder?.let { { Text(it) } },
+        leadingIcon = leadingIcon?.let {
+            {
+                Icon(
+                    it,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        trailingIcon = trailingIcon?.let {
+            {
+                Icon(
+                    it,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        isError = isError,
+        singleLine = singleLine,
+        shape = RoundedCornerShape(FarmDesignSystem.RadiusMedium),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+        )
+    )
+}
+
+// ============================================
+// VOICE COMPONENTS
+// ============================================
+@Composable
+fun VoiceFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    isListening: Boolean = false
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed || isListening) 0.95f else 1f,
+        label = "voiceFabScale"
+    )
+
+    // Pulsing animation when listening
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(800, easing = EaseInOutCubic),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAnim"
+    )
+
+    Box(
+        modifier = modifier.size(80.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (isListening) {
+            Box(
+                modifier = Modifier
+                    .size(96.dp * pulseScale)
+                    .background(
+                        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.2f),
+                        shape = CircleShape
+                    )
+            )
+        }
+
+        FloatingActionButton(
+            onClick = onClick,
+            modifier = Modifier
+                .size(FarmDesignSystem.FABSize)
+                .scale(scale),
+            shape = CircleShape,
+            containerColor = if (isListening) {
+                MaterialTheme.colorScheme.secondary
+            } else {
+                MaterialTheme.colorScheme.secondaryContainer
+            },
+            contentColor = if (isListening) {
+                MaterialTheme.colorScheme.onSecondary
+            } else {
+                MaterialTheme.colorScheme.onSecondaryContainer
+            },
+            elevation = FloatingActionButtonDefaults.elevation(
+                defaultElevation = FarmDesignSystem.ElevationFloating
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Mic,
+                contentDescription = "Voice Assistant",
+                modifier = Modifier.size(28.dp)
+            )
+        }
+    }
+}
+
+// ============================================
+// SECTION COMPONENTS
+// ============================================
+@Composable
+fun SectionHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    actionText: String? = null,
+    onActionClick: (() -> Unit)? = null
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.SemiBold
+            )
+        )
+
+        if (actionText != null && onActionClick != null) {
+            TextButton(onClick = onActionClick) {
+                Text(
+                    text = actionText,
+                    style = MaterialTheme.typography.labelLarge
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StepIndicator(
+    currentStep: Int,
+    totalSteps: Int,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        for (step in 1..totalSteps) {
+            val isCompleted = step < currentStep
+            val isCurrent = step == currentStep
+
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(
+                        color = when {
+                            isCompleted -> MaterialTheme.colorScheme.primary
+                            isCurrent -> MaterialTheme.colorScheme.primaryContainer
+                            else -> MaterialTheme.colorScheme.surfaceVariant
+                        },
+                        shape = CircleShape
+                    )
+                    .border(
+                        width = if (isCurrent) 2.dp else 0.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = CircleShape
+                    )
+            )
+
+            if (step < totalSteps) {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(2.dp)
+                        .background(
+                            color = if (isCompleted) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.surfaceVariant
+                            }
+                        )
+                )
+            }
+        }
+    }
+}
+
+// ============================================
+// EMPTY & ERROR STATES
+// ============================================
+@Composable
+fun EmptyState(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    action: @Composable (() -> Unit)? = null
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(FarmDesignSystem.Space8),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(96.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+
+        Spacer(modifier = Modifier.height(FarmDesignSystem.Space5))
+
+        Text(
+            text = title,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.SemiBold
+            ),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(FarmDesignSystem.Space2))
+
+        Text(
+            text = description,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            textAlign = TextAlign.Center
+        )
+
+        action?.let {
+            Spacer(modifier = Modifier.height(FarmDesignSystem.Space5))
+            it()
+        }
+    }
+}
+
+@Composable
+fun ErrorState(
+    message: String,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(FarmDesignSystem.Space8),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.ErrorOutline,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+
+        Spacer(modifier = Modifier.height(FarmDesignSystem.Space5))
+
+        Text(
+            text = "Oops! Something went wrong",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold
+            ),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(FarmDesignSystem.Space2))
+
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(FarmDesignSystem.Space5))
+
+        PremiumButton(
+            text = "Try Again",
+            onClick = onRetry,
+            icon = Icons.Rounded.Refresh
+        )
+    }
+}
+
+// ============================================
+// LOADING COMPONENTS
+// ============================================
+@Composable
+fun LoadingScreen(
+    message: String,
+    modifier: Modifier = Modifier,
+    subMessage: String? = null
+) {
+    Column(
+        modifier = modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        val infiniteTransition = rememberInfiniteTransition(label = "loading")
+        val scale by infiniteTransition.animateFloat(
+            initialValue = 0.8f,
+            targetValue = 1.2f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1000, easing = EaseInOutCubic),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "pulse"
+        )
+
+        Box(
+            modifier = Modifier.size(80.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.fillMaxSize(),
+                strokeWidth = 4.dp,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(48.dp * scale)
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Agriculture,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(FarmDesignSystem.Space6))
+
+        Text(
+            text = message,
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold
+            ),
+            textAlign = TextAlign.Center
+        )
+
+        subMessage?.let {
+            Spacer(modifier = Modifier.height(FarmDesignSystem.Space2))
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = FarmDesignSystem.Space6)
+            )
+        }
+    }
+}
+
+// ============================================
+// BADGES & CHIPS
+// ============================================
+@Composable
+fun ConfidenceBadge(
+    confidence: Float,
+    modifier: Modifier = Modifier
+) {
+    val (color, bgColor) = when {
+        confidence >= 0.9f -> Pair(
+            MaterialTheme.extendedColors.success,
+            MaterialTheme.extendedColors.success.copy(alpha = 0.1f)
+        )
+        confidence >= 0.7f -> Pair(
+            MaterialTheme.extendedColors.warning,
+            MaterialTheme.extendedColors.warning.copy(alpha = 0.1f)
+        )
+        else -> Pair(
+            MaterialTheme.colorScheme.error,
+            MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+        )
+    }
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(FarmDesignSystem.RadiusSmall),
+        color = bgColor
+    ) {
+        Text(
+            text = "${(confidence * 100).toInt()}% confidence",
+            style = MaterialTheme.typography.labelMedium.copy(
+                color = color,
+                fontWeight = FontWeight.SemiBold
+            ),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
+fun TrendIndicator(
+    trend: Float,
+    modifier: Modifier = Modifier
+) {
+    val (icon, color) = when {
+        trend > 0 -> Pair(Icons.Rounded.TrendingUp, MaterialTheme.extendedColors.success)
+        trend < 0 -> Pair(Icons.Rounded.TrendingDown, MaterialTheme.colorScheme.error)
+        else -> Pair(Icons.Rounded.TrendingFlat, MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
+            tint = color
+        )
+        Spacer(modifier = Modifier.width(2.dp))
+        Text(
+            text = "${if (trend > 0) "+" else ""}${(trend * 100).toInt()}%",
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = color,
+                fontWeight = FontWeight.SemiBold
+            )
+        )
+    }
+}
+
+// ============================================
+// LEGACY COMPONENT WRAPPERS (Backward compatibility)
+// ============================================
+@Deprecated("Use PremiumButton instead")
+@Composable
+fun FarmerButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+    enabled: Boolean = true,
+    colors: ButtonColors = ButtonDefaults.buttonColors(
+        containerColor = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary
+    ),
+    isLoading: Boolean = false
+) = PremiumButton(
+    text = text,
+    onClick = onClick,
+    modifier = modifier,
+    icon = icon,
+    enabled = enabled,
+    isLoading = isLoading,
+    colors = colors
+)
+
+@Deprecated("Use PremiumCard instead")
+@Composable
+fun FarmerCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = MaterialTheme.colorScheme.surface,
+    content: @Composable ColumnScope.() -> Unit
+) = PremiumCard(
+    modifier = modifier,
+    onClick = onClick,
+    backgroundColor = backgroundColor,
+    content = content
+)
+
+@Deprecated("Use ServiceCard instead")
+@Composable
+fun ServiceCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    backgroundColor: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    badgeText: String? = null
+) = QuickActionCard(
+    title = title,
+    icon = icon,
+    onClick = onClick,
+    modifier = modifier,
+    badge = badgeText
+)
+
+@Deprecated("Use StatusCard instead")
+@Composable
+fun InfoCard(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = MaterialTheme.colorScheme.primaryContainer,
+    contentColor: Color = MaterialTheme.colorScheme.onPrimaryContainer
+) = StatusCard(
+    title = title,
+    description = description,
+    icon = icon,
+    status = StatusType.INFO,
+    modifier = modifier
+)
+
+@Deprecated("Use LoadingScreen instead")
+@Composable
+fun FarmerLoadingScreen(
+    message: String,
+    subMessage: String? = null,
+    modifier: Modifier = Modifier
+) = LoadingScreen(
+    message = message,
+    modifier = modifier,
+    subMessage = subMessage
+)
+
+@Composable
+fun HomeBottomBar(
+    navController: NavController,
+    currentRoute: String?
+) {
+    val items = listOf(
+        Triple("Home", "dashboard", Icons.Rounded.Dashboard),
+        Triple("Rates", "mandi_prices", Icons.Rounded.BarChart),
+        Triple("Scan", "crop_disease", Icons.Rounded.CenterFocusStrong),
+        Triple("Weather", "weather", Icons.Rounded.CloudQueue),
+        Triple("Profile", "profile", Icons.Rounded.Person)
+    )
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        items.forEach { (label, route, icon) ->
+            val selected = currentRoute == route
+            val primaryColor = MaterialTheme.colorScheme.primary
+            
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { if (!selected) navController.navigate(route) }
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .size(42.dp)
+                        .shadow(
+                            elevation = if (selected) 4.dp else 0.dp,
+                            shape = RoundedCornerShape(12.dp),
+                            spotColor = primaryColor.copy(alpha = 0.3f)
+                        ),
+                    color = if (selected) Color.White else Color.Transparent,
+                    border = if (selected) BorderStroke(1.dp, Color(0xFFF0F0F0)) else null
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                if (selected) {
+                                    Brush.verticalGradient(listOf(primaryColor.copy(alpha = 0.1f), Color.White))
+                                } else {
+                                    Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = if (selected) primaryColor else Color.Gray,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                        color = if (selected) primaryColor else Color.Gray,
+                        fontSize = 10.sp
+                    ),
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}

@@ -1,0 +1,63 @@
+<resources>
+    <string name="app_name">ఫార్మ్‌ఫ్యూజన్</string>
+    
+    <!-- Navigation Labels -->
+    <string name="nav_home">హోమ్</string>
+    <string name="nav_weather">వాతావరణం</string>
+    <string name="nav_mandi">మండి</string>
+    <string name="nav_profile">ప్రొఫైల్</string>
+    <string name="nav_scan">స్కాన్</string>
+    
+    <!-- Dashboard Strings -->
+    <string name="welcome_to">స్వాగతం</string>
+    <string name="locating_farm">మీ పొలాన్ని వెతుకుతోంది...</string>
+    <string name="live_forecast">లైవ్ వాతావరణం</string>
+    <string name="humidity">తేమ: %1$s%%</string>
+    <string name="wind">గాలి: %1$s ప్రమాణాలు/క్షణం</string>
+    <string name="farm_actions">పొలం పనులు</string>
+    <string name="ai_briefing">AI వ్యవసాయ సలహా</string>
+    <string name="default_ai_briefing">లైవ్ వాతావరణం లోడ్ అయిన తరువాత, ఫార్మ్‌ఫ్యూజన్ డేటాను విశ్లేషించి మీకు ఉత్తమ వ్యవసాయ సలహాను ఇక్కడ ఇస్తుంది.</string>
+    
+    <!-- Action Titles & Subtitles -->
+    <string name="action_disease_scan">వ్యాధి స్కాన్</string>
+    <string name="action_disease_scan_sub">కెమెరా రోగనిర్ధారణ</string>
+    <string name="action_crop_advice">పంట సలహా</string>
+    <string name="action_crop_advice_sub">AI ప్రణాళిక</string>
+    <string name="action_market_rates">మండి ధరలు</string>
+    <string name="action_market_rates_sub">లైవ్ మండి ట్రెండ్స్</string>
+    <string name="action_weather">వాతావరణం</string>
+    <string name="action_weather_sub">పూర్తి సూచన</string>
+    <string name="action_crop_services">పంట సేవలు</string>
+    <string name="action_crop_services_sub">ఫీల్డ్ సపోర్ట్</string>
+    <string name="action_farm_store">అగ్రి స్టోర్</string>
+    <string name="action_farm_store_sub">సాధనాలు</string>
+    <string name="action_labour_help">కార్మిక సహాయం</string>
+    <string name="action_labour_help_sub">కార్మికులను కనుగొనండి</string>
+    
+    <!-- Language Selection -->
+    <string name="choose_app_language">యాప్ భాషను ఎంచుకోండి</string>
+    <string name="select_lang_desc">మీరు మైక్ ఉపయోగించినప్పుడు ఫార్మ్‌ఫ్యూజన్ ఏ భాషలో వినాలి మరియు మాట్లాడాలి అని ఎంచుకోండి.</string>
+    <string name="lang_usage_info">ఎంచుకున్న భాష మైక్ ఇన్‌పుట్, వాయిస్ సమాధానాలు మరియు సూచనల కోసం ఉపయోగించబడుతుంది.</string>
+    <string name="lang_local_english">English</string>
+    <string name="lang_local_hindi">हिन्दी</string>
+
+    <!-- Crop Recommendation -->
+    <string name="crop_advice_title">పంట సలహా</string>
+    <string name="soil_type_selection_title">మీ నేల రకం ఏమిటి?</string>
+    <string name="soil_color_help">మీ పొలం నేల రంగు ప్రకారం ఎంచుకోండి:</string>
+    <string name="has_soil_health_card">మీ వద్ద సాయిల్ హెల్త్ కార్డ్ ఉందా?</string>
+    <string name="yes_have_report">అవును, నా వద్ద రిపోర్ట్ ఉంది</string>
+    <string name="no_use_auto_analysis">లేదు, ఆటోమేటిక్ విశ్లేషణను ఉపయోగించండి</string>
+    <string name="basic_details_title">ప్రాథమిక వివరాలు</string>
+    <string name="soil_type_selected">AI కోసం నేల రకం</string>
+    <string name="village_district_label">గ్రామం / జిల్లా</string>
+    <string name="farm_size_label">పొలం పరిమాణం (ఎకరాలు)</string>
+    <string name="annual_rainfall_label">అంచనా వేసిన వార్షిక వర్షపాతం (మి.మీ)</string>
+    <string name="avg_temp_label">సగటు ఉష్ణోగ్రత (°C)</string>
+    <string name="refresh_autofill">సేవ్ చేసిన సమాచారాన్ని రిఫ్రెష్ చేయండి</string>
+    <string name="scan_soil_report">మీ మట్టి నివేదికను స్కాన్ చేయండి</string>
+    <string name="take_photo">ఫోటో తీయండి</string>
+    <string name="continue_button">కొనసాగించు</string>
+    <string name="error">లోపం</string>
+    <string name="ok">సరే</string>
+</resources>

@@ -1,0 +1,63 @@
+<resources>
+    <string name="app_name">ਫਾਰਮਫਿਊਜ਼ਨ</string>
+    
+    <!-- Navigation Labels -->
+    <string name="nav_home">ਹੋਮ</string>
+    <string name="nav_weather">ਮੌਸਮ</string>
+    <string name="nav_mandi">ਮੰਡੀ</string>
+    <string name="nav_profile">ਪ੍ਰੋਫਾਈਲ</string>
+    <string name="nav_scan">ਸਕੈਨ</string>
+    
+    <!-- Dashboard Strings -->
+    <string name="welcome_to">ਜੀ ਆਇਆਂ ਨੂੰ</string>
+    <string name="locating_farm">ਤੁਹਾਡਾ ਖੇਤ ਲੱਭਿਆ ਜਾ ਰਿਹਾ ਹੈ...</string>
+    <string name="live_forecast">ਲਾਈਵ ਮੌਸਮ</string>
+    <string name="humidity">ਨਮੀ: %1$s%%</string>
+    <string name="wind">ਹਵਾ: %1$s ਮੀਟਰ/ਸਕਿੰਟ</string>
+    <string name="farm_actions">ਖੇਤ ਦੇ ਕੰਮ</string>
+    <string name="ai_briefing">AI ਖੇਤੀ ਸਲਾਹ</string>
+    <string name="default_ai_briefing">ਲਾਈਵ ਮੌਸਮ ਲੋਡ ਹੋਣ ਤੋਂ ਬਾਅਦ, ਫਾਰਮਫਿਊਜ਼ਨ ਤੁਹਾਨੂੰ ਇੱਥੇ ਇੱਕ ਵਧੀਆ ਖੇਤੀ ਸਲਾਹ ਦੇਵੇਗਾ।</string>
+    
+    <!-- Action Titles & Subtitles -->
+    <string name="action_disease_scan">ਬਿਮਾਰੀ ਸਕੈਨ</string>
+    <string name="action_disease_scan_sub">ਕੈਮਰਾ ਜਾਂਚ</string>
+    <string name="action_crop_advice">ਫਸਲ ਸਲਾਹ</string>
+    <string name="action_crop_advice_sub">AI ਯੋਜਨਾਕਾਰੀ</string>
+    <string name="action_market_rates">ਮੰਡੀ ਭਾਅ</string>
+    <string name="action_market_rates_sub">ਲਾਈਵ ਮੰਡੀ ਰੁਝਾਨ</string>
+    <string name="action_weather">ਮੌਸਮ</string>
+    <string name="action_weather_sub">ਪੂਰਾ ਅਨੁਮਾਨ</string>
+    <string name="action_crop_services">ਫਸਲ ਸੇਵਾਵਾਂ</string>
+    <string name="action_crop_services_sub">ਫੀਲਡ ਸਪੋਰਟ</string>
+    <string name="action_farm_store">ਖੇਤੀ ਸਟੋਰ</string>
+    <string name="action_farm_store_sub">ਖੇਤੀ ਸੰਦ</string>
+    <string name="action_labour_help">ਮਜ਼ਦੂਰ ਸਹਾਇਤਾ</string>
+    <string name="action_labour_help_sub">ਮਜ਼ਦੂਰ ਲੱਭੋ</string>
+    
+    <!-- Language Selection -->
+    <string name="choose_app_language">ਐਪ ਦੀ ਭਾਸ਼ਾ ਚੁਣੋ</string>
+    <string name="select_lang_desc">ਚੁਣੋ ਕਿ ਜਦੋਂ ਤੁਸੀਂ ਮਾਈਕ ਦੀ ਵਰਤੋਂ ਕਰੋ ਤਾਂ ਫਾਰਮਫਿਊਜ਼ਨ ਕਿਸ ਭਾਸ਼ਾ ਵਿੱਚ ਸੁਣ ਅਤੇ ਬੋਲ ਸਕੇ।</string>
+    <string name="lang_usage_info">ਚੁਣੀ ਗਈ ਭਾਸ਼ਾ ਦੀ ਵਰਤੋਂ ਮਾਈਕ ਇਨਪੁੱਟ, ਆਵਾਜ਼ ਵਾਲੇ ਜਵਾਬਾਂ ਅਤੇ ਸੁਝਾਵਾਂ ਲਈ ਕੀਤੀ ਜਾਵੇਗੀ।</string>
+    <string name="lang_local_english">English</string>
+    <string name="lang_local_hindi">हिन्दी</string>
+
+    <!-- Crop Recommendation -->
+    <string name="crop_advice_title">ਫਸਲ ਸਲਾਹ</string>
+    <string name="soil_type_selection_title">ਤੁਹਾਡੀ ਮਿੱਟੀ ਦੀ ਕਿਸਮ ਕੀ ਹੈ?</string>
+    <string name="soil_color_help">ਆਪਣੇ ਖੇਤ ਦੀ ਮਿੱਟੀ ਦੇ ਰੰਗ ਅਨੁਸਾਰ ਚੁਣੋ:</string>
+    <string name="has_soil_health_card">ਕੀ ਤੁਹਾਡੇ ਕੋਲ ਸੋਇਲ ਹੈਲਥ ਕਾਰਡ ਹੈ?</string>
+    <string name="yes_have_report">ਹਾਂ, ਮੇਰੇ ਕੋਲ ਰਿਪੋਰਟ ਹੈ</string>
+    <string name="no_use_auto_analysis">ਨਹੀਂ, ਆਟੋਮੈਟਿਕ ਜਾਂਚ ਕਰੋ</string>
+    <string name="basic_details_title">ਮੁੱਢਲਾ ਵੇਰਵਾ</string>
+    <string name="soil_type_selected">AI ਲਈ ਮਿੱਟੀ ਦੀ ਕਿਸਮ</string>
+    <string name="village_district_label">ਪਿੰਡ / ਜ਼ਿਲ੍ਹਾ</string>
+    <string name="farm_size_label">ਖੇਤ ਦਾ ਆਕਾਰ (ਏਕੜ)</string>
+    <string name="annual_rainfall_label">ਅਨੁਮਾਨਿਤ ਸਾਲਾਨਾ ਮੀਂਹ (ਮਿ.ਮੀ.)</string>
+    <string name="avg_temp_label">ਔਸਤ ਤਾਪਮਾਨ (°C)</string>
+    <string name="refresh_autofill">ਸੇਵ ਕੀਤੀ ਜਾਣਕਾਰੀ ਰਿਫ੍ਰੈਸ਼ ਕਰੋ</string>
+    <string name="scan_soil_report">ਆਪਣੀ ਮਿੱਟੀ ਰਿਪੋਰਟ ਸਕੈਨ ਕਰੋ</string>
+    <string name="take_photo">ਫੋਟੋ ਖਿੱਚੋ</string>
+    <string name="continue_button">ਜਾਰੀ ਰੱਖੋ</string>
+    <string name="error">ਗ਼ਲਤੀ</string>
+    <string name="ok">ਠੀਕ ਹੈ</string>
+</resources>
