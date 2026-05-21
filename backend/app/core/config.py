@@ -1,6 +1,7 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 import json
-from pydantic import Field, field_validator
+from pathlib import Path
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
@@ -37,8 +38,10 @@ class Settings(BaseSettings):
     firebase_project_id: Optional[str] = None
     firebase_credentials_path: Optional[str] = None
     firebase_credentials_json: Optional[str] = None
+    OPENWEATHER_API_KEY: Optional[str] = None
+    WEATHER_API_KEY: Optional[str] = None
     model_config = SettingsConfigDict(
-        env_file='.env',
+        env_file=str(Path(__file__).resolve().parents[2] / '.env'),
         env_file_encoding='utf-8',
         extra='allow',
     )

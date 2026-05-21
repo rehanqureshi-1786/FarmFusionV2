@@ -10,22 +10,30 @@ router = APIRouter(prefix="/weather", tags=["weather"])
 
 def build_current_weather(latitude: float, longitude: float) -> dict:
     weather = WeatherService.get_weather(latitude, longitude)
+    # Expect the agent to return real values; fail if missing so clients know it's not real data
+    temp = weather.get("temperature") if isinstance(weather, dict) else None
+    rain_chance = weather.get("rain_chance") if isinstance(weather, dict) else None
+    if temp is None:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=502, detail="Failed to fetch real weather data")
+
     return {
         "success": True,
         "data": {
             "location": f"{latitude},{longitude}",
-            "temperature_c": weather.get("temperature", 25.0),
-            "feels_like_c": weather.get("temperature", 25.0) - 1.0,
-            "humidity_percent": 60,
-            "pressure_hpa": 1013,
-            "weather": "Partly Cloudy",
-            "wind_speed_ms": 3.5,
-            "visibility_m": 10000,
-            "cloudiness_percent": 40,
-            "sunrise": (datetime.utcnow() - timedelta(hours=6)).isoformat(),
-            "sunset": (datetime.utcnow() + timedelta(hours=10)).isoformat(),
-            "farming_advice": "Water the crop in the early morning and check moisture levels.",
-            "source": "farmfusion-ai",
+            "temperature_c": float(temp),
+            "feels_like_c": float(temp) - 1.0,
+            "humidity_percent": weather.get("humidity", 0),
+            "pressure_hpa": weather.get("pressure", 0),
+            "weather": weather.get("description", "Unknown"),
+            "wind_speed_ms": weather.get("wind_speed", 0.0),
+            "visibility_m": weather.get("visibility", 0),
+            "cloudiness_percent": weather.get("clouds", 0),
+            "sunrise": weather.get("sunrise") or (datetime.utcnow() - timedelta(hours=6)).isoformat(),
+            "sunset": weather.get("sunset") or (datetime.utcnow() + timedelta(hours=10)).isoformat(),
+            "farming_advice": weather.get("advice", ""),
+            "source": "openweathermap",
         },
     }
 
