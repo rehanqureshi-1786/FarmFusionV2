@@ -16,26 +16,33 @@ from app.schemas.market import MarketPriceListResponse, MarketPredictionRequest,
 class MarketService:
     @staticmethod
     async def get_market_prices(state: str | None, district: str | None, crop: str | None, db: AsyncSession) -> MarketPriceListResponse:
-        result = await db.execute(select(MarketData).limit(20))
+        query = select(MarketData)
+        if crop:
+            query = query.where(MarketData.crop_name.ilike(f"%{crop}%"))
+        if state:
+            query = query.where(MarketData.region.ilike(f"%{state}%"))
+        if district:
+            query = query.where(MarketData.market_name.ilike(f"%{district}%"))
+        result = await db.execute(query.limit(20))
         rows = result.scalars().all()
         prices = [MarketPriceResponse(
-            state=state or "India",
-            district=district or "Unknown",
-            market=row.mandi or "Local Mandi",
-            commodity=row.commodity,
+            state=row.region or state or "India",
+            district=district or row.region or "Unknown",
+            market=row.market_name or "Local Mandi",
+            commodity=row.crop_name,
             variety="Standard",
             grade="A",
-            arrival_date=row.created_at.isoformat() if row.created_at else "",
-            min_price=row.price,
-            max_price=row.price,
-            modal_price=row.price,
+            arrival_date=(row.price_date or row.created_at).isoformat() if (row.price_date or row.created_at) else "",
+            min_price=row.price_per_kg,
+            max_price=row.price_per_kg,
+            modal_price=row.price_per_kg,
             source="farmfusion-ai"
         ) for row in rows]
         return MarketPriceListResponse(data=prices, count=len(prices), region=state or "India")
 
     @staticmethod
     async def get_all_mandis(db: AsyncSession) -> List[str]:
-        result = await db.execute(select(MarketData.mandi).distinct())
+        result = await db.execute(select(MarketData.market_name).distinct())
         return [row[0] for row in result.all() if row[0]]
 
     @staticmethod

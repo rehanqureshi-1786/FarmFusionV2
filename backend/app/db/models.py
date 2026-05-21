@@ -40,9 +40,14 @@ class DiseaseDetection(Base):
 class MarketData(Base):
     __tablename__ = "market_data"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    commodity: Mapped[str] = mapped_column(String(256), nullable=False)
-    price: Mapped[float] = mapped_column(Float, nullable=False)
-    mandi: Mapped[str] = mapped_column(String(256), nullable=True)
+    crop_name: Mapped[str] = mapped_column(String(50), nullable=False)
+    region: Mapped[str] = mapped_column(String(100), nullable=True)
+    market_name: Mapped[str] = mapped_column(String(100), nullable=True)
+    price_per_kg: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(10), nullable=True)
+    price_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True, default=datetime.utcnow)
+    price_trend: Mapped[str] = mapped_column(String(20), nullable=True)
+    source: Mapped[str] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 class PricePrediction(Base):
