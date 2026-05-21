@@ -14,6 +14,7 @@ from app.api.v1.marketplace import router as marketplace_router
 from app.api.v1.labour import router as labour_router
 from app.api.v1.store import router as store_router
 from app.api.v1.lifecycle import router as lifecycle_router
+from app.routes.user import router as user_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -74,4 +75,5 @@ app.include_router(voice_router, prefix=settings.api_v1_prefix)
 app.include_router(marketplace_router, prefix=settings.api_v1_prefix)
 app.include_router(labour_router, prefix=settings.api_v1_prefix)
 app.include_router(store_router, prefix=settings.api_v1_prefix)
+app.include_router(user_router, prefix=settings.api_v1_prefix)
 app.include_router(lifecycle_router, prefix=settings.api_v1_prefix)
