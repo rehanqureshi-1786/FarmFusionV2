@@ -39,26 +39,17 @@ def build_current_weather(latitude: float, longitude: float) -> dict:
 
 
 def build_forecast(latitude: float, longitude: float, days: int) -> dict:
-    forecasts: List[dict] = []
-    now = datetime.utcnow()
-    for index in range(days):
-        forecasts.append(
-            {
-                "date": (now + timedelta(days=index)).strftime("%Y-%m-%d"),
-                "temperature_c": 24.0 + index,
-                "humidity_percent": 55 + index,
-                "weather": "Sunny" if index % 2 == 0 else "Cloudy",
-                "wind_speed_ms": 3.5 + 0.2 * index,
-                "rain_chance": 10.0 + 5.0 * index,
-            }
-        )
+    forecasts = WeatherService.get_forecast(latitude, longitude, days)
+    if not forecasts:
+        raise HTTPException(status_code=502, detail="Failed to fetch real forecast data")
+
     return {
         "success": True,
         "data": {
             "location": f"{latitude},{longitude}",
             "forecast": forecasts,
             "farming_advice": "Use this forecast to plan irrigation and spray schedules.",
-            "source": "farmfusion-ai",
+            "source": "openweathermap",
         },
     }
 
