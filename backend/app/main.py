@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.core.config import settings
+from app.db.database import init_db
 from app.api.v1.auth import router as auth_router
 from app.api.v1.crops import router as crops_router
 from app.api.v1.market import router as market_router
@@ -17,6 +18,8 @@ from app.api.v1.lifecycle import router as lifecycle_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"Starting {settings.app_name}...")
+    await init_db()
+    print("Database initialized.")
     yield
     print(f"Shutting down {settings.app_name}...")
 
