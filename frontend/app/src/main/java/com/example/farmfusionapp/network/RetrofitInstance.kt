@@ -18,6 +18,19 @@ object RetrofitInstance {
         }
 
         OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                // Render free tier returns 503 while the service wakes from sleep.
+                var request = chain.request()
+                var response = chain.proceed(request)
+                var attempt = 0
+                while (response.code == 503 && attempt < 3) {
+                    response.close()
+                    attempt++
+                    Thread.sleep(15_000L)
+                    response = chain.proceed(request)
+                }
+                response
+            }
             .addInterceptor(logging)
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)

@@ -48,6 +48,9 @@ class DiseaseViewModel : ViewModel() {
             _detectState.value = DiseaseDetectState.Loading
 
             try {
+                // Wake Render free-tier instance before the heavier multipart request.
+                runCatching { api.checkHealth() }
+
                 if (!imageFile.exists()) {
                     _detectState.value = DiseaseDetectState.Error("Image file not found at: ${imageFile.absolutePath}")
                     return@launch
