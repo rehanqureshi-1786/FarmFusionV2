@@ -13,6 +13,5 @@ __all__ = [
     "GeminiClient",
     "GroqClient",
     "MarketAnalysisAgent",
-    "OpenAIClient",
     "WeatherAgent",
 ]
