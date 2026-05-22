@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
@@ -19,7 +20,15 @@ async def detect_disease(
 ):
     # Call the service — let errors propagate so the client sees a failure
     # when the external Groq API denies access or fails.
-    result = await DiseaseService.detect_disease(image.filename, db)
+    try:
+        result = await DiseaseService.detect_disease(image.filename, db)
+    except RuntimeError as exc:
+        # Propagate a clear error to the client when the external AI fails.
+        return JSONResponse(
+            status_code=502,
+            content={"success": False, "error": "AI service error", "detail": str(exc)},
+        )
+
     disease_name = result.get("disease") if result else "unknown"
     confidence = float(result.get("confidence")) if result else 0.0
 
