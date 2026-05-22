@@ -25,16 +25,23 @@ class GroqClient:
         )
         self.endpoint = self.ENDPOINT
 
-    def _request(self, prompt: str) -> Dict[str, Any]:
-        payload = {
+    def _request(self, prompt: str, *, json_mode: bool = False) -> Dict[str, Any]:
+        system_content = (
+            "You are an expert agriculture assistant. Respond with valid JSON only."
+            if json_mode
+            else "You are an expert agriculture assistant."
+        )
+        payload: Dict[str, Any] = {
             "model": self.model,
             "messages": [
-                {"role": "system", "content": "You are an expert agriculture assistant."},
+                {"role": "system", "content": system_content},
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.6,
             "max_tokens": 600,
         }
+        if json_mode:
+            payload["response_format"] = {"type": "json_object"}
         data = json.dumps(payload).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
@@ -75,14 +82,17 @@ class GroqClient:
         raise RuntimeError(f"Groq response was not valid JSON: {text}")
 
     def complete(self, prompt: str) -> str:
-        response = self._request(prompt)
+        response = self._request(prompt, json_mode=False)
         text = self._extract_text(response)
         if not text:
             raise RuntimeError(f"Groq response missing text output: {response}")
         return text
 
     def complete_json(self, prompt: str) -> Dict[str, Any]:
-        text = self.complete(prompt)
+        response = self._request(prompt, json_mode=True)
+        text = self._extract_text(response)
+        if not text:
+            raise RuntimeError(f"Groq response missing text output: {response}")
         try:
             return self._parse_json(text)
         except json.JSONDecodeError as err:

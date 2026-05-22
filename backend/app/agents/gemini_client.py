@@ -77,7 +77,8 @@ class GeminiClient:
         return text
 
     def complete_json(self, prompt: str) -> Dict[str, Any]:
-        text = self.complete(prompt)
+        json_prompt = f"{prompt}\n\nRespond with valid JSON only."
+        text = self.complete(json_prompt)
         try:
             return self._parse_json(text)
         except json.JSONDecodeError as err:

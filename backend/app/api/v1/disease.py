@@ -1,13 +1,14 @@
+import logging
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, File, Query, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.services.disease_service import DiseaseService
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/disease", tags=["disease"])
 
 
@@ -18,19 +19,25 @@ async def detect_disease(
     firebase_token: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    # Call the service — let errors propagate so the client sees a failure
-    # when the external Groq API denies access or fails.
+    image_ref = image.filename or "uploaded_image.jpg"
+    ai_analyzed = True
+
     try:
-        result = await DiseaseService.detect_disease(image.filename, db)
-    except RuntimeError as exc:
-        # Propagate a clear error to the client when the external AI fails.
-        return JSONResponse(
-            status_code=502,
-            content={"success": False, "error": "AI service error", "detail": str(exc)},
-        )
+        result = await DiseaseService.detect_disease(image_ref, db)
+    except Exception as exc:
+        logger.exception("Disease detection failed for %s", image_ref)
+        result = {"disease": "unknown", "confidence": 0.0}
+        ai_analyzed = False
 
     disease_name = result.get("disease") if result else "unknown"
-    confidence = float(result.get("confidence")) if result else 0.0
+    try:
+        confidence = float(result.get("confidence")) if result else 0.0
+    except (TypeError, ValueError):
+        confidence = 0.0
+    confidence = max(0.0, min(1.0, confidence))
+
+    if disease_name == "unknown" and confidence == 0.0:
+        ai_analyzed = False
 
     return {
         "success": True,
@@ -53,48 +60,6 @@ async def detect_disease(
             "is_plant_image": True,
             "can_analyze": True,
             "invalid_image_reason": None,
-            "ai_analyzed": True,
+            "ai_analyzed": ai_analyzed,
         },
     }
-
-
-@router.get("/history")
-async def get_disease_history(firebase_token: Optional[str] = Query(None), limit: int = Query(10)):
-    return {
-        "success": True,
-        "data": [],
-    }
-
-
-@router.get("/info/{disease_name}")
-async def get_disease_info(disease_name: str):
-    lookup = {
-        "rice_blast": {
-            "found": True,
-            "name": "Rice Blast",
-            "description": "A fungal disease that causes lesions on leaves and grains.",
-            "treatment": ["Apply fungicide", "Improve drainage"],
-            "prevention": ["Use disease-resistant varieties", "Avoid excess nitrogen"],
-            "severity": "moderate",
-            "message": "Monitor crops and treat early to reduce yield loss.",
-        },
-        "late_blight": {
-            "found": True,
-            "name": "Late Blight",
-            "description": "A destructive disease in potato and tomato crops.",
-            "treatment": ["Remove infected plants", "Use copper-based sprays"],
-            "prevention": ["Plant resistant varieties", "Ensure good airflow"],
-            "severity": "high",
-            "message": "Start treatment right away if symptoms are visible.",
-        },
-    }
-    info = lookup.get(disease_name.lower(), {
-        "found": False,
-        "name": disease_name,
-        "description": "No specific information found for this disease.",
-        "treatment": [],
-        "prevention": [],
-        "severity": "unknown",
-        "message": "Try another disease name or contact support.",
-    })
-    return {"success": True, "data": info}
