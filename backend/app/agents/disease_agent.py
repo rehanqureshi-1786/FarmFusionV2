@@ -3,6 +3,7 @@ import re
 from typing import Dict, Any
 
 from app.agents.groq_client import GroqClient
+from app.agents.openai_client import OpenAIClient
 
 
 class DiseaseDetectionAgent:
@@ -14,13 +15,19 @@ class DiseaseDetectionAgent:
             "Return only valid JSON with keys disease and confidence. "
             f"Image URL: {image_url}"
         )
-        client = GroqClient()
-        # Do not fallback on failures — let GroqClient raise so callers
-        # receive the original error when the external API denies access.
-        data = client.complete_json(prompt)
+        # Try Groq first; if it fails, try OpenAI (so detection still works
+        # when Groq credentials are invalid). Any RuntimeError from both
+        # providers will propagate and result in a 502 from the API route.
+        try:
+            client = GroqClient()
+            data = client.complete_json(prompt)
+        except RuntimeError:
+            # Attempt OpenAI as an alternative provider
+            client = OpenAIClient()
+            data = client.complete_json(prompt)
 
         if not isinstance(data, dict):
-            raise RuntimeError(f"Groq returned unexpected JSON shape: {data}")
+            raise RuntimeError(f"AI returned unexpected JSON shape: {data}")
 
         return {
             "disease": data.get("disease", "unknown"),
