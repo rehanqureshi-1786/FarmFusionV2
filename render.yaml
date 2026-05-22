@@ -30,3 +30,5 @@ services:
         fromSecret: OPENWEATHER_API_KEY
       - key: WEATHER_API_KEY
         fromSecret: WEATHER_API_KEY
+      - key: GROQ_API_KEY
+        fromSecret: GROQ_API_KEY

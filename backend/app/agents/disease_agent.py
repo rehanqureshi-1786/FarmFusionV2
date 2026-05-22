@@ -18,15 +18,22 @@ class DiseaseDetectionAgent:
         try:
             data = client.complete_json(prompt)
         except RuntimeError:
-            response = client.complete(prompt)
-            match = re.search(r"\{.*\}", response, re.S)
-            if match:
-                try:
-                    data = json.loads(match.group(0))
-                except Exception:
+            try:
+                response = client.complete(prompt)
+                match = re.search(r"\{.*\}", response, re.S)
+                if match:
+                    try:
+                        data = json.loads(match.group(0))
+                    except json.JSONDecodeError:
+                        data = {"disease": "unknown", "confidence": 0.0}
+                else:
                     data = {"disease": "unknown", "confidence": 0.0}
-            else:
+            except RuntimeError:
                 data = {"disease": "unknown", "confidence": 0.0}
+
+        if not isinstance(data, dict):
+            data = {"disease": "unknown", "confidence": 0.0}
+
         return {
             "disease": data.get("disease", "unknown"),
             "confidence": float(data.get("confidence", 0.0)),
