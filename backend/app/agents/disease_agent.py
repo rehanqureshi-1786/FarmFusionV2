@@ -2,6 +2,7 @@ import json
 import re
 from typing import Dict, Any
 
+from app.agents.gemini_client import GeminiClient
 from app.agents.groq_client import GroqClient
 from app.agents.openai_client import OpenAIClient
 
@@ -15,16 +16,16 @@ class DiseaseDetectionAgent:
             "Return only valid JSON with keys disease and confidence. "
             f"Image URL: {image_url}"
         )
-        # Try Groq first; if it fails, try OpenAI (so detection still works
-        # when Groq credentials are invalid). Any RuntimeError from both
-        # providers will propagate and result in a 502 from the API route.
-        try:
-            client = GroqClient()
-            data = client.complete_json(prompt)
-        except RuntimeError:
-            # Attempt OpenAI as an alternative provider
-            client = OpenAIClient()
-            data = client.complete_json(prompt)
+        data = None
+        last_error: RuntimeError | None = None
+        for client_cls in (GroqClient, GeminiClient, OpenAIClient):
+            try:
+                data = client_cls().complete_json(prompt)
+                break
+            except RuntimeError as exc:
+                last_error = exc
+        if data is None:
+            raise last_error or RuntimeError("No AI provider available for disease detection")
 
         if not isinstance(data, dict):
             raise RuntimeError(f"AI returned unexpected JSON shape: {data}")

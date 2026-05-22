@@ -8,6 +8,8 @@ from app.core.config import settings
 
 
 class OpenAIClient:
+    USER_AGENT = "FarmFusion/1.0 (https://farmfusion1.onrender.com)"
+
     def __init__(self, model: Optional[str] = None):
         self.api_key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
         if not self.api_key:
@@ -29,6 +31,7 @@ class OpenAIClient:
         headers = {
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
+            "User-Agent": self.USER_AGENT,
         }
         req = Request(self.endpoint, data=data, headers=headers, method="POST")
         try:

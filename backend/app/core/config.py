@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     firebase_credentials_json: Optional[str] = None
     OPENWEATHER_API_KEY: Optional[str] = None
     WEATHER_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
+    GROQ_MODEL: Optional[str] = None
+    GEMINI_API_KEY: Optional[str] = None
+    GEMINI_MODEL: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
+    OPENAI_MODEL: Optional[str] = None
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().parents[2] / '.env'),
         env_file_encoding='utf-8',
