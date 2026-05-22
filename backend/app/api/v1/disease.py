@@ -17,9 +17,12 @@ async def detect_disease(
     firebase_token: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
+    # Call the service — let errors propagate so the client sees a failure
+    # when the external Groq API denies access or fails.
     result = await DiseaseService.detect_disease(image.filename, db)
     disease_name = result.get("disease") if result else "unknown"
-    confidence = result.get("confidence") if result else 0.0
+    confidence = float(result.get("confidence")) if result else 0.0
+
     return {
         "success": True,
         "data": {

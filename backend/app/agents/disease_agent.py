@@ -15,24 +15,12 @@ class DiseaseDetectionAgent:
             f"Image URL: {image_url}"
         )
         client = GroqClient()
-        try:
-            data = client.complete_json(prompt)
-        except RuntimeError:
-            try:
-                response = client.complete(prompt)
-                match = re.search(r"\{.*\}", response, re.S)
-                if match:
-                    try:
-                        data = json.loads(match.group(0))
-                    except json.JSONDecodeError:
-                        data = {"disease": "unknown", "confidence": 0.0}
-                else:
-                    data = {"disease": "unknown", "confidence": 0.0}
-            except RuntimeError:
-                data = {"disease": "unknown", "confidence": 0.0}
+        # Do not fallback on failures — let GroqClient raise so callers
+        # receive the original error when the external API denies access.
+        data = client.complete_json(prompt)
 
         if not isinstance(data, dict):
-            data = {"disease": "unknown", "confidence": 0.0}
+            raise RuntimeError(f"Groq returned unexpected JSON shape: {data}")
 
         return {
             "disease": data.get("disease", "unknown"),
