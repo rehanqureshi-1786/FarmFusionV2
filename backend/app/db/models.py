@@ -32,9 +32,13 @@ class Recommendation(Base):
 class DiseaseDetection(Base):
     __tablename__ = "disease_detections"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    farm_id: Mapped[int] = mapped_column(ForeignKey("farms.id"), nullable=False)
+    firebase_uid: Mapped[str] = mapped_column(String(256), nullable=True)
+    farm_id: Mapped[int] = mapped_column(ForeignKey("farms.id"), nullable=True)
     disease_name: Mapped[str] = mapped_column(String(256), nullable=False)
     confidence: Mapped[float] = mapped_column(Float, nullable=False)
+    image_url: Mapped[str] = mapped_column(String(512), nullable=True)
+    description: Mapped[str] = mapped_column(String(512), nullable=True)
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True, default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
 
 class MarketData(Base):

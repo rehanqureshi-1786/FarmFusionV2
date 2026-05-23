@@ -36,12 +36,12 @@ import com.example.farmfusionapp.viewmodel.AuthViewModel
 
 @Composable
 fun LoginScreen(navController: NavController) {
-    val context = LocalContext.current
-    val viewModel: AuthViewModel = remember { AuthViewModel() }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf("") }
+    // Login screen disabled for local development — navigate straight to dashboard
+    LaunchedEffect(Unit) {
+        navController.navigate(NavRoutes.Dashboard) {
+            popUpTo(NavRoutes.Login) { inclusive = true }
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         NeoScaffoldBackground {
@@ -54,48 +54,8 @@ fun LoginScreen(navController: NavController) {
                 verticalArrangement = Arrangement.Center
             ) {
                 LoginHeader()
-                Spacer(modifier = Modifier.height(48.dp))
-
-                if (statusMessage.isNotEmpty()) {
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                    ) {
-                        Text(
-                            text = statusMessage,
-                            modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.onErrorContainer
-                        )
-                    }
-                }
-
-                EmailLoginSection(
-                    email = email,
-                    password = password,
-                    onEmailChange = { email = it },
-                    onPasswordChange = { password = it },
-                    onLogin = {
-                        isLoading = true
-                        statusMessage = ""
-                        viewModel.loginWithEmail(context, email, password) { success, message ->
-                            isLoading = false
-                            if (success) {
-                                navController.navigate(NavRoutes.Dashboard) {
-                                    popUpTo(0) { inclusive = true }
-                                }
-                            } else {
-                                statusMessage = message
-                            }
-                        }
-                    },
-                    isLoading = isLoading
-                )
-
                 Spacer(modifier = Modifier.height(24.dp))
-                TextButton(onClick = { navController.navigate(NavRoutes.Register) }) { Text("New here? Create an account") }
-                Spacer(modifier = Modifier.height(16.dp))
-                TrustIndicators()
+                Text("Login disabled in dev mode.", style = MaterialTheme.typography.bodyLarge)
             }
         }
     }

@@ -175,8 +175,48 @@ fun MandiPricesScreen(
                             (searchQuery.isEmpty() || it.commodity.contains(searchQuery, true) || it.market.contains(searchQuery, true)) &&
                             (selectedCategory == "ALL CROPS" || isCropInCategory(it.commodity, selectedCategory))
                         }
-                        items(filtered.take(20)) { item ->
-                            PriceCard(item)
+
+                        if (filtered.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(140.dp)
+                                        .padding(top = 20.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        "No mandi price results found. Try another crop, state or district.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = Color.Gray,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.padding(16.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            items(filtered.take(20)) { item ->
+                                PriceCard(item)
+                            }
+                        }
+                    }
+                    is MarketViewModel.MarketPricesState.Error -> {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp)
+                                    .padding(top = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Unable to load mandi prices: ${state.message}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.Red,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
                         }
                     }
                     else -> {}

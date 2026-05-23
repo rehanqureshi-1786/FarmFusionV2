@@ -9,7 +9,7 @@ from app.core.config import settings
 
 
 class GeminiClient:
-    DEFAULT_MODEL = "gemini-2.0-flash"
+    DEFAULT_MODEL = "gemini-1.5-flash"
     USER_AGENT = "FarmFusion/1.0 (https://farmfusion1.onrender.com)"
 
     def __init__(self, model: Optional[str] = None):
@@ -23,12 +23,24 @@ class GeminiClient:
             or self.DEFAULT_MODEL
         )
 
-    def _request(self, prompt: str) -> Dict[str, Any]:
+    def _request(self, prompt: str, image_base64: Optional[str] = None, mime_type: str = "image/jpeg") -> Dict[str, Any]:
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/"
             f"{self.model}:generateContent?key={self.api_key}"
         )
-        payload = {"contents": [{"parts": [{"text": prompt}]}]}
+        
+        # Build content parts
+        parts = []
+        if image_base64:
+            parts.append({
+                "inline_data": {
+                    "mime_type": mime_type,
+                    "data": image_base64
+                }
+            })
+        parts.append({"text": prompt})
+
+        payload = {"contents": [{"parts": parts}]}
         data = json.dumps(payload).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
@@ -79,6 +91,18 @@ class GeminiClient:
     def complete_json(self, prompt: str) -> Dict[str, Any]:
         json_prompt = f"{prompt}\n\nRespond with valid JSON only."
         text = self.complete(json_prompt)
+        try:
+            return self._parse_json(text)
+        except json.JSONDecodeError as err:
+            raise RuntimeError(f"Gemini response was not valid JSON: {text}") from err
+
+    def complete_json_with_image(self, prompt: str, image_base64: str, mime_type: str = "image/jpeg") -> Dict[str, Any]:
+        """Analyze an image and return JSON response."""
+        json_prompt = f"{prompt}\n\nRespond with valid JSON only."
+        response = self._request(json_prompt, image_base64, mime_type=mime_type)
+        text = self._extract_text(response)
+        if not text:
+            raise RuntimeError(f"Gemini response missing text output: {response}")
         try:
             return self._parse_json(text)
         except json.JSONDecodeError as err:

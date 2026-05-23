@@ -19,25 +19,9 @@ fun SplashScreen(navController: NavController, viewModel: AuthViewModel) {
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        if (viewModel.isUserLoggedIn(context)) {
-            // Verify existing session with backend
-            viewModel.verifySession(context) { success, _ ->
-                if (success) {
-                    navController.navigate(NavRoutes.Dashboard) {
-                        popUpTo(NavRoutes.Splash) { inclusive = true }
-                    }
-                } else {
-                    // Verification failed, go to login
-                    navController.navigate(NavRoutes.Login) {
-                        popUpTo(NavRoutes.Splash) { inclusive = true }
-                    }
-                }
-            }
-        } else {
-            // Not logged in, go to login
-            navController.navigate(NavRoutes.Login) {
-                popUpTo(NavRoutes.Splash) { inclusive = true }
-            }
+        // Authentication disabled for local development — go directly to dashboard
+        navController.navigate(NavRoutes.Dashboard) {
+            popUpTo(NavRoutes.Splash) { inclusive = true }
         }
     }
 

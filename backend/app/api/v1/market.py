@@ -36,16 +36,7 @@ async def get_price_trends(
     crop: str = Query(...),
     region: str = Query("India"),
     months: int = Query(6),
+    db: AsyncSession = Depends(get_db),
 ):
-    return {
-        "success": True,
-        "data": {
-            "crop_name": crop,
-            "region": region,
-            "source": "farmfusion-ai",
-            "trend_data": [
-                {"date": f"2024-{month:02d}-01", "predicted_price": 120.0 + month * 2, "trend": "stable", "confidence": 0.75}
-                for month in range(1, months + 1)
-            ],
-        },
-    }
+    result = await MarketService.get_price_trends(crop, region, months, db)
+    return {"success": True, "data": result}

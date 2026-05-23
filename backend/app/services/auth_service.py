@@ -34,7 +34,15 @@ class AuthService:
 
     @staticmethod
     async def verify_token(token: str) -> Optional[Dict[str, Any]]:
+        # Allow bypass for local development when BYPASS_FIREBASE_AUTH=1
+        # or when app is running in debug mode (settings.debug=True).
         try:
+            bypass = os.getenv("BYPASS_FIREBASE_AUTH") == "1" or getattr(settings, "debug", False)
+            if bypass:
+                # Return a fake user payload so endpoints continue to work locally.
+                uid = token or "dev-user"
+                return {"uid": uid, "email": f"{uid}@local.dev", "name": "Local Dev"}
+
             AuthService._initialize()
             decoded = auth.verify_id_token(token)
             return decoded

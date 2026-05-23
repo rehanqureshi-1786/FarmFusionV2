@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     WEATHER_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
     GROQ_MODEL: Optional[str] = None
+    MANDI_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: Optional[str] = None
     OPENAI_API_KEY: Optional[str] = None
