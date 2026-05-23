@@ -2,21 +2,26 @@ package com.example.farmfusionapp.ui.screens
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -30,27 +35,31 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
+import kotlinx.coroutines.launch
 import com.example.farmfusionapp.data.model.DiseaseResult
+import com.example.farmfusionapp.data.model.StoreRecommendationItem
+import com.example.farmfusionapp.ui.components.NeoCard
+import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
+import com.example.farmfusionapp.ui.components.NeoSectionTitle
+import com.example.farmfusionapp.ui.components.PremiumButton
 import com.example.farmfusionapp.utils.*
 import com.example.farmfusionapp.viewmodel.DiseaseViewModel
 import java.io.File
 import java.io.FileOutputStream
 
-// Premium Color Tokens
 private val CropDashBg = Color(0xFFF9FAFB)
-private val CropCardBg = Color(0xFFFFFFFF)
 private val CropPrimaryDark = Color(0xFF1B5E20)
 private val CropSuccessGreen = Color(0xFF059669)
 private val CropErrorRed = Color(0xFFDC2626)
 private val CropWarningOrange = Color(0xFFD97706)
-private val CropTextMain = Color(0xFF111827)
-private val CropTextSub = Color(0xFF6B7280)
 
 private enum class DiseaseScreenState { IDLE, SCANNING, RESULT }
 
@@ -58,35 +67,56 @@ private enum class DiseaseScreenState { IDLE, SCANNING, RESULT }
 @Composable
 fun CropDiseaseScreen(navController: NavController) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val diseaseViewModel: DiseaseViewModel = viewModel()
     var state by remember { mutableStateOf(DiseaseScreenState.IDLE) }
     var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
+    
+    val detectState by diseaseViewModel.detectState
+    val currentLang = remember { AuthStore.getLanguage(context) ?: "en" }
+    val token = remember { AuthStore.getAuthToken(context) }
 
-    val tempFile = remember { File(context.cacheDir, "camera_image_temp.jpg") }
-    val uri = remember { FileProvider.getUriForFile(context, "com.example.farmfusionapp.provider", tempFile) }
+    val tempFile = remember { File(context.cacheDir, "disease_scan_temp.jpg") }
+    val fileProviderUri = remember { FileProvider.getUriForFile(context, "com.example.farmfusionapp.provider", tempFile) }
+
+    val startAnalysis = {
+        state = DiseaseScreenState.SCANNING
+        diseaseViewModel.detectDisease(
+            imageFile = tempFile, 
+            cropType = null,
+            firebaseToken = token,
+            responseLanguage = currentLang
+        )
+    }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
-            capturedImageUri = uri
-            state = DiseaseScreenState.SCANNING
-            diseaseViewModel.detectDisease(imageFile = tempFile, cropType = null)
+            capturedImageUri = fileProviderUri
+            startAnalysis()
         }
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { selectedUri ->
         if (selectedUri != null) {
-            copyUriToTempFile(context, selectedUri, tempFile)
-            capturedImageUri = selectedUri
-            state = DiseaseScreenState.SCANNING
-            diseaseViewModel.detectDisease(imageFile = tempFile, cropType = null)
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val success = copyUriToTempFile(context, selectedUri, tempFile)
+                    if (success) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            capturedImageUri = selectedUri
+                            startAnalysis()
+                        }
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("CropDisease", "Error copying file: ${e.message}")
+                }
+            }
         }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) cameraLauncher.launch(uri)
+        if (granted) cameraLauncher.launch(fileProviderUri)
     }
-
-    val detectState by diseaseViewModel.detectState
 
     LaunchedEffect(detectState) {
         if (detectState is DiseaseViewModel.DiseaseDetectState.Success) {
@@ -94,75 +124,63 @@ fun CropDiseaseScreen(navController: NavController) {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        CenterAlignedTopAppBar(
-            title = { Text("AI Plant Scan", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = CropPrimaryDark)) },
-            navigationIcon = {
-                IconButton(onClick = {
-                    if (state == DiseaseScreenState.RESULT) {
-                        state = DiseaseScreenState.IDLE
-                        diseaseViewModel.resetDetectState()
-                    } else {
-                        navController.popBackStack()
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Plant Doctor AI", fontWeight = FontWeight.ExtraBold, color = CropPrimaryDark) },
+                navigationIcon = {
+                    IconButton(onClick = {
+                        if (state == DiseaseScreenState.RESULT) {
+                            state = DiseaseScreenState.IDLE
+                            diseaseViewModel.resetDetectState()
+                        } else {
+                            navController.popBackStack()
+                        }
+                    }) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                     }
-                }) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = CropTextMain)
                 }
-            },
-            colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = CropDashBg)
-        )
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
+            )
+        }
+    ) { padding ->
+        NeoScaffoldBackground(modifier = Modifier.fillMaxSize().padding(padding)) {
             when (state) {
                 DiseaseScreenState.IDLE -> UploadPanel(
                     onCapture = { permissionLauncher.launch(Manifest.permission.CAMERA) },
                     onGallery = { galleryLauncher.launch("image/*") }
                 )
-                DiseaseScreenState.SCANNING -> ScanningPanel(imageUri = capturedImageUri)
+                DiseaseScreenState.SCANNING -> ScanningPanel(
+                    imageUri = capturedImageUri,
+                    onCancel = {
+                        diseaseViewModel.resetDetectState()
+                        state = DiseaseScreenState.IDLE
+                    }
+                )
                 DiseaseScreenState.RESULT -> {
-                    val response = (detectState as? DiseaseViewModel.DiseaseDetectState.Success)?.response
+                    val res = (detectState as? DiseaseViewModel.DiseaseDetectState.Success)?.response?.data
                     ResultPanel(
                         imageUri = capturedImageUri,
-                        result = response?.data,
+                        result = res,
                         onScanAgain = {
                             state = DiseaseScreenState.IDLE
                             capturedImageUri = null
                             diseaseViewModel.resetDetectState()
-                        },
-                        onShopForTreatment = {
-                            AgriStoreContext.setForDisease(
-                                response?.data?.disease_name.orEmpty(),
-                                response?.data?.crop_type
-                            )
-                            navController.navigate(NavRoutes.ProductStore)
                         }
                     )
                 }
             }
         }
-
+        
+        // Error handling
         if (detectState is DiseaseViewModel.DiseaseDetectState.Error) {
-            val errorMessage = (detectState as DiseaseViewModel.DiseaseDetectState.Error).message
             AlertDialog(
-                containerColor = CropCardBg,
-                onDismissRequest = {
-                    diseaseViewModel.resetDetectState()
-                    state = DiseaseScreenState.IDLE
-                },
-                title = { Text("Scanner Error", color = CropErrorRed, fontWeight = FontWeight.Bold) },
-                text = { Text(errorMessage, color = CropTextMain) },
+                onDismissRequest = { diseaseViewModel.resetDetectState(); state = DiseaseScreenState.IDLE },
+                title = { Text("Scan Failed", fontWeight = FontWeight.Bold, color = CropErrorRed) },
+                text = { Text((detectState as DiseaseViewModel.DiseaseDetectState.Error).message) },
                 confirmButton = {
-                    Button(
-                        onClick = {
-                            diseaseViewModel.resetDetectState()
-                            state = DiseaseScreenState.IDLE
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = CropPrimaryDark)
-                    ) { Text("Try Again") }
+                    Button(onClick = { diseaseViewModel.resetDetectState(); state = DiseaseScreenState.IDLE }) {
+                        Text("Retry")
+                    }
                 }
             )
         }
@@ -171,31 +189,49 @@ fun CropDiseaseScreen(navController: NavController) {
 
 @Composable
 private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
-    Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-        Surface(shape = RoundedCornerShape(24.dp), color = CropCardBg, shadowElevation = 4.dp, modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(24.dp)) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        NeoCard {
+            Column(modifier = Modifier.padding(8.dp)) {
                 Box(modifier = Modifier.size(56.dp).background(Color(0xFFE8F5E9), CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.EnergySavingsLeaf, null, tint = CropPrimaryDark, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = CropPrimaryDark)
                 }
-                Spacer(modifier = Modifier.height(16.dp))
-                Text("Detect crop diseases instantly with AI", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = CropTextMain, lineHeight = 28.sp)
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("Take a clear picture of a leaf or plant showing signs of illness. Our AI will analyze patterns to give you an immediate diagnosis.", fontSize = 14.sp, color = CropTextSub, lineHeight = 22.sp)
+                Spacer(Modifier.height(16.dp))
+                Text("Scan Your Crop", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+                Text("Identify pests and diseases instantly with AI biology analysis.", color = Color.Gray)
             }
         }
+        
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Surface(shape = RoundedCornerShape(20.dp), color = CropCardBg, shadowElevation = 2.dp, border = BorderStroke(2.dp, CropPrimaryDark), modifier = Modifier.weight(1f).clickable { onCapture() }) {
-                Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Surface(
+                onClick = onCapture,
+                modifier = Modifier.weight(1f).height(120.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(2.dp, CropPrimaryDark),
+                shadowElevation = 2.dp
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Icon(Icons.Rounded.CameraAlt, null, tint = CropPrimaryDark, modifier = Modifier.size(32.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Take Photo", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CropPrimaryDark)
+                    Spacer(Modifier.height(8.dp))
+                    Text("Camera", fontWeight = FontWeight.Bold)
                 }
             }
-            Surface(shape = RoundedCornerShape(20.dp), color = CropDashBg, border = BorderStroke(1.dp, Color(0xFFD1D5DB)), modifier = Modifier.weight(1f).clickable { onGallery() }) {
-                Column(modifier = Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Rounded.PhotoLibrary, null, tint = CropTextSub, modifier = Modifier.size(32.dp))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Gallery", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CropTextSub)
+            Surface(
+                onClick = onGallery,
+                modifier = Modifier.weight(1f).height(120.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFEEEEEE)),
+                shadowElevation = 2.dp
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Icon(Icons.Rounded.PhotoLibrary, null, tint = Color.Gray, modifier = Modifier.size(32.dp))
+                    Spacer(Modifier.height(8.dp))
+                    Text("Gallery", fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -203,95 +239,165 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
 }
 
 @Composable
-private fun ScanningPanel(imageUri: Uri?) {
-    Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(shape = RoundedCornerShape(24.dp), shadowElevation = 12.dp, modifier = Modifier.fillMaxWidth().height(400.dp)) {
+private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Surface(shape = RoundedCornerShape(32.dp), modifier = Modifier.size(280.dp).shadow(20.dp)) {
             Box {
-                if (imageUri != null) Image(painter = rememberAsyncImagePainter(imageUri), contentDescription = "Scanning", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)))
-                Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                    CircularProgressIndicator(color = Color.White, strokeWidth = 4.dp, modifier = Modifier.size(64.dp))
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text("Analyzing biology...", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
+                if (imageUri != null) Image(painter = rememberAsyncImagePainter(imageUri), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)))
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.align(Alignment.Center).size(60.dp), strokeWidth = 4.dp)
             }
         }
+        Spacer(Modifier.height(32.dp))
+        Text("AI is analyzing...", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+        Text("Checking leaf patterns and cell damage.", color = Color.Gray)
+        Spacer(Modifier.height(24.dp))
+        TextButton(onClick = onCancel) { Text("Cancel Upload", color = CropErrorRed) }
     }
 }
 
 @Composable
-private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () -> Unit, onShopForTreatment: () -> Unit) {
-    val invalid = result?.is_plant_image == false || result?.can_analyze == false
-    val healthy = result?.disease_name?.contains("Healthy", ignoreCase = true) == true
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 24.dp)) {
-            Surface(shape = RoundedCornerShape(12.dp), color = CropDashBg, modifier = Modifier.size(72.dp).border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(12.dp))) {
-                if(imageUri != null) Image(painter = rememberAsyncImagePainter(imageUri), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text("SCAN SUCCESSFUL", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = CropTextSub, letterSpacing = 1.sp)
-                Text("Diagnosis Ready", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CropTextMain)
+private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () -> Unit) {
+    val scrollState = rememberScrollState()
+    val context = LocalContext.current
+    
+    if (result == null || result.ai_analyzed == false) {
+        Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(Icons.Rounded.SentimentDissatisfied, null, modifier = Modifier.size(80.dp), tint = Color.Gray)
+            Text("Analysis Failed", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+            Text(result?.invalid_image_reason ?: "The AI could not identify a clear plant in this image.", textAlign = TextAlign.Center, color = Color.Gray)
+            Spacer(Modifier.height(24.dp))
+            PremiumButton(text = "Try Again", onClick = onScanAgain)
+        }
+        return
+    }
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Hero Image
+        Surface(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth().height(200.dp).shadow(8.dp)) {
+            Box {
+                if (imageUri != null) Image(painter = rememberAsyncImagePainter(imageUri), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                Surface(color = CropErrorRed, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)) {
+                    Text("DISEASED", modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
-        Surface(shape = RoundedCornerShape(24.dp), color = CropCardBg, shadowElevation = 6.dp, modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(24.dp)) {
-                when {
-                    invalid -> {
-                        Icon(Icons.Rounded.Error, null, tint = CropWarningOrange, modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Not a valid plant", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = CropTextMain)
-                        Text(result?.invalid_image_reason ?: "We could not identify a clear leaf. Please retry with better lighting.", fontSize = 15.sp, color = CropTextSub, lineHeight = 22.sp)
+
+        // Main Result Card
+        NeoCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Text(result.disease_name, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black, color = Color(0xFF1B1B1B)))
+                    
+                    // Confidence Progress
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(44.dp)) {
+                        CircularProgressIndicator(progress = { result.confidence.toFloat() }, color = CropSuccessGreen, strokeWidth = 3.dp, trackColor = Color(0xFFEEEEEE))
+                        Text("${(result.confidence * 100).toInt()}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
-                    healthy -> {
-                        Icon(Icons.Rounded.CheckCircle, null, tint = CropSuccessGreen, modifier = Modifier.size(48.dp))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("Crop looks healthy!", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = CropSuccessGreen)
+                }
+
+                // Severity Chip
+                val sevColor = when(result.severity.lowercase()) {
+                    "low" -> CropSuccessGreen
+                    "moderate" -> CropWarningOrange
+                    else -> CropErrorRed
+                }
+                Surface(color = sevColor.copy(alpha = 0.1f), border = BorderStroke(1.dp, sevColor), shape = RoundedCornerShape(8.dp)) {
+                    Text(result.severity.uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = sevColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+
+                // Collapsible Description
+                var expanded by remember { mutableStateOf(false) }
+                Text(
+                    text = result.description,
+                    maxLines = if (expanded) Int.MAX_VALUE else 3,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
+                    modifier = Modifier.clickable { expanded = !expanded }
+                )
+                Text(if (expanded) "Show Less" else "Read More", color = CropPrimaryDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Treatment & Prevention
+        NeoSectionTitle("Recommended Care", "Scientific steps for recovery")
+        NeoCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Treatment Steps", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
+                result.treatment_suggestions.forEach { tip ->
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.CheckCircle, null, tint = CropPrimaryDark, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(tip, style = MaterialTheme.typography.bodySmall)
                     }
-                    else -> {
-                        Surface(color = CropErrorRed.copy(alpha = 0.1f), shape = CircleShape) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                                Icon(Icons.Rounded.WarningAmber, null, tint = CropErrorRed, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text("DISEASE DETECTED", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = CropErrorRed)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(result?.disease_name ?: "Unknown Pathogen", fontSize = 24.sp, fontWeight = FontWeight.Black, color = CropTextMain)
-                        Text(result?.description ?: "No description provided.", fontSize = 15.sp, color = CropTextSub, lineHeight = 22.sp)
-                        if (!result?.treatment_suggestions.isNullOrEmpty()) {
-                            Spacer(modifier = Modifier.height(24.dp)); HorizontalDivider(); Spacer(modifier = Modifier.height(16.dp))
-                            Text("Recommended Treatment", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CropPrimaryDark)
-                            result?.treatment_suggestions?.forEach { tip ->
-                                Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
-                                    Icon(Icons.Rounded.PlayArrow, null, tint = CropPrimaryDark, modifier = Modifier.size(14.dp).padding(top = 4.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(tip, fontSize = 14.sp, color = CropTextMain, lineHeight = 20.sp)
-                                }
-                            }
-                        }
+                }
+                
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                
+                Text("Prevention Tips", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
+                result.prevention_tips.forEach { tip ->
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.Shield, null, tint = CropWarningOrange, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(tip, style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
         }
-        Spacer(modifier = Modifier.height(32.dp))
-        if (!invalid && !healthy) {
-            OutlinedButton(onClick = onShopForTreatment, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.outlinedButtonColors(contentColor = CropPrimaryDark), border = BorderStroke(1.5.dp, CropPrimaryDark)) {
-                Icon(Icons.Rounded.Storefront, null, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)); Text("Find treatment & supplies", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+
+        // Store Recommendations Carousel
+        if (!result.store_recommendations.isNullOrEmpty()) {
+            NeoSectionTitle("Buy Treatment", "Amazon affiliate picks for ${result.disease_name}")
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
+                items(result.store_recommendations) { item ->
+                    StoreMiniCard(item) {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(item.shop_url))
+                        context.startActivity(intent)
+                    }
+                }
             }
-            Spacer(modifier = Modifier.height(12.dp))
         }
-        Button(onClick = onScanAgain, modifier = Modifier.fillMaxWidth().height(56.dp), colors = ButtonDefaults.buttonColors(containerColor = CropPrimaryDark), shape = RoundedCornerShape(16.dp)) {
-            Text("Scan Another Plant", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-        }
-        Spacer(modifier = Modifier.height(40.dp))
+
+        PremiumButton(text = "Scan Another Plant", onClick = onScanAgain, icon = Icons.Rounded.Refresh)
+        Spacer(Modifier.height(40.dp))
     }
 }
 
-private fun copyUriToTempFile(context: Context, uri: Uri, targetFile: File) {
-    context.contentResolver.openInputStream(uri)?.use { input ->
-        FileOutputStream(targetFile).use { output ->
-            input.copyTo(output)
+@Composable
+fun StoreMiniCard(item: StoreRecommendationItem, onClick: () -> Unit) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.width(160.dp).shadow(4.dp, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White
+    ) {
+        Column {
+            Box(Modifier.fillMaxWidth().height(100.dp).background(Color(0xFFF5F5F5))) {
+                AsyncImage(model = item.image_url, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            }
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(item.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
+                Text(item.subtitle, color = Color.Gray, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Buy Now", fontWeight = FontWeight.ExtraBold, color = CropPrimaryDark, fontSize = 12.sp)
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, modifier = Modifier.size(12.dp), tint = CropPrimaryDark)
+                }
+            }
         }
+    }
+}
+
+private fun copyUriToTempFile(context: Context, uri: Uri, targetFile: File): Boolean {
+    return try {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(targetFile).use { output ->
+                input.copyTo(output)
+            }
+        }
+        true
+    } catch (e: Exception) {
+        android.util.Log.e("CropDisease", "Copy error", e)
+        false
     }
 }

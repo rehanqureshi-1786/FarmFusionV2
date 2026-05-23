@@ -1,257 +1,268 @@
-from typing import Any, List, Optional, Dict
-import json
-import urllib.request
-import urllib.parse
+import csv
+import os
+from pathlib import Path
+from typing import List, Dict, Any, Optional
 from datetime import datetime
-
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.agents.market_agent import MarketAnalysisAgent
+from sqlalchemy import select
 from app.db.models import MarketData, PricePrediction
-from app.schemas.market import MarketPriceListResponse, MarketPredictionRequest, MarketPredictionResponse, MarketPriceResponse
-from app.core.config import settings
+from app.agents.market_agent import market_agent
 
 
 class MarketService:
-    # Public agricultural data sources
-    COMMODITY_API_URL = "https://api.data.gov.in/resource/9ef84268-d588-465a-a5c0-2eb213883242"
+    """Service layer for market prices using Hybrid CSV + AI approach"""
     
-    @staticmethod
-    async def _fetch_real_market_data(crop: str, state: str, district: str) -> Optional[List[dict]]:
-        """Fetch real market data from public agricultural APIs."""
-        try:
-            # Try to fetch from data.gov.in agricultural commodity prices
-            if hasattr(settings, 'MANDI_API_KEY') and settings.MANDI_API_KEY:
-                url = f"{MarketService.COMMODITY_API_URL}?api-key={settings.MANDI_API_KEY}&format=json&limit=100"
-                if crop:
-                    url += f"&filters[commodity_name][]={urllib.parse.quote_plus(crop)}"
-                if state:
-                    url += f"&filters[state][]={urllib.parse.quote_plus(state)}"
-                if district:
-                    url += f"&filters[district][]={urllib.parse.quote_plus(district)}"
-                
-                with urllib.request.urlopen(url, timeout=10) as response:
-                    data = json.load(response)
-                    records = data.get('records', [])
-                    return records if records else None
-            return None
-        except Exception:
-            # API not available or request failed - continue without real data
-            return None
-    
-    @staticmethod
-    async def get_market_prices(state: str | None, district: str | None, crop: str | None, db: AsyncSession) -> MarketPriceListResponse:
-        """Get market prices from database or real APIs. Fails if no real data available."""
-        # Try to fetch real market data from public APIs
-        real_data = await MarketService._fetch_real_market_data(crop or "", state or "", district or "")
-        
-        if real_data:
-            # Convert real API data to response format
-            prices = [MarketPriceResponse(
-                state=item.get('state', state or "India"),
-                district=item.get('district', district or item.get('market_name', "Unknown")),
-                market=item.get('market_name', 'Mandi'),
-                commodity=item.get('commodity_name', crop or "Unknown"),
-                variety=item.get('variety', 'Standard'),
-                grade=item.get('grade', 'A'),
-                arrival_date=item.get('arrival_date', datetime.utcnow().isoformat()),
-                min_price=float(item.get('min_price', 0)),
-                max_price=float(item.get('max_price', 0)),
-                modal_price=float(item.get('modal_price', 0)),
-                source="data.gov.in-agricultural-commodities"
-            ) for item in real_data[:50]]
-            return MarketPriceListResponse(data=prices, count=len(prices), region=state or "India")
-        
-        # Fall back to database records only if they exist
-        if db is None:
-            sample_prices = MarketService._sample_market_prices(crop or "Wheat", state or "India", district or "Local Mandi")
-            return MarketPriceListResponse(data=sample_prices, count=len(sample_prices), region=state or "India")
-
-        query = select(MarketData)
-        if crop:
-            query = query.where(MarketData.crop_name.ilike(f"%{crop}%"))
-        if state:
-            query = query.where(MarketData.region.ilike(f"%{state}%"))
-        if district:
-            query = query.where(MarketData.market_name.ilike(f"%{district}%"))
-        
-        result = await db.execute(query.limit(20))
-        rows = result.scalars().all()
-
-        if not rows:
-            sample_prices = MarketService._sample_market_prices(crop or "Wheat", state or "India", district or "Local Mandi")
-            return MarketPriceListResponse(data=sample_prices, count=len(sample_prices), region=state or "India")
-
-        prices = [MarketPriceResponse(
-            state=row.region or state or "India",
-            district=district or row.region or "Unknown",
-            market=row.market_name or "Mandi",
-            commodity=row.crop_name,
-            variety="Standard",
-            grade="A",
-            arrival_date=(row.price_date or row.created_at).isoformat() if (row.price_date or row.created_at) else "",
-            min_price=row.price_per_kg,
-            max_price=row.price_per_kg,
-            modal_price=row.price_per_kg,
-            source="farmfusion-database"
-        ) for row in rows]
-        return MarketPriceListResponse(data=prices, count=len(prices), region=state or "India")
+    # Path to the CSV dataset (located in project root)
+    CSV_PATH = Path(__file__).resolve().parent.parent.parent.parent / "commodity_price.csv"
 
     @staticmethod
-    def _sample_market_prices(crop: str, state: str, district: str) -> List[MarketPriceResponse]:
-        fallback = [
-            MarketPriceResponse(
-                state=state,
-                district=district,
-                market="Central Mandi",
-                commodity=crop,
-                variety="Standard",
-                grade="A",
-                arrival_date=datetime.utcnow().isoformat(),
-                min_price=1200.0,
-                max_price=1480.0,
-                modal_price=1350.0,
-                source="fallback-sample"
-            ),
-            MarketPriceResponse(
-                state=state,
-                district=district,
-                market="Regional Mandi",
-                commodity=crop,
-                variety="Premium",
-                grade="A",
-                arrival_date=datetime.utcnow().isoformat(),
-                min_price=1300.0,
-                max_price=1550.0,
-                modal_price=1425.0,
-                source="fallback-sample"
-            ),
-            MarketPriceResponse(
-                state=state,
-                district=district,
-                market="Local Mandi",
-                commodity=crop,
-                variety="Standard",
-                grade="B",
-                arrival_date=datetime.utcnow().isoformat(),
-                min_price=1100.0,
-                max_price=1380.0,
-                modal_price=1235.0,
-                source="fallback-sample"
-            ),
-        ]
-        return fallback
-
-    @staticmethod
-    async def get_all_mandis(db: AsyncSession) -> List[str]:
-        """Get list of all available mandis from database."""
-        result = await db.execute(select(MarketData.market_name).distinct())
-        mandis = [row[0] for row in result.all() if row[0]]
-        
-        if not mandis:
-            raise RuntimeError("No mandi data available in database. Please populate market data or configure MANDI_API_KEY.")
-        
-        return mandis
-
-    @staticmethod
-    async def _fetch_real_market_trends(crop: str, region: str, months: int) -> Optional[List[dict]]:
-        if not getattr(settings, 'MANDI_API_KEY', None):
-            return None
-
-        try:
-            url = f"{MarketService.COMMODITY_API_URL}?api-key={settings.MANDI_API_KEY}&format=json&limit=500"
-            if crop:
-                url += f"&filters[commodity_name][]={urllib.parse.quote_plus(crop)}"
-            if region:
-                url += f"&filters[state][]={urllib.parse.quote_plus(region)}"
-
-            with urllib.request.urlopen(url, timeout=15) as response:
-                data = json.load(response)
-                records = data.get('records', [])
-                return records if records else None
-        except Exception:
-            return None
-
-    @staticmethod
-    def _build_trend_data(records: List[dict], months: int) -> List[Dict[str, Any]]:
-        monthly: dict[str, dict[str, Any]] = {}
-        for item in records:
-            date_str = item.get('arrival_date') or item.get('date') or item.get('price_date')
-            if not date_str:
-                continue
-            try:
-                month_key = datetime.strptime(date_str[:10], "%Y-%m-%d").strftime("%Y-%m")
-            except Exception:
-                continue
-
-            price_value = item.get('modal_price') or item.get('min_price') or item.get('max_price')
-            try:
-                price = float(price_value)
-            except Exception:
-                continue
-
-            bucket = monthly.setdefault(month_key, {'total': 0.0, 'count': 0})
-            bucket['total'] += price
-            bucket['count'] += 1
-
-        if not monthly:
-            return []
-
-        sorted_months = sorted(monthly.keys())[-months:]
-        return [
+    async def get_current_prices(
+        state: Optional[str] = None,
+        district: Optional[str] = None,
+        commodity: Optional[str] = None,
+        market: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get current market prices from CSV, with AI fallback.
+        """
+        # Always start with simulated "Live" data as a baseline
+        csv_data = [
             {
-                'date': f"{month}-01",
-                'predicted_price': round(monthly[month]['total'] / monthly[month]['count'], 2),
-                'trend': 'observed',
+                "state": "Rajasthan", "district": "Udaipur", "market": "Fatehnagar",
+                "commodity": "Wheat", "variety": "Common", "grade": "FAQ",
+                "arrival_date": datetime.now().strftime("%Y-%m-%d"),
+                "min_price": 2400, "max_price": 2600, "modal_price": 2500,
+                "source": "Live Simulated"
+            },
+            {
+                "state": "Rajasthan", "district": "Udaipur", "market": "Fatehnagar",
+                "commodity": "Maize", "variety": "Yellow", "grade": "FAQ",
+                "arrival_date": datetime.now().strftime("%Y-%m-%d"),
+                "min_price": 2100, "max_price": 2300, "modal_price": 2200,
+                "source": "Live Simulated"
+            },
+            {
+                "state": "Rajasthan", "district": "Chittorgarh", "market": "Nimbahera",
+                "commodity": "Mustard", "variety": "Mustard", "grade": "FAQ",
+                "arrival_date": datetime.now().strftime("%Y-%m-%d"),
+                "min_price": 5400, "max_price": 5800, "modal_price": 5600,
+                "source": "Live Simulated"
+            },
+            {
+                "state": "Rajasthan", "district": "Rajsamand", "market": "Rajsamand",
+                "commodity": "Soybean", "variety": "Yellow", "grade": "FAQ",
+                "arrival_date": datetime.now().strftime("%Y-%m-%d"),
+                "min_price": 4500, "max_price": 4800, "modal_price": 4650,
+                "source": "Live Simulated"
             }
-            for month in sorted_months
         ]
+        
+        # 1. Try to read and AGGREGATE from CSV
+        if os.path.exists(MarketService.CSV_PATH):
+            try:
+                with open(MarketService.CSV_PATH, mode='r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        # Apply filters
+                        if state and state.lower() not in row["State"].lower():
+                            continue
+                        if district and district.lower() not in row["District"].lower():
+                            continue
+                        if commodity and commodity.lower() not in row["Commodity"].lower():
+                            continue
+                        if market and market.lower() not in row["Market"].lower():
+                            continue
+                        
+                        csv_data.append({
+                            "state": row["State"],
+                            "district": row["District"],
+                            "market": row["Market"],
+                            "commodity": row["Commodity"],
+                            "variety": row["Variety"],
+                            "grade": row["Grade"],
+                            "arrival_date": row["Arrival_Date"],
+                            "min_price": float(row["Min_x0020_Price"] or 0),
+                            "max_price": float(row["Max_x0020_Price"] or 0),
+                            "modal_price": float(row["Modal_x0020_Price"] or 0),
+                            "source": "CSV Dataset"
+                        })
+            except Exception as e:
+                print(f"Error reading market CSV: {e}")
+
+        # 2. Filtering baseline: Only keep simulated data if it matches requested filters
+        final_data = []
+        for item in csv_data:
+            if state and state.lower() not in item["state"].lower(): continue
+            if district and district.lower() not in item["district"].lower(): continue
+            if commodity and commodity.lower() not in item["commodity"].lower(): continue
+            final_data.append(item)
+
+        # 3. Hybrid/Fallback: If no data remains, Use AI to generate estimates
+        if not final_data:
+            region = f"{district or ''} {state or 'India'}".strip()
+            return await market_agent.get_current_prices_from_ai(region=region, crop=commodity)
+
+        # Return the first 200 items (simulated items will be at the front)
+        return final_data[:200]
 
     @staticmethod
-    async def get_price_trends(crop: str, region: str, months: int, db: AsyncSession) -> dict:
-        """Get real price trend history from public APIs or database."""
-        if not crop:
-            raise RuntimeError("Crop name is required to build trend data.")
+    async def get_all_mandis() -> List[Dict[str, str]]:
+        """
+        Extract unique list of Mandis (Market + District + State)
+        """
+        mandis = set()
+        
+        if os.path.exists(MarketService.CSV_PATH):
+            try:
+                with open(MarketService.CSV_PATH, mode='r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        mandi_key = (row["Market"], row["District"], row["State"])
+                        mandis.add(mandi_key)
+            except Exception as e:
+                print(f"Error reading mandis from CSV: {e}")
 
-        records = await MarketService._fetch_real_market_trends(crop, region, months)
-        trend_data = []
-        if records:
-            trend_data = MarketService._build_trend_data(records, months)
+        # Convert set to list of dicts and sort
+        mandi_list = [
+            {"market": m, "district": d, "state": s} 
+            for m, d, s in mandis
+        ]
+        return sorted(mandi_list, key=lambda x: (x["state"], x["market"]))
 
-        if not trend_data:
-            query = select(MarketData)
-            query = query.where(MarketData.crop_name.ilike(f"%{crop}%"))
-            if region:
-                query = query.where(MarketData.region.ilike(f"%{region}%"))
-            result = await db.execute(query)
-            rows = result.scalars().all()
-            data = [
-                {
-                    'arrival_date': row.price_date.isoformat() if row.price_date else row.created_at.isoformat(),
-                    'modal_price': row.price_per_kg,
-                }
-                for row in rows
-                if row.price_per_kg is not None
-            ]
-            trend_data = MarketService._build_trend_data(data, months)
+    @staticmethod
+    async def predict_prices(
+        crop_name: str,
+        region: str,
+        current_price: Optional[float] = None,
+        prediction_months: int = 3,
+        db: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """
+        Predict future prices using AI augmented with CSV historical data.
+        """
+        # Fetch historical data points from CSV for context
+        historical_context = []
+        if os.path.exists(MarketService.CSV_PATH):
+            try:
+                with open(MarketService.CSV_PATH, mode='r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        if crop_name.lower() in row["Commodity"].lower():
+                            historical_context.append({
+                                "date": row["Arrival_Date"],
+                                "price": row["Modal_x0020_Price"],
+                                "district": row["District"]
+                            })
+                            if len(historical_context) >= 10: break
+            except: pass
 
-        if not trend_data:
-            raise RuntimeError(
-                f"Real market trend data not available for {crop} in {region or 'all regions'}. "
-                "Configure MANDI_API_KEY or populate market_data with historical prices."
+        # Generate prediction via Agent (now supports context)
+        result = await market_agent.predict_prices(
+            crop_name=crop_name,
+            region=region,
+            current_price=current_price or 25.0, # Default if not provided
+            prediction_months=prediction_months,
+            historical_data=historical_context
+        )
+
+        # Save prediction if db available
+        if db:
+            await MarketService._save_prediction(crop_name, region, result, db)
+
+        return result
+
+    @staticmethod
+    async def _save_prediction(
+        crop_name: str,
+        region: str,
+        result: Dict[str, Any],
+        db: AsyncSession
+    ):
+        """Save prediction to database"""
+        for pred in result.get("predictions", []):
+            try:
+                # Handle potential date parsing issues
+                date_str = pred["month"]
+                try:
+                    p_date = datetime.strptime(date_str, "%B %Y")
+                except:
+                    p_date = datetime.now()
+
+                prediction = PricePrediction(
+                    crop_name=crop_name,
+                    region=region,
+                    prediction_for_date=p_date,
+                    predicted_price_per_kg=pred["predicted_price"],
+                    confidence=pred.get("confidence", 0.7),
+                    trend=pred.get("trend", "stable"),
+                    ai_analysis=result.get("ai_analysis", "")
+                )
+                db.add(prediction)
+            except Exception as e:
+                print(f"Error saving prediction row: {e}")
+
+        await db.commit()
+
+    @staticmethod
+    async def get_price_trends(
+        crop_name: str,
+        region: str,
+        months: int = 6,
+        db: Optional[AsyncSession] = None
+    ) -> Dict[str, Any]:
+        """Get price trends for a crop"""
+        # Logic remains similar but could be enhanced with CSV trend analysis
+        if db:
+            result = await db.execute(
+                select(PricePrediction)
+                .where(PricePrediction.crop_name == crop_name)
+                .where(PricePrediction.region == region)
+                .order_by(PricePrediction.prediction_for_date.desc())
+                .limit(months)
             )
+            predictions = result.scalars().all()
+
+            if predictions:
+                return {
+                    "crop_name": crop_name,
+                    "region": region,
+                    "trend_data": [
+                        {
+                            "date": p.prediction_for_date.strftime("%Y-%m"),
+                            "predicted_price": p.predicted_price_per_kg,
+                            "confidence": p.confidence,
+                            "trend": p.trend
+                        }
+                        for p in predictions
+                    ]
+                }
+
+        return await MarketService._get_mock_trends(crop_name, region, months)
+
+    @staticmethod
+    async def _get_mock_trends(
+        crop_name: str,
+        region: str,
+        months: int
+    ) -> Dict[str, Any]:
+        """Generate mock trend data (fallback)"""
+        from datetime import datetime, timedelta
+
+        base_price = 25  # Base price
+        trend_data = []
+
+        for i in range(months):
+            date = datetime.now() - timedelta(days=30 * i)
+            price = base_price + (i % 3) * 2 - 1
+            trend_data.append({
+                "date": date.strftime("%Y-%m"),
+                "predicted_price": price,
+                "trend": "rising" if i < 2 else "stable"
+            })
 
         return {
-            'crop_name': crop,
-            'region': region or 'India',
-            'source': 'data.gov.in' if getattr(settings, 'MANDI_API_KEY', None) else 'farmfusion-database',
-            'trend_data': trend_data,
+            "crop_name": crop_name,
+            "region": region,
+            "source": "simulated",
+            "trend_data": trend_data
         }
-
-    @staticmethod
-    async def predict_market_prices(request: MarketPredictionRequest) -> MarketPredictionResponse:
-        """Predict market prices using AI agent based on historical data."""
-        agent = MarketAnalysisAgent()
-        prediction = agent.predict(request.commodity, request.region)
-        return MarketPredictionResponse(commodity=request.commodity, prediction=prediction)

@@ -1,44 +1,33 @@
-from typing import List
-
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy import select
+from typing import List, Optional
+from datetime import datetime
 from app.db.models import CropCycle
-from app.schemas.lifecycle import CropCycleCreate, CropCycleResponse
-
+from app.schemas.lifecycle import CropCycleCreate
 
 class LifecycleService:
     @staticmethod
-    async def start_crop_cycle(request: CropCycleCreate, db: AsyncSession) -> CropCycleResponse:
-        cycle = CropCycle(
-            farm_id=request.farm_id,
-            current_stage=request.current_stage,
-            start_date=request.start_date or "",
-            end_date=request.end_date or "",
-            status="active",
+    async def start_cycle(db: AsyncSession, user_id: int, cycle_data: CropCycleCreate):
+        db_cycle = CropCycle(
+            **cycle_data.model_dump(),
+            user_id=user_id
         )
-        db.add(cycle)
+        db.add(db_cycle)
         await db.commit()
-        await db.refresh(cycle)
-        return CropCycleResponse(
-            id=cycle.id,
-            farm_id=cycle.farm_id,
-            current_stage=cycle.current_stage,
-            start_date=cycle.start_date,
-            end_date=cycle.end_date,
-            status=cycle.status,
-            created_at=cycle.created_at,
-        )
+        await db.refresh(db_cycle)
+        return db_cycle
 
     @staticmethod
-    async def get_my_crops(db: AsyncSession) -> List[CropCycleResponse]:
-        result = await db.execute(select(CropCycle))
-        return [CropCycleResponse(
-            id=cycle.id,
-            farm_id=cycle.farm_id,
-            current_stage=cycle.current_stage,
-            start_date=cycle.start_date,
-            end_date=cycle.end_date,
-            status=cycle.status,
-            created_at=cycle.created_at,
-        ) for cycle in result.scalars().all()]
+    async def get_user_cycles(db: AsyncSession, user_id: int):
+        result = await db.execute(select(CropCycle).where(CropCycle.user_id == user_id))
+        return result.scalars().all()
+
+    @staticmethod
+    async def update_status(db: AsyncSession, cycle_id: int, status: str):
+        result = await db.execute(select(CropCycle).where(CropCycle.id == cycle_id))
+        db_cycle = result.scalars().first()
+        if db_cycle:
+            db_cycle.status = status
+            await db.commit()
+            await db.refresh(db_cycle)
+        return db_cycle

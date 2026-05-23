@@ -42,46 +42,93 @@ class DiseaseViewModel : ViewModel() {
         imageFile: File,
         cropType: String?,
         firebaseToken: String? = null,
+        responseLanguage: String? = null,
         mimeType: String = "image/jpeg"
     ) {
         viewModelScope.launch {
             _detectState.value = DiseaseDetectState.Loading
 
             try {
-                // Wake Render free-tier instance before the heavier multipart request.
+                // Validate file exists and is readable
+                if (!imageFile.exists()) {
+                    _detectState.value = DiseaseDetectState.Error("Image file not found: ${imageFile.absolutePath}")
+                    return@launch
+                }
+                
+                if (!imageFile.isFile || !imageFile.canRead()) {
+                    _detectState.value = DiseaseDetectState.Error("Image file is not readable: ${imageFile.absolutePath}")
+                    return@launch
+                }
+                
+                val fileSize = imageFile.length()
+                if (fileSize == 0L) {
+                    _detectState.value = DiseaseDetectState.Error("Image file is empty (0 bytes)")
+                    return@launch
+                }
+                
+                android.util.Log.d("DiseaseViewModel", "Uploading image: ${imageFile.name} (${fileSize} bytes)")
+
+                // Wake Render free-tier instance before the heavier multipart request
                 runCatching { api.checkHealth() }
 
-                if (!imageFile.exists()) {
-                    _detectState.value = DiseaseDetectState.Error("Image file not found at: ${imageFile.absolutePath}")
+                // Create multipart body safely
+                val requestFile = try {
+                    imageFile.asRequestBody(mimeType.toMediaTypeOrNull())
+                } catch (e: Exception) {
+                    _detectState.value = DiseaseDetectState.Error("Failed to prepare image for upload: ${e.message}")
+                    android.util.Log.e("DiseaseViewModel", "Error creating request body", e)
                     return@launch
                 }
 
-                val requestFile = imageFile.asRequestBody(mimeType.toMediaTypeOrNull())
                 val imagePart = MultipartBody.Part.createFormData(
                     "image",
                     imageFile.name,
                     requestFile
                 )
 
-                val response = api.detectDisease(
-                    imagePart,
-                    cropType,
-                    firebaseToken
-                )
+                // Make API request
+                val response = try {
+                    api.detectDisease(
+                        imagePart,
+                        cropType,
+                        firebaseToken,
+                        responseLanguage
+                    )
+                } catch (e: Exception) {
+                    _detectState.value = DiseaseDetectState.Error("Network request failed: ${e.message ?: "Unknown error"}")
+                    android.util.Log.e("DiseaseViewModel", "API request failed", e)
+                    return@launch
+                }
 
+                // Process response
                 if (response.isSuccessful) {
-                    response.body()?.let {
-                        _detectState.value = DiseaseDetectState.Success(it)
+                    response.body()?.let { body ->
+                        android.util.Log.d("DiseaseViewModel", "Response received: disease=${body.data?.disease_name}, success=${body.success}")
+                        
+                        // Validate response has required data
+                        if (body.data == null) {
+                            _detectState.value = DiseaseDetectState.Error("Server returned no disease data")
+                            return@launch
+                        }
+                        
+                        _detectState.value = DiseaseDetectState.Success(body)
                     } ?: run {
-                        _detectState.value = DiseaseDetectState.Error("Empty response from server")
+                        _detectState.value = DiseaseDetectState.Error("Server response body is empty")
                     }
                 } else {
+                    val errorBody = try {
+                        response.errorBody()?.string() ?: "No error details"
+                    } catch (e: Exception) {
+                        "Unable to read error details"
+                    }
                     _detectState.value = DiseaseDetectState.Error(
-                        "Server Error: ${response.code()} - ${response.message()}"
+                        "Server Error: ${response.code()} - ${response.message()}\n$errorBody"
                     )
+                    android.util.Log.e("DiseaseViewModel", "API error: ${response.code()} - $errorBody")
                 }
             } catch (e: Exception) {
-                _detectState.value = DiseaseDetectState.Error("Network Error: ${e.message ?: "Unknown error"}")
+                _detectState.value = DiseaseDetectState.Error("Unexpected error: ${e.message ?: "Unknown error"}")
+                android.util.Log.e("DiseaseViewModel", "Unexpected exception", e)
             }
         }
     }

@@ -322,7 +322,7 @@ private fun HomeHeroHeader(
             val userInfo = remember { authViewModel.getCurrentUserInfo() }
             val userName = userInfo.third ?: "Farmer"
             Text(
-                text = "${stringResource(R.string.welcome_to)}, $userName!",
+                text = "${stringResource(R.string.welcome_to)} $userName!",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF1B1B1B)
@@ -358,14 +358,14 @@ private fun HomeHeroHeader(
                 .shadow(6.dp, CircleShape),
             shape = CircleShape,
             color = Color.White,
-            border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF4FC3F7), Color(0xFF0288D1))))
+            border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF81C784), Color(0xFF2E7D32))))
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Rounded.Person,
                     contentDescription = "Profile",
                     modifier = Modifier.size(32.dp),
-                    tint = Color(0xFF0288D1)
+                    tint = Color(0xFF2E7D32)
                 )
             }
         }

@@ -120,7 +120,8 @@ data class DiseaseResult(
     val is_plant_image: Boolean? = null,
     val can_analyze: Boolean? = null,
     val invalid_image_reason: String? = null,
-    val ai_analyzed: Boolean? = null
+    val ai_analyzed: Boolean? = null,
+    val store_recommendations: List<StoreRecommendationItem>? = null
 )
 
 data class DiseaseHistoryResponse(

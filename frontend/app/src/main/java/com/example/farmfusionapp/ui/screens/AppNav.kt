@@ -88,7 +88,7 @@ fun AppNav() {
                 GlassFloatingVoiceButton(
                     modifier = Modifier
                         .navigationBarsPadding()
-                        .padding(bottom = 12.dp),
+                        .padding(bottom = 0.dp), // Moved down closer to navbar
                     onClick = { navController.navigate(NavRoutes.VoiceAssistant) }
                 )
             }
@@ -161,7 +161,7 @@ fun AppNav() {
             }
 
             composable(NavRoutes.ProductStore) {
-                ProductStoreScreen(navController)
+                StoreRecommendationsScreen(navController)
             }
 
             composable(NavRoutes.FinancialServices) {

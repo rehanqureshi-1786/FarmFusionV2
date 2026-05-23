@@ -489,11 +489,11 @@ fun GlassFloatingVoiceButton(
     Surface(
         onClick = onClick,
         modifier = modifier
-            .size(76.dp)
-            .shadow(12.dp, CircleShape, spotColor = Color(0xFF0288D1)),
+            .size(64.dp) // Increased from 48dp
+            .shadow(10.dp, CircleShape, spotColor = Color(0xFF2E7D32)),
         shape = CircleShape,
         color = Color.White,
-        border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF4FC3F7), Color(0xFF0288D1)))),
+        border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF81C784), Color(0xFF2E7D32)))),
         tonalElevation = 0.dp
     ) {
         Box(
@@ -502,8 +502,8 @@ fun GlassFloatingVoiceButton(
                 .background(
                     Brush.linearGradient(
                         colors = listOf(
-                            Color(0xFFE1F5FE),
-                            Color(0xFFB3E5FC)
+                            Color(0xFFE8F5E9),
+                            Color(0xFFC8E6C9)
                         )
                     )
                 ),
@@ -512,8 +512,8 @@ fun GlassFloatingVoiceButton(
             Icon(
                 imageVector = Icons.Rounded.GraphicEq,
                 contentDescription = "Voice Assistant",
-                tint = Color(0xFF0277BD),
-                modifier = Modifier.size(34.dp)
+                tint = Color(0xFF2E7D32),
+                modifier = Modifier.size(28.dp) // Scaled up icon
             )
         }
     }

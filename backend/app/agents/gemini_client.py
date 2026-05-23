@@ -9,7 +9,7 @@ from app.core.config import settings
 
 
 class GeminiClient:
-    DEFAULT_MODEL = "gemini-1.5-flash"
+    DEFAULT_MODEL = "gemini-3.5-flash"
     USER_AGENT = "FarmFusion/1.0 (https://farmfusion1.onrender.com)"
 
     def __init__(self, model: Optional[str] = None):
@@ -110,3 +110,6 @@ class GeminiClient:
 
     def generate(self, prompt: str) -> str:
         return self.complete(prompt)
+
+
+gemini_client = GeminiClient()

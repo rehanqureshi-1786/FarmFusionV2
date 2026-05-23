@@ -1,50 +1,52 @@
-from typing import List, Optional
-
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from sqlalchemy import select
+from typing import List, Optional
+import math
 from app.db.models import LabourJob
-from app.schemas.labour import LabourJobCreate, LabourJobResponse
-
+from app.schemas.labour import LabourJobCreate
 
 class LabourService:
     @staticmethod
-    async def post_job(job: LabourJobCreate, db: AsyncSession) -> LabourJobResponse:
-        labour_job = LabourJob(
-            title=job.title,
-            description=job.description or "",
-            location=job.location or "",
-            wage=job.wage or 0.0,
-            start_date=job.start_date or "",
-            end_date=job.end_date or "",
+    async def post_job(db: AsyncSession, poster_id: int, job_data: LabourJobCreate):
+        db_job = LabourJob(
+            **job_data.model_dump(),
+            poster_id=poster_id
         )
-        db.add(labour_job)
+        db.add(db_job)
         await db.commit()
-        await db.refresh(labour_job)
-        return LabourJobResponse(
-            id=labour_job.id,
-            title=labour_job.title,
-            description=labour_job.description,
-            location=labour_job.location,
-            wage=labour_job.wage,
-            start_date=labour_job.start_date,
-            end_date=labour_job.end_date,
-            created_at=labour_job.created_at,
-        )
+        await db.refresh(db_job)
+        return db_job
 
     @staticmethod
-    async def get_nearby_jobs(location: Optional[str], db: AsyncSession) -> List[LabourJobResponse]:
-        query = select(LabourJob)
-        if location:
-            query = query.where(LabourJob.location == location)
+    async def find_nearby_jobs(
+        db: AsyncSession, 
+        latitude: float, 
+        longitude: float, 
+        radius_km: float = 25.0,
+        job_type: Optional[str] = None
+    ):
+        query = select(LabourJob).where(LabourJob.status == "open")
+        
+        if job_type:
+            query = query.where(LabourJob.job_type == job_type)
+            
         result = await db.execute(query)
-        return [LabourJobResponse(
-            id=job.id,
-            title=job.title,
-            description=job.description,
-            location=job.location,
-            wage=job.wage,
-            start_date=job.start_date,
-            end_date=job.end_date,
-            created_at=job.created_at,
-        ) for job in result.scalars().all()]
+        jobs = result.scalars().all()
+        
+        # Filter by distance
+        filtered = []
+        for job in jobs:
+            dist = LabourService._calculate_distance(latitude, longitude, job.latitude, job.longitude)
+            if dist <= radius_km:
+                filtered.append(job)
+        
+        return sorted(filtered, key=lambda x: LabourService._calculate_distance(latitude, longitude, x.latitude, x.longitude))
+
+    @staticmethod
+    def _calculate_distance(lat1, lon1, lat2, lon2):
+        R = 6371.0
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return R * c

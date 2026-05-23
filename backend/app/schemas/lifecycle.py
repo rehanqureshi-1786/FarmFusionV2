@@ -1,26 +1,25 @@
-from datetime import datetime
-from typing import Optional
 from pydantic import BaseModel, ConfigDict
-
+from typing import List, Optional
+from datetime import datetime
 
 class CropCycleBase(BaseModel):
-    farm_id: int
-    current_stage: str
-    start_date: Optional[str] = None
-    end_date: Optional[str] = None
-
-    model_config = ConfigDict(extra='ignore')
-
+    crop_name: str
+    sowing_date: datetime
+    farm_id: Optional[int] = None
+    predicted_harvest_date: Optional[datetime] = None
 
 class CropCycleCreate(CropCycleBase):
     pass
 
-
-class CropCycleUpdate(CropCycleBase):
-    pass
-
+class CropCycleUpdate(BaseModel):
+    status: Optional[str] = None
+    predicted_harvest_date: Optional[datetime] = None
+    notes: Optional[str] = None
 
 class CropCycleResponse(CropCycleBase):
     id: int
+    user_id: int
     status: str
-    created_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

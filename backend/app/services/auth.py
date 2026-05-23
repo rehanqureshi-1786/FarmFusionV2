@@ -1,60 +1,68 @@
-from datetime import datetime, timedelta, timezone
+"""Authentication service."""
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import create_access_token, create_refresh_token, decode_token, get_password_hash, verify_password
-from app.models.user import User, UserRole
-from app.schemas.user import UserCreate, Token, TokenRefresh, UserResponse
+from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token
+from app.models.user import User
+from app.schemas.user import UserCreate
 
 
 class AuthService:
     @staticmethod
-    async def get_user_by_email(email: str, db: Optional[AsyncSession]):
-        if db is None:
+    async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
+        result = await db.execute(select(User).where(User.email == email))
+        user = result.scalar_one_or_none()
+        
+        if not user or not user.is_active:
             return None
-        query = select(User).where(User.email == email)
-        result = await db.execute(query)
+        if not verify_password(password, user.hashed_password):
+            return None
+            
+        return user
+
+    @staticmethod
+    async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
+        hashed_password = get_password_hash(user_data.password)
+        
+        db_user = User(
+            email=user_data.email,
+            full_name=user_data.full_name,
+            phone=user_data.phone,
+            hashed_password=hashed_password,
+            role=user_data.role
+        )
+        
+        db.add(db_user)
+        await db.commit()
+        await db.refresh(db_user)
+        return db_user
+
+    @staticmethod
+    async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
+        result = await db.execute(select(User).where(User.email == email))
         return result.scalar_one_or_none()
 
     @staticmethod
-    async def create_user(user_data: UserCreate, db: AsyncSession) -> UserResponse:
-        hashed_password = get_password_hash(user_data.password)
-        user = User(
-            firebase_uid="",
-            email=user_data.email,
-            name=user_data.name or "",
-            phone_number=user_data.phone_number or "",
-            language_preference=user_data.language_preference,
-            hashed_password=hashed_password,
-        )
-        db.add(user)
+    async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[User]:
+        result = await db.execute(select(User).where(User.id == user_id))
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def create_tokens(user: User) -> dict:
+        access_token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
+        refresh_token = create_refresh_token(data={"sub": str(user.id)})
+        
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": 60 * 60
+        }
+
+    @staticmethod
+    async def update_last_login(db: AsyncSession, user: User) -> None:
+        user.last_login = datetime.now(timezone.utc)
         await db.commit()
-        await db.refresh(user)
-        return UserResponse(
-            id=user.id,
-            firebase_uid=user.firebase_uid,
-            email=user.email,
-            name=user.name,
-            phone_number=user.phone_number,
-            language_preference=user.language_preference,
-            created_at=user.created_at,
-        )
-
-    @staticmethod
-    async def login(email: str, password: str, db: AsyncSession) -> Optional[Token]:
-        user = await AuthService.get_user_by_email(email, db)
-        if not user or not verify_password(password, user.hashed_password or ""):
-            return None
-        access_token = create_access_token({"sub": user.email})
-        refresh_token = create_refresh_token({"sub": user.email})
-        return Token(access_token=access_token, token_type="bearer")
-
-    @staticmethod
-    def refresh_token(refresh_token: str) -> Optional[TokenRefresh]:
-        decoded = decode_token(refresh_token)
-        if not decoded or "sub" not in decoded:
-            return None
-        new_token = create_refresh_token({"sub": decoded["sub"]})
-        return TokenRefresh(refresh_token=new_token)

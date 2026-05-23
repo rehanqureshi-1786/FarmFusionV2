@@ -1,15 +1,125 @@
-from typing import Any, Dict, List
-
-from app.agents.weather_agent import WeatherAgent
+"""
+Weather Service - Business logic for weather data
+"""
+from typing import Dict, Any, Optional
+from app.agents.weather_agent import weather_agent
 
 
 class WeatherService:
-    @staticmethod
-    def get_weather(latitude: float, longitude: float) -> Dict[str, Any]:
-        agent = WeatherAgent()
-        return agent.get_weather(latitude, longitude)
+    """Service layer for weather data"""
 
     @staticmethod
-    def get_forecast(latitude: float, longitude: float, days: int) -> List[Dict[str, Any]]:
-        agent = WeatherAgent()
-        return agent.get_forecast(latitude, longitude, days)
+    async def get_current_weather(
+        lat: float,
+        lon: float
+    ) -> Dict[str, Any]:
+        """
+        Get current weather for location
+
+        Args:
+            lat: Latitude
+            lon: Longitude
+
+        Returns:
+            Current weather data with farming advice
+        """
+        return await weather_agent.get_current_weather(lat, lon)
+
+    @staticmethod
+    async def get_forecast(
+        lat: float,
+        lon: float,
+        days: int = 5
+    ) -> Dict[str, Any]:
+        """
+        Get weather forecast
+
+        Args:
+            lat: Latitude
+            lon: Longitude
+            days: Number of days to forecast
+
+        Returns:
+            Forecast data with farming advice
+        """
+        return await weather_agent.get_forecast(lat, lon, days)
+
+    @staticmethod
+    async def get_farming_weather(
+        lat: float,
+        lon: float,
+        days: int = 7
+    ) -> Dict[str, Any]:
+        """
+        Get comprehensive weather data for farming decisions
+
+        Args:
+            lat: Latitude
+            lon: Longitude
+            days: Number of days
+
+        Returns:
+            Combined current and forecast data
+        """
+        current = await weather_agent.get_current_weather(lat, lon)
+        if not current.get("success"):
+            return current
+
+        forecast = await weather_agent.get_forecast(lat, lon, days)
+        if not forecast.get("success"):
+            return forecast
+
+        return {
+            "success": True,
+            "current": current,
+            "forecast": forecast,
+            "farming_summary": WeatherService._generate_farming_summary(current, forecast)
+        }
+
+    @staticmethod
+    async def get_weather_timeline(
+        lat: float,
+        lon: float,
+        forecast_days: int = 7,
+        past_days: int = 7
+    ) -> Dict[str, Any]:
+        """
+        Get both recent historical days and upcoming forecast days.
+        Used by the voice assistant for queries like "last week" or "next week".
+        """
+        return await weather_agent.get_weather_timeline(lat, lon, forecast_days, past_days)
+
+    @staticmethod
+    def _generate_farming_summary(
+        current: Dict[str, Any],
+        forecast: Dict[str, Any]
+    ) -> str:
+        """Generate farming-specific weather summary"""
+        summary = []
+
+        # Current conditions
+        if "temperature_c" in current:
+            temp = current["temperature_c"]
+            if temp > 35:
+                summary.append("⚠️ High temperatures expected - ensure irrigation")
+            elif temp < 15:
+                summary.append("❄️ Cold conditions - protect sensitive crops")
+
+        # Rain forecast
+        forecast_days = forecast.get("forecast", [])
+        rainy_days = sum(1 for day in forecast_days if day.get("rain_chance", 0) > 40)
+
+        if rainy_days > 0:
+            summary.append(f"🌧️ {rainy_days} rainy days ahead - adjust irrigation schedule")
+        else:
+            summary.append("☀️ Dry period ahead - monitor soil moisture")
+
+        # Wind conditions
+        high_wind_days = sum(
+            1 for day in forecast_days
+            if day.get("wind_speed_ms", 0) > 8
+        )
+        if high_wind_days > 0:
+            summary.append(f"💨 {high_wind_days} windy days - delay spraying operations")
+
+        return " | ".join(summary) if summary else "Good weather conditions for farming"

@@ -36,7 +36,8 @@ interface FarmFusionApi {
     suspend fun detectDisease(
         @Part image: MultipartBody.Part,
         @Query("crop_type") cropType: String?,
-        @Query("firebase_token") token: String? = null
+        @Query("firebase_token") token: String? = null,
+        @Query("response_language") language: String? = null
     ): Response<DiseaseDetectResponse>
 
     @GET("api/v1/disease/history")
@@ -148,6 +149,14 @@ interface FarmFusionApi {
         @Path("farm_id") farmId: Int,
         @Query("firebase_token") token: String
     ): Response<FarmDetailsResponse>
+
+    // ============ AGRI STORE ============
+
+    @GET("api/v1/store/recommendations")
+    suspend fun getStoreRecommendations(
+        @Query("firebase_token") token: String? = null,
+        @Query("category") category: String? = null
+    ): Response<StoreRecommendationsResponse>
 
     // ============ HEALTH & TEST ============
 

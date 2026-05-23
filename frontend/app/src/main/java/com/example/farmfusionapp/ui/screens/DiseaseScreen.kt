@@ -1,5 +1,10 @@
 package com.example.farmfusionapp.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -19,14 +24,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.FileProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.farmfusionapp.data.model.DiseaseResult
 import com.example.farmfusionapp.ui.components.FarmerButton
 import com.example.farmfusionapp.ui.theme.FarmColors
+import com.example.farmfusionapp.utils.AuthStore
+import com.example.farmfusionapp.viewmodel.DiseaseViewModel
+import com.example.farmfusionapp.viewmodel.DiseaseViewModel.DiseaseDetectState
 import kotlinx.coroutines.delay
+import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
 
 // ============================================
 // SCAN STATES
@@ -43,7 +58,73 @@ enum class ScanState {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DiseaseScreen(navController: NavController) {
+    val context = LocalContext.current
+    val viewModel: DiseaseViewModel = viewModel()
+    val detectState = viewModel.detectState.value
+    
     var currentState by remember { mutableStateOf(ScanState.IDLE) }
+    var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
+    
+    val currentLang = remember { AuthStore.getLanguage(context) ?: "en" }
+    val token = remember { AuthStore.getAuthToken(context) }
+    val tempFile = remember { File(context.cacheDir, "disease_scan_temp.jpg") }
+    val fileProviderUri = remember { FileProvider.getUriForFile(context, "com.example.farmfusionapp.provider", tempFile) }
+
+    val startAnalysis = {
+        currentState = ScanState.SCANNING
+        viewModel.detectDisease(
+            imageFile = tempFile,
+            cropType = null,
+            firebaseToken = token,
+            responseLanguage = currentLang
+        )
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+        if (success) {
+            // Verify file was actually written before proceeding
+            if (!tempFile.exists() || tempFile.length() == 0L) {
+                android.util.Log.e("DiseaseScreen", "Camera capture failed: photo file not found or empty")
+                return@rememberLauncherForActivityResult
+            }
+            capturedImageUri = fileProviderUri
+            startAnalysis()
+        } else {
+            android.util.Log.d("DiseaseScreen", "Camera capture cancelled by user")
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { selectedUri ->
+        if (selectedUri != null) {
+            try {
+                copyUriToTempFile(context, selectedUri, tempFile)
+                // Verify file was written successfully
+                if (!tempFile.exists() || tempFile.length() == 0L) {
+                    android.util.Log.e("DiseaseScreen", "Gallery file copy failed: file doesn't exist or is empty")
+                    return@rememberLauncherForActivityResult
+                }
+                capturedImageUri = selectedUri
+                startAnalysis()
+            } catch (e: Exception) {
+                android.util.Log.e("DiseaseScreen", "Error copying gallery file: ${e.message}", e)
+            }
+        }
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            cameraLauncher.launch(fileProviderUri)
+        }
+    }
+
+    // Monitor detectState to transition to RESULT
+    LaunchedEffect(detectState) {
+        if (detectState is DiseaseDetectState.Success) {
+            currentState = ScanState.RESULT
+        } else if (detectState is DiseaseDetectState.Error) {
+            currentState = ScanState.RESULT
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -67,7 +148,11 @@ fun DiseaseScreen(navController: NavController) {
                 navigationIcon = {
                     IconButton(onClick = {
                         when (currentState) {
-                            ScanState.RESULT -> currentState = ScanState.IDLE
+                            ScanState.RESULT -> {
+                                currentState = ScanState.IDLE
+                                capturedImageUri = null
+                                viewModel.resetDetectState()
+                            }
                             else -> navController.popBackStack()
                         }
                     }) {
@@ -100,15 +185,32 @@ fun DiseaseScreen(navController: NavController) {
             ) { state ->
                 when (state) {
                     ScanState.IDLE -> CameraCaptureStep(
-                        onCapture = { currentState = ScanState.SCANNING }
+                        onCameraClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                        onGalleryClick = { galleryLauncher.launch("image/*") }
                     )
-                    ScanState.SCANNING -> ScanningStep(
-                        onFinished = { currentState = ScanState.RESULT }
-                    )
-                    ScanState.RESULT -> DiseaseResultStep(
-                        onReset = { currentState = ScanState.IDLE },
-                        onCallExpert = { /* Call Doctor */ }
-                    )
+                    ScanState.SCANNING -> ScanningStep()
+                    ScanState.RESULT -> {
+                        when (detectState) {
+                            is DiseaseDetectState.Success -> DiseaseResultStep(
+                                result = detectState.response.data,
+                                onReset = {
+                                    currentState = ScanState.IDLE
+                                    capturedImageUri = null
+                                    viewModel.resetDetectState()
+                                },
+                                onCallExpert = { /* Call Doctor */ }
+                            )
+                            is DiseaseDetectState.Error -> ErrorStep(
+                                error = detectState.message,
+                                onReset = {
+                                    currentState = ScanState.IDLE
+                                    capturedImageUri = null
+                                    viewModel.resetDetectState()
+                                }
+                            )
+                            else -> ScanningStep()
+                        }
+                    }
                 }
             }
         }
@@ -119,7 +221,7 @@ fun DiseaseScreen(navController: NavController) {
 // STEP 1: CAMERA CAPTURE
 // ============================================
 @Composable
-fun CameraCaptureStep(onCapture: () -> Unit) {
+fun CameraCaptureStep(onCameraClick: () -> Unit, onGalleryClick: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -210,12 +312,14 @@ fun CameraCaptureStep(onCapture: () -> Unit) {
             }
         }
 
-        // Capture Button
+        // Capture Buttons
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth()
         ) {
+            // Camera Button
             Surface(
-                onClick = onCapture,
+                onClick = onCameraClick,
                 modifier = Modifier.size(120.dp),
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary,
@@ -246,6 +350,25 @@ fun CameraCaptureStep(onCapture: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Gallery Button
+            OutlinedButton(
+                onClick = onGalleryClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Image,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Choose from Gallery")
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -389,12 +512,7 @@ fun CornerMarkers() {
 // STEP 2: SCANNING
 // ============================================
 @Composable
-fun ScanningStep(onFinished: () -> Unit) {
-    LaunchedEffect(Unit) {
-        delay(3000) // Simulate processing
-        onFinished()
-    }
-
+fun ScanningStep() {
     val infiniteTransition = rememberInfiniteTransition(label = "scanning")
 
     // Rotating scan animation
@@ -521,10 +639,15 @@ fun ScanningStep(onFinished: () -> Unit) {
 // ============================================
 @Composable
 fun DiseaseResultStep(
+    result: DiseaseResult?,
     onReset: () -> Unit,
     onCallExpert: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+
+    if (result == null) {
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -640,17 +763,10 @@ fun DiseaseResultStep(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Leaf Rust ",
+                    text = result.disease_name ?: "Unknown",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                )
-
-                Text(
-                    text = "पत्ती का जंग",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
                     )
                 )
 
@@ -662,12 +778,12 @@ fun DiseaseResultStep(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Severity indicator
+                // Confidence score
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Severity: ",
+                        text = "Confidence: ",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onErrorContainer
@@ -678,7 +794,7 @@ fun DiseaseResultStep(
                         color = FarmColors.Warning
                     ) {
                         Text(
-                            text = "MODERATE",
+                            text = "${(result.confidence?.times(100)?.toInt() ?: 0)}%",
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -687,6 +803,33 @@ fun DiseaseResultStep(
                         )
                     }
                 }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Description
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp)
+            ) {
+                Text(
+                    text = "Description",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = result.description ?: "No description available",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
 
@@ -732,22 +875,21 @@ fun DiseaseResultStep(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Treatment steps
-                TreatmentStep(
-                    number = 1,
-                    text = "Spray Neem Oil weekly",
-                    hindiText = "हर हफ्ते नीम का तेल छिड़कें"
-                )
-                TreatmentStep(
-                    number = 2,
-                    text = "Remove infected leaves immediately",
-                    hindiText = "संक्रमित पत्तों को तुरंत हटा दें"
-                )
-                TreatmentStep(
-                    number = 3,
-                    text = "Keep plant dry, avoid water on leaves",
-                    hindiText = "पौधे को सूखा रखें, पत्तों पर पानी न डालें"
-                )
+                // Treatment suggestions
+                if (!result.treatment_suggestions.isNullOrEmpty()) {
+                    result.treatment_suggestions.forEachIndexed { index, treatment ->
+                        TreatmentStep(
+                            number = index + 1,
+                            text = treatment,
+                            hindiText = ""
+                        )
+                    }
+                } else {
+                    Text(
+                        text = "Consult a farming expert for detailed treatment plan",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
             }
         }
 
@@ -780,7 +922,10 @@ fun DiseaseResultStep(
                         )
                     )
                     Text(
-                        text = "Use disease-resistant seeds for future crops",
+                        text = if (!result.prevention_tips.isNullOrEmpty())
+                            result.prevention_tips[0]
+                        else
+                            "Follow recommended farming practices",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -833,6 +978,83 @@ fun DiseaseResultStep(
         }
 
         Spacer(modifier = Modifier.height(80.dp))
+    }
+}
+
+// ============================================
+// UTILITY FUNCTIONS
+// ============================================
+private fun copyUriToTempFile(context: Context, uri: Uri, targetFile: File) {
+    try {
+        // Delete old file if it exists
+        if (targetFile.exists()) {
+            targetFile.delete()
+        }
+        
+        // Open input stream and copy
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(targetFile).use { output ->
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                while (input.read(buffer).also { bytesRead = it } != -1) {
+                    output.write(buffer, 0, bytesRead)
+                }
+                // Ensure all data is written to disk
+                output.flush()
+            }
+        } ?: throw IOException("Failed to open input stream for URI: $uri")
+        
+        // Verify file was written
+        if (!targetFile.exists() || targetFile.length() == 0L) {
+            throw IOException("File copy resulted in empty or missing file")
+        }
+        
+        android.util.Log.d("DiseaseScreen", "Successfully copied file to ${targetFile.absolutePath} (${targetFile.length()} bytes)")
+    } catch (e: Exception) {
+        android.util.Log.e("DiseaseScreen", "Error copying file: ${e.message}", e)
+        throw e
+    }
+}
+
+@Composable
+fun ErrorStep(error: String, onReset: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            imageVector = Icons.Rounded.ErrorOutline,
+            contentDescription = null,
+            modifier = Modifier.size(100.dp),
+            tint = FarmColors.Error
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Error",
+            style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Bold,
+                color = FarmColors.Error
+            )
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = error,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(
+            onClick = onReset,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Text("Try Again")
+        }
     }
 }
 

@@ -1,99 +1,126 @@
-import json
-import os
-import re
-from typing import Any, Dict, Optional
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
-
-from app.core.config import settings
+"""
+Groq API Client for FarmFusion
+Groq provides ultra-fast inference with open-source models
+Free tier: 1M tokens/day, 20 requests/minute
+"""
+import base64
+from typing import Optional, Dict, Any
+from groq import AsyncGroq
+from app.core.config import get_settings
 
 
 class GroqClient:
-    DEFAULT_MODEL = "llama-3.3-70b-versatile"
-    ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
-    USER_AGENT = "FarmFusion/1.0 (https://farmfusion1.onrender.com)"
+    """
+    Client for Groq API - provides access to Llama 3.3, Mixtral, Gemma models
+    Uses Async Client to prevent event loop blocking.
+    """
 
-    def __init__(self, model: Optional[str] = None):
-        self.api_key = os.getenv("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
-        if not self.api_key:
-            raise RuntimeError("Groq API key is not configured")
-        self.model = (
-            model
-            or os.getenv("GROQ_MODEL")
-            or getattr(settings, "GROQ_MODEL", None)
-            or self.DEFAULT_MODEL
-        )
-        self.endpoint = self.ENDPOINT
+    def __init__(self):
+        self.settings = get_settings()
+        self.client = None
+        if self.settings.groq_api_key:
+            self.client = AsyncGroq(api_key=self.settings.groq_api_key)
 
-    def _request(self, prompt: str, *, json_mode: bool = False) -> Dict[str, Any]:
-        system_content = (
-            "You are an expert agriculture assistant. Respond with valid JSON only."
-            if json_mode
-            else "You are an expert agriculture assistant."
-        )
-        payload: Dict[str, Any] = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.6,
-            "max_tokens": 600,
-        }
-        if json_mode:
-            payload["response_format"] = {"type": "json_object"}
-        data = json.dumps(payload).encode("utf-8")
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-            "User-Agent": self.USER_AGENT,
-        }
-        req = Request(self.endpoint, data=data, headers=headers, method="POST")
+    def is_available(self) -> bool:
+        """Check if Groq API is configured and available"""
+        return self.client is not None
+
+    async def chat_completion(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        model: Optional[str] = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2000
+    ) -> Dict[str, Any]:
+        """
+        Get chat completion from Groq (Async)
+        """
+        if not self.is_available():
+            raise ValueError("Groq API key not configured. Get one at console.groq.com")
+
+        model = model or self.settings.groq_model
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
         try:
-            with urlopen(req, timeout=20) as resp:
-                return json.load(resp)
-        except HTTPError as err:
-            body = err.read().decode(errors="ignore")
-            raise RuntimeError(f"Groq API request failed ({err.code}): {err.reason}. Response: {body}")
-        except URLError as err:
-            raise RuntimeError(f"Groq API request failed: {err.reason}")
+            # Use await for non-blocking network call
+            response = await self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
 
-    @staticmethod
-    def _extract_text(response: Dict[str, Any]) -> str:
-        choices = response.get("choices")
-        if isinstance(choices, list) and choices:
-            message = choices[0].get("message") or {}
-            return str(message.get("content", "")).strip()
-        return ""
+            return {
+                "success": True,
+                "content": response.choices[0].message.content,
+                "model": model,
+                "tokens_used": response.usage.total_tokens if response.usage else 0
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e)
+            }
 
-    @staticmethod
-    def _parse_json(text: str) -> Dict[str, Any]:
-        text = text.strip()
+    async def vision_completion(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        image_bytes: bytes,
+        model: Optional[str] = None,
+        temperature: float = 0.2,
+        max_tokens: int = 1200
+    ) -> Dict[str, Any]:
+        """Analyze an image with a Groq vision-capable model (Async)."""
+        if not self.is_available():
+            raise ValueError("Groq API key not configured. Get one at console.groq.com")
+
+        model = model or self.settings.groq_vision_model
+
+        mime_type = "image/jpeg"
+        if image_bytes.startswith(b"\x89PNG"):
+            mime_type = "image/png"
+
+        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+        image_url = f"data:{mime_type};base64,{image_base64}"
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": user_prompt},
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                ],
+            },
+        ]
+
         try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            pass
-        fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL)
-        if fenced:
-            return json.loads(fenced.group(1))
-        brace = re.search(r"\{.*\}", text, re.DOTALL)
-        if brace:
-            return json.loads(brace.group())
-        raise RuntimeError(f"Groq response was not valid JSON: {text}")
+            response = await self.client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                response_format={"type": "json_object"},
+            )
 
-    def complete(self, prompt: str) -> str:
-        response = self._request(prompt, json_mode=False)
-        text = self._extract_text(response)
-        if not text:
-            raise RuntimeError(f"Groq response missing text output: {response}")
-        return text
+            return {
+                "success": True,
+                "content": response.choices[0].message.content,
+                "model": model,
+                "tokens_used": response.usage.total_tokens if response.usage else 0,
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+            }
 
-    def complete_json(self, prompt: str) -> Dict[str, Any]:
-        response = self._request(prompt, json_mode=True)
-        text = self._extract_text(response)
-        if not text:
-            raise RuntimeError(f"Groq response missing text output: {response}")
-        try:
-            return self._parse_json(text)
-        except json.JSONDecodeError as err:
-            raise RuntimeError(f"Groq response was not valid JSON: {text}") from err
+
+# Singleton instance
+groq_client = GroqClient()

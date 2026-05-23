@@ -1,27 +1,15 @@
 #!/usr/bin/env python3
-"""Minimal entrypoint so `python backend/run.py` launches the FastAPI app.
-
-Place this at `backend/run.py` and run it from the repo root after activating
-the virtualenv. It ensures the `backend` package directory is on `sys.path`
-so `app.main:app` can be imported.
-"""
-import os
-import sys
-from pathlib import Path
-
-# Ensure backend (this file's parent) is on sys.path when run from repo root
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT))
-
+"""Entry point for running the FastAPI application."""
 import uvicorn
-
-
-def main() -> None:
-    host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", 8000))
-    reload = os.environ.get("RELOAD", "0") in ("1", "true", "True")
-    uvicorn.run("app.main:app", host=host, port=port, reload=reload)
-
+from app.core.config import settings
 
 if __name__ == "__main__":
-    main()
+    # Use root main:app so weather, alerts, disease, legacy crop/market, etc. match the Android app.
+    # app.main:app is a slimmer API-only app and will 404 many mobile paths.
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )

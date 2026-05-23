@@ -1,60 +1,81 @@
-import json
-import os
+"""
+OpenAI client for FarmFusion voice workflows.
+Uses the Responses API over plain HTTP so no extra SDK is required.
+"""
 from typing import Any, Dict, Optional
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
-from app.core.config import settings
+import httpx
+
+from app.core.config import get_settings
 
 
 class OpenAIClient:
-    USER_AGENT = "FarmFusion/1.0 (https://farmfusion1.onrender.com)"
+    def __init__(self) -> None:
+        self.settings = get_settings()
+        self.api_key = self.settings.openai_api_key
+        self.model = self.settings.openai_model
+        self.base_url = "https://api.openai.com/v1"
 
-    def __init__(self, model: Optional[str] = None):
-        self.api_key = os.getenv("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
-        if not self.api_key:
-            raise RuntimeError("OpenAI API key is not configured")
-        self.model = model or os.getenv("OPENAI_MODEL") or getattr(settings, "OPENAI_MODEL", "gpt-4.1-mini")
-        self.endpoint = "https://api.openai.com/v1/chat/completions"
+    def is_available(self) -> bool:
+        return bool(self.api_key and len(self.api_key) > 20)
 
-    def _request(self, prompt: str) -> Dict[str, Any]:
+    async def generate_text(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.3,
+        max_output_tokens: int = 600
+    ) -> Dict[str, Any]:
+        if not self.is_available():
+            return {"success": False, "error": "OpenAI API key not configured"}
+
         payload = {
             "model": self.model,
-            "messages": [
-                {"role": "system", "content": "You are an expert agriculture assistant."},
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.6,
-            "max_tokens": 600,
+            "temperature": temperature,
+            "max_output_tokens": max_output_tokens,
+            "input": [
+                {
+                    "role": "system",
+                    "content": [{"type": "input_text", "text": system_prompt}]
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": user_prompt}]
+                }
+            ]
         }
-        data = json.dumps(payload).encode("utf-8")
+
         headers = {
-            "Content-Type": "application/json",
             "Authorization": f"Bearer {self.api_key}",
-            "User-Agent": self.USER_AGENT,
+            "Content-Type": "application/json"
         }
-        req = Request(self.endpoint, data=data, headers=headers, method="POST")
+
         try:
-            with urlopen(req, timeout=20) as resp:
-                return json.load(resp)
-        except HTTPError as err:
-            body = err.read().decode(errors="ignore")
-            raise RuntimeError(f"OpenAI API request failed ({err.code}): {err.reason}. Response: {body}")
-        except URLError as err:
-            raise RuntimeError(f"OpenAI API request failed: {err.reason}")
+            async with httpx.AsyncClient(timeout=25.0, trust_env=False) as client:
+                response = await client.post(
+                    f"{self.base_url}/responses",
+                    json=payload,
+                    headers=headers
+                )
+                response.raise_for_status()
+                data = response.json()
+                return {
+                    "success": True,
+                    "content": self._extract_output_text(data),
+                    "raw": data
+                }
+        except Exception as exc:
+            return {"success": False, "error": str(exc)}
 
-    def complete(self, prompt: str) -> str:
-        response = self._request(prompt)
-        choices = response.get("choices") or []
-        if not choices or not isinstance(choices, list):
-            raise RuntimeError("OpenAI response missing choices")
+    @staticmethod
+    def _extract_output_text(data: Dict[str, Any]) -> str:
+        output = data.get("output", [])
+        for item in output:
+            for content in item.get("content", []):
+                if content.get("type") == "output_text":
+                    return content.get("text", "").strip()
 
-        message = choices[0].get("message") or {}
-        return str(message.get("content", "")).strip()
+        return data.get("output_text", "").strip()
 
-    def complete_json(self, prompt: str) -> Dict[str, Any]:
-        text = self.complete(prompt)
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError as err:
-            raise RuntimeError(f"OpenAI response was not valid JSON: {text}")
+
+openai_client = OpenAIClient()

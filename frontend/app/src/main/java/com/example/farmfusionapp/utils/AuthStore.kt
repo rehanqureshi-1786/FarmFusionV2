@@ -30,7 +30,7 @@ object AuthStore {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_LANGUAGE, languageCode)
-            .apply()
+            .commit()
     }
 
     /**

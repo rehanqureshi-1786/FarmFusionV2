@@ -211,10 +211,12 @@ fun LanguageSelectionScreen(
                     if (token != null) {
                         userViewModel.updateLanguage(token, selectedLanguageCode) { _, _ ->
                             isSaving = false
+                            // Recreate to apply locale, NavHost will then start at Splash
                             (context as? Activity)?.recreate()
                         }
                     } else {
                         isSaving = false
+                        // If not logged in, just go to Splash -> Login
                         (context as? Activity)?.recreate()
                     }
                 },
