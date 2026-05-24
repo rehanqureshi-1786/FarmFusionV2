@@ -108,12 +108,12 @@ data class DiseaseDetectResponse(
 )
 
 data class DiseaseResult(
-    val disease_name: String? = null,
-    val confidence: Double? = null,
-    val severity: String? = null,
-    val description: String? = null,
-    val treatment_suggestions: List<String>? = null,
-    val prevention_tips: List<String>? = null,
+    val disease_name: String = "Unknown",
+    val confidence: Double = 0.0,
+    val severity: String = "low",
+    val description: String = "",
+    val treatment_suggestions: List<String> = emptyList(),
+    val prevention_tips: List<String> = emptyList(),
     val crop_type: String? = null,
     val timestamp: String? = null,
     val source: String? = null,
@@ -227,11 +227,11 @@ data class StoreRecommendationsResponse(
 )
 
 data class StoreRecommendationItem(
-    val title: String? = null,
-    val subtitle: String? = null,
-    val category: String? = null,
+    val title: String = "",
+    val subtitle: String = "",
+    val category: String = "",
     val image_url: String? = null,
-    val shop_url: String? = null
+    val shop_url: String = ""
 )
 
 // ============ WEATHER RESPONSES ============

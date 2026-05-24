@@ -2,6 +2,7 @@ import base64
 import os
 from typing import Dict, Any, Optional
 from app.agents.gemini_client import GeminiClient
+from app.agents.grok_client import grok_client
 from app.core.config import settings
 
 
@@ -26,9 +27,9 @@ class DiseaseDetectionAgent:
         crop_type: Optional[str] = None,
         response_language: str = "en",
     ) -> Dict[str, Any]:
-        """Detect plant disease from actual image content using Gemini Vision API."""
+        """Detect plant disease using Vision AI (Gemini primary, Grok fallback)."""
         if not settings.gemini_api_key:
-            raise RuntimeError("Gemini API key not configured. Cannot perform disease detection.")
+            raise RuntimeError("No AI API keys configured. Cannot perform disease detection.")
 
         mime_type = _detect_image_mime_type(image_bytes)
         image_base64 = base64.b64encode(image_bytes).decode("utf-8")
@@ -56,16 +57,33 @@ class DiseaseDetectionAgent:
         if response_language and response_language.lower() != "en":
             prompt += f"\nRespond in {response_language}."
 
-        client = GeminiClient()
+        # Try Gemini first
+        data = None
+        gemini_error = None
         try:
+            client = GeminiClient()
             data = client.complete_json_with_image(prompt, image_base64, mime_type=mime_type)
+            print(f"[DISEASE DETECTION] Using Gemini - disease={data.get('disease')}")
         except Exception as e:
-            error_text = str(e)
-            is_quota_error = "quota" in error_text.lower() or "rate limit" in error_text.lower()
-            fallback_enabled = settings.debug or os.getenv("FALLBACK_DISEASE_DETECTION") == "1"
+            gemini_error = str(e)
+            is_quota_error = "quota" in gemini_error.lower() or "rate limit" in gemini_error.lower()
+            print(f"[DISEASE DETECTION] Gemini failed: {gemini_error}")
+            
+            # Try Grok as fallback if Gemini failed with quota error or if fallback is enabled
+            if (is_quota_error or os.getenv("FALLBACK_DISEASE_DETECTION") == "1") and grok_client:
+                try:
+                    print(f"[DISEASE DETECTION] Trying Grok as fallback...")
+                    data = grok_client.complete_json_with_image(prompt, image_base64, mime_type=mime_type)
+                    print(f"[DISEASE DETECTION] Using Grok - disease={data.get('disease')}")
+                except Exception as e:
+                    grok_error = str(e)
+                    print(f"[DISEASE DETECTION] Grok fallback failed: {grok_error}")
+                    # Both failed, will return generic response below
 
-            print(f"[DISEASE DETECTION ERROR] {error_text}")
-            if is_quota_error or fallback_enabled:
+        # If both AI services failed or returned no data, check if we should return generic response
+        if data is None:
+            fallback_enabled = settings.debug or os.getenv("FALLBACK_DISEASE_DETECTION") == "1"
+            if fallback_enabled:
                 return {
                     "disease": "Unknown",
                     "confidence": 0.0,
@@ -74,7 +92,7 @@ class DiseaseDetectionAgent:
                     "treatment": [],
                     "prevention": []
                 }
-            raise RuntimeError(f"Gemini Vision API error: {error_text}")
+            raise RuntimeError(f"Disease detection failed: Gemini={gemini_error}")
 
         if not isinstance(data, dict):
             raise RuntimeError(f"AI returned unexpected JSON shape: {data}")
