@@ -9,8 +9,8 @@ from app.core.config import settings
 
 
 class GrokClient:
-    """Groq Vision API client for image analysis."""
-    DEFAULT_MODEL = "llama-3.2-90b-vision-preview"
+    """Groq API client for text-based analysis. NOTE: Groq does NOT support vision/image analysis."""
+    DEFAULT_MODEL = "llama-3.3-70b-versatile"
     USER_AGENT = "FarmFusion/1.0 (https://farmfusion1.onrender.com)"
 
     def __init__(self, model: Optional[str] = None):
@@ -73,7 +73,7 @@ class GrokClient:
         
         req = Request(url, data=data, headers=headers, method="POST")
         try:
-            with urlopen(req, timeout=30) as resp:
+            with urlopen(req, timeout=60) as resp:
                 return json.load(resp)
         except HTTPError as err:
             body = err.read().decode(errors="ignore")
@@ -143,16 +143,12 @@ class GrokClient:
         image_base64: str,
         mime_type: str = "image/jpeg"
     ) -> Dict[str, Any]:
-        """Analyze an image and return JSON response."""
-        json_prompt = f"{prompt}\n\nRespond with valid JSON only."
-        response = self._request(json_prompt, image_base64, mime_type=mime_type)
-        text = self._extract_text(response)
-        if not text:
-            raise RuntimeError(f"Groq response missing text output: {response}")
-        try:
-            return self._parse_json(text)
-        except Exception as err:
-            raise RuntimeError(f"Groq response was not valid JSON: {text}") from err
+        """Image analysis not supported by Groq. Use Gemini for vision tasks."""
+        raise RuntimeError(
+            "Groq does not support vision/image analysis. "
+            "For image detection tasks, use Gemini (app.agents.gemini_client). "
+            "Groq is available for text-only fallback tasks."
+        )
 
     def generate(self, prompt: str) -> str:
         """Generate content (alias for complete)."""

@@ -2,7 +2,6 @@ import base64
 import os
 from typing import Dict, Any, Optional
 from app.agents.gemini_client import GeminiClient
-from app.agents.grok_client import grok_client
 from app.core.config import settings
 
 
@@ -57,7 +56,7 @@ class DiseaseDetectionAgent:
         if response_language and response_language.lower() != "en":
             prompt += f"\nRespond in {response_language}."
 
-        # Try Gemini first
+        # Try Gemini first (only supported option for vision)
         data = None
         gemini_error = None
         try:
@@ -66,27 +65,11 @@ class DiseaseDetectionAgent:
             print(f"[DISEASE DETECTION] Using Gemini - disease={data.get('disease')}")
         except Exception as e:
             gemini_error = str(e)
-            # Check for quota, rate limit, or 429 errors
-            is_quota_error = (
-                "quota" in gemini_error.lower() or 
-                "rate limit" in gemini_error.lower() or 
-                "429" in gemini_error or
-                "too many" in gemini_error.lower()
-            )
             print(f"[DISEASE DETECTION] Gemini failed: {gemini_error}")
-            
-            # Try Grok as fallback if Gemini failed with quota error or if fallback is enabled
-            if (is_quota_error or os.getenv("FALLBACK_DISEASE_DETECTION") == "1") and grok_client:
-                try:
-                    print(f"[DISEASE DETECTION] Trying Grok as fallback...")
-                    data = grok_client.complete_json_with_image(prompt, image_base64, mime_type=mime_type)
-                    print(f"[DISEASE DETECTION] Using Grok - disease={data.get('disease')}")
-                except Exception as e:
-                    grok_error = str(e)
-                    print(f"[DISEASE DETECTION] Grok fallback failed: {grok_error}")
-                    # Both failed, will return generic response below
+            # Note: Groq is text-only and does not support vision/image analysis
+            # Fallback to generic response if Gemini unavailable
 
-        # If both AI services failed or returned no data, check if we should return generic response
+        # If AI service failed or returned no data, check if we should return generic response
         if data is None:
             fallback_enabled = settings.debug or os.getenv("FALLBACK_DISEASE_DETECTION") == "1"
             if fallback_enabled:

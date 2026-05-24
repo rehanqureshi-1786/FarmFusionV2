@@ -1,5 +1,6 @@
 """FastAPI application entry point."""
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +8,8 @@ from fastapi.responses import JSONResponse
 import time
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 from app.api.v1.auth import router as auth_router
 from app.api.v1.crops import router as crops_router
 from app.api.v1.market import router as market_router
@@ -15,6 +18,8 @@ from app.api.v1.marketplace import router as marketplace_router
 from app.api.v1.labour import router as labour_router
 from app.api.v1.store import router as store_router
 from app.api.v1.lifecycle import router as lifecycle_router
+from app.api.v1.disease import router as disease_router
+from app.routes.weather import router as weather_router
 
 
 @asynccontextmanager
@@ -54,7 +59,13 @@ async def add_process_time_header(request: Request, call_next):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    logger.exception(f"Unhandled exception in {request.method} {request.url.path}: {exc}")
+    import traceback
+    traceback.print_exc()
+    return JSONResponse(
+        status_code=500, 
+        content={"detail": f"Internal server error: {str(exc)[:200]}" if settings.debug else "Internal server error"}
+    )
 
 
 @app.get("/health")
@@ -76,3 +87,5 @@ app.include_router(marketplace_router, prefix=settings.api_v1_prefix)
 app.include_router(labour_router, prefix=settings.api_v1_prefix)
 app.include_router(store_router, prefix=settings.api_v1_prefix)
 app.include_router(lifecycle_router, prefix=settings.api_v1_prefix)
+app.include_router(disease_router, prefix=settings.api_v1_prefix)
+app.include_router(weather_router, prefix=settings.api_v1_prefix)

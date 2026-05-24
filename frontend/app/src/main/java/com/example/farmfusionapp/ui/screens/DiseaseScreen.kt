@@ -778,7 +778,8 @@ fun DiseaseResultStep(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Confidence score
+                /* 
+                // Confidence score (Hidden as per request)
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -803,6 +804,7 @@ fun DiseaseResultStep(
                         )
                     }
                 }
+                */
             }
         }
 

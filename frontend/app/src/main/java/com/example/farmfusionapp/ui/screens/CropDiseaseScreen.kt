@@ -289,11 +289,13 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                     Text(result.disease_name, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black, color = Color(0xFF1B1B1B)))
                     
-                    // Confidence Progress
+                    // Confidence Progress (Hidden as per request)
+                    /*
                     Box(contentAlignment = Alignment.Center, modifier = Modifier.size(44.dp)) {
                         CircularProgressIndicator(progress = { result.confidence.toFloat() }, color = CropSuccessGreen, strokeWidth = 3.dp, trackColor = Color(0xFFEEEEEE))
                         Text("${(result.confidence * 100).toInt()}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
+                    */
                 }
 
                 // Severity Chip

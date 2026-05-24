@@ -48,7 +48,7 @@ class GeminiClient:
         }
         req = Request(url, data=data, headers=headers, method="POST")
         try:
-            with urlopen(req, timeout=30) as resp:
+            with urlopen(req, timeout=60) as resp:
                 return json.load(resp)
         except HTTPError as err:
             body = err.read().decode(errors="ignore")
