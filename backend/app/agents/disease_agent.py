@@ -66,7 +66,13 @@ class DiseaseDetectionAgent:
             print(f"[DISEASE DETECTION] Using Gemini - disease={data.get('disease')}")
         except Exception as e:
             gemini_error = str(e)
-            is_quota_error = "quota" in gemini_error.lower() or "rate limit" in gemini_error.lower()
+            # Check for quota, rate limit, or 429 errors
+            is_quota_error = (
+                "quota" in gemini_error.lower() or 
+                "rate limit" in gemini_error.lower() or 
+                "429" in gemini_error or
+                "too many" in gemini_error.lower()
+            )
             print(f"[DISEASE DETECTION] Gemini failed: {gemini_error}")
             
             # Try Grok as fallback if Gemini failed with quota error or if fallback is enabled

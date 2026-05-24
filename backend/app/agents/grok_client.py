@@ -9,14 +9,14 @@ from app.core.config import settings
 
 
 class GrokClient:
-    """Grok Vision API client for image analysis (via xAI API)."""
-    DEFAULT_MODEL = "grok-vision-beta"
+    """Groq Vision API client for image analysis."""
+    DEFAULT_MODEL = "llama-3.2-90b-vision-preview"
     USER_AGENT = "FarmFusion/1.0 (https://farmfusion1.onrender.com)"
 
     def __init__(self, model: Optional[str] = None):
         self.api_key = os.getenv("GROQ_API_KEY") or getattr(settings, "groq_api_key", None)
         if not self.api_key:
-            raise RuntimeError("Grok API key is not configured")
+            raise RuntimeError("Groq API key is not configured")
         self.model = (
             model
             or os.getenv("GROQ_VISION_MODEL")
@@ -30,8 +30,8 @@ class GrokClient:
         image_base64: Optional[str] = None,
         mime_type: str = "image/jpeg"
     ) -> Dict[str, Any]:
-        """Make a request to Grok Vision API."""
-        url = "https://api.x.ai/v1/chat/completions"
+        """Make a request to Groq Vision API."""
+        url = "https://api.groq.com/openai/v1/chat/completions"
         
         # Build content parts for vision
         messages = []
@@ -40,11 +40,9 @@ class GrokClient:
                 "role": "user",
                 "content": [
                     {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": mime_type,
-                            "data": image_base64
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:{mime_type};base64,{image_base64}"
                         }
                     },
                     {
@@ -80,14 +78,14 @@ class GrokClient:
         except HTTPError as err:
             body = err.read().decode(errors="ignore")
             raise RuntimeError(
-                f"Grok API request failed ({err.code}): {err.reason}. Response: {body}"
+                f"Groq API request failed ({err.code}): {err.reason}. Response: {body}"
             )
         except URLError as err:
-            raise RuntimeError(f"Grok API request failed: {err.reason}")
+            raise RuntimeError(f"Groq API request failed: {err.reason}")
 
     @staticmethod
     def _extract_text(response: Dict[str, Any]) -> str:
-        """Extract text from Grok API response."""
+        """Extract text from Groq API response."""
         choices = response.get("choices") or []
         if not choices:
             return ""
@@ -120,14 +118,14 @@ class GrokClient:
             except json.JSONDecodeError:
                 pass
         
-        raise RuntimeError(f"Grok response was not valid JSON: {text}")
+        raise RuntimeError(f"Groq response was not valid JSON: {text}")
 
     def complete(self, prompt: str) -> str:
         """Generate text completion."""
         response = self._request(prompt)
         text = self._extract_text(response)
         if not text:
-            raise RuntimeError(f"Grok response missing text output: {response}")
+            raise RuntimeError(f"Groq response missing text output: {response}")
         return text
 
     def complete_json(self, prompt: str) -> Dict[str, Any]:
@@ -137,7 +135,7 @@ class GrokClient:
         try:
             return self._parse_json(text)
         except Exception as err:
-            raise RuntimeError(f"Grok response was not valid JSON: {text}") from err
+            raise RuntimeError(f"Groq response was not valid JSON: {text}") from err
 
     def complete_json_with_image(
         self,
@@ -150,11 +148,11 @@ class GrokClient:
         response = self._request(json_prompt, image_base64, mime_type=mime_type)
         text = self._extract_text(response)
         if not text:
-            raise RuntimeError(f"Grok response missing text output: {response}")
+            raise RuntimeError(f"Groq response missing text output: {response}")
         try:
             return self._parse_json(text)
         except Exception as err:
-            raise RuntimeError(f"Grok response was not valid JSON: {text}") from err
+            raise RuntimeError(f"Groq response was not valid JSON: {text}") from err
 
     def generate(self, prompt: str) -> str:
         """Generate content (alias for complete)."""
@@ -166,3 +164,4 @@ try:
     grok_client = GrokClient()
 except RuntimeError:
     grok_client = None
+
