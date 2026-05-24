@@ -108,15 +108,15 @@ data class DiseaseDetectResponse(
 )
 
 data class DiseaseResult(
-    val disease_name: String,
-    val confidence: Double,
-    val severity: String,
-    val description: String,
-    val treatment_suggestions: List<String>,
-    val prevention_tips: List<String>,
-    val crop_type: String?,
-    val timestamp: String?,
-    val source: String?,
+    val disease_name: String? = null,
+    val confidence: Double? = null,
+    val severity: String? = null,
+    val description: String? = null,
+    val treatment_suggestions: List<String>? = null,
+    val prevention_tips: List<String>? = null,
+    val crop_type: String? = null,
+    val timestamp: String? = null,
+    val source: String? = null,
     val is_plant_image: Boolean? = null,
     val can_analyze: Boolean? = null,
     val invalid_image_reason: String? = null,
@@ -130,12 +130,12 @@ data class DiseaseHistoryResponse(
 )
 
 data class DiseaseHistoryItem(
-    val id: Int,
-    val crop_type: String?,
-    val disease_name: String?,
-    val confidence: Double,
-    val severity: String,
-    val created_at: String?
+    val id: Int? = null,
+    val crop_type: String? = null,
+    val disease_name: String? = null,
+    val confidence: Double? = null,
+    val severity: String? = null,
+    val created_at: String? = null
 )
 
 data class DiseaseInfoResponse(
@@ -227,11 +227,11 @@ data class StoreRecommendationsResponse(
 )
 
 data class StoreRecommendationItem(
-    val title: String,
-    val subtitle: String,
-    val category: String,
-    val image_url: String?,
-    val shop_url: String
+    val title: String? = null,
+    val subtitle: String? = null,
+    val category: String? = null,
+    val image_url: String? = null,
+    val shop_url: String? = null
 )
 
 // ============ WEATHER RESPONSES ============

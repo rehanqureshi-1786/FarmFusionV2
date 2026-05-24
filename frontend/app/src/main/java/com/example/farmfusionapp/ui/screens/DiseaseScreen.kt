@@ -763,7 +763,7 @@ fun DiseaseResultStep(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = result.disease_name ?: "Unknown",
+                    text = result?.disease_name ?: "Unknown Disease",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onErrorContainer
@@ -794,7 +794,7 @@ fun DiseaseResultStep(
                         color = FarmColors.Warning
                     ) {
                         Text(
-                            text = "${(result.confidence?.times(100)?.toInt() ?: 0)}%",
+                            text = "${((result?.confidence ?: 0.0).times(100).toInt())}%",
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -827,7 +827,7 @@ fun DiseaseResultStep(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = result.description ?: "No description available",
+                    text = result?.description ?: "No description available",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
