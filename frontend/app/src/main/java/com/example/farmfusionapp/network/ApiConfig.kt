@@ -3,7 +3,7 @@ package com.example.farmfusionapp.network
 object ApiConfig {
     // Default to localhost so a real Android device connected via USB (adb reverse)
     // can reach the local backend. Change to your deployed URL for production.
-    const val BASE_URL = "http://127.0.0.1:8000/"
+    const val BASE_URL = "http://192.168.31.2:8000/"
 
     // If you need the Render cloud backend, set to:
     // const val BASE_URL = "https://farmfusion1.onrender.com/"

@@ -763,7 +763,7 @@ fun DiseaseResultStep(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = result?.disease_name ?: "Unknown Disease",
+                    text = result?.disease_name?.takeIf { it.isNotBlank() } ?: "Unknown Disease",
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.Black,
                         color = MaterialTheme.colorScheme.onErrorContainer

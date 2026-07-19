@@ -1,10 +1,5 @@
 package com.example.farmfusionapp.data.model
 
-/**
- * Data classes for all API responses
- * These match the JSON structure from FastAPI backend
- */
-
 // ============ AUTH RESPONSES ============
 
 data class AuthResponse(
@@ -108,20 +103,20 @@ data class DiseaseDetectResponse(
 )
 
 data class DiseaseResult(
-    val disease_name: String = "Unknown",
-    val confidence: Double = 0.0,
-    val severity: String = "low",
-    val description: String = "",
-    val treatment_suggestions: List<String> = emptyList(),
-    val prevention_tips: List<String> = emptyList(),
-    val crop_type: String? = null,
-    val timestamp: String? = null,
-    val source: String? = null,
-    val is_plant_image: Boolean? = null,
-    val can_analyze: Boolean? = null,
-    val invalid_image_reason: String? = null,
-    val ai_analyzed: Boolean? = null,
-    val store_recommendations: List<StoreRecommendationItem>? = null
+    @com.google.gson.annotations.SerializedName("disease") val disease_name: String?,
+    @com.google.gson.annotations.SerializedName("confidence") val confidence: Double?,
+    @com.google.gson.annotations.SerializedName("severity") val severity: String?,
+    @com.google.gson.annotations.SerializedName("description") val description: String?,
+    @com.google.gson.annotations.SerializedName("treatment") val treatment_suggestions: List<String>?,
+    @com.google.gson.annotations.SerializedName("prevention") val prevention_tips: List<String>?,
+    @com.google.gson.annotations.SerializedName("crop_type") val crop_type: String?,
+    @com.google.gson.annotations.SerializedName("timestamp") val timestamp: String?,
+    @com.google.gson.annotations.SerializedName("source") val source: String?,
+    @com.google.gson.annotations.SerializedName("is_plant_image") val is_plant_image: Boolean?,
+    @com.google.gson.annotations.SerializedName("can_analyze") val can_analyze: Boolean?,
+    @com.google.gson.annotations.SerializedName("invalid_image_reason") val invalid_image_reason: String?,
+    @com.google.gson.annotations.SerializedName("ai_analyzed") val ai_analyzed: Boolean?,
+    @com.google.gson.annotations.SerializedName("store_recommendations") val store_recommendations: List<StoreRecommendationItem>?
 )
 
 data class DiseaseHistoryResponse(

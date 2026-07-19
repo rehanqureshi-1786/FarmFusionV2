@@ -14,30 +14,19 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 
-/**
- * ViewModel for Disease Detection feature
- * Connects to backend /disease endpoints
- */
 class DiseaseViewModel : ViewModel() {
 
     private val api = RetrofitInstance.api
 
-    // State for disease detection
     private val _detectState = mutableStateOf<DiseaseDetectState>(DiseaseDetectState.Idle)
     val detectState: State<DiseaseDetectState> = _detectState
 
-    // State for history
     private val _historyState = mutableStateOf<DiseaseHistoryState>(DiseaseHistoryState.Idle)
     val historyState: State<DiseaseHistoryState> = _historyState
 
-    // State for disease info
     private val _infoState = mutableStateOf<DiseaseInfoState>(DiseaseInfoState.Idle)
     val infoState: State<DiseaseInfoState> = _infoState
 
-    /**
-     * Upload image and detect disease
-     * POST /api/v1/disease/detect
-     */
     fun detectDisease(
         imageFile: File,
         cropType: String?,
@@ -49,29 +38,26 @@ class DiseaseViewModel : ViewModel() {
             _detectState.value = DiseaseDetectState.Loading
 
             try {
-                // Validate file exists and is readable
                 if (!imageFile.exists()) {
                     _detectState.value = DiseaseDetectState.Error("Image file not found: ${imageFile.absolutePath}")
                     return@launch
                 }
-                
+
                 if (!imageFile.isFile || !imageFile.canRead()) {
                     _detectState.value = DiseaseDetectState.Error("Image file is not readable: ${imageFile.absolutePath}")
                     return@launch
                 }
-                
+
                 val fileSize = imageFile.length()
                 if (fileSize == 0L) {
                     _detectState.value = DiseaseDetectState.Error("Image file is empty (0 bytes)")
                     return@launch
                 }
-                
+
                 android.util.Log.d("DiseaseViewModel", "Uploading image: ${imageFile.name} (${fileSize} bytes)")
 
-                // Wake Render free-tier instance before the heavier multipart request
                 runCatching { api.checkHealth() }
 
-                // Create multipart body safely
                 val requestFile = try {
                     imageFile.asRequestBody(mimeType.toMediaTypeOrNull())
                 } catch (e: Exception) {
@@ -86,7 +72,6 @@ class DiseaseViewModel : ViewModel() {
                     requestFile
                 )
 
-                // Make API request
                 val response = try {
                     api.detectDisease(
                         imagePart,
@@ -100,17 +85,18 @@ class DiseaseViewModel : ViewModel() {
                     return@launch
                 }
 
-                // Process response
                 if (response.isSuccessful) {
                     response.body()?.let { body ->
                         android.util.Log.d("DiseaseViewModel", "Response received: disease=${body.data?.disease_name}, success=${body.success}")
-                        
-                        // Validate response has required data
+
+                        val rawJson = com.google.gson.Gson().toJson(body)
+                        android.util.Log.d("DiseaseDebug", "Full parsed body as JSON: $rawJson")
+
                         if (body.data == null) {
                             _detectState.value = DiseaseDetectState.Error("Server returned no disease data")
                             return@launch
                         }
-                        
+
                         _detectState.value = DiseaseDetectState.Success(body)
                     } ?: run {
                         _detectState.value = DiseaseDetectState.Error("Server response body is empty")
@@ -133,10 +119,6 @@ class DiseaseViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Get disease detection history
-     * GET /disease/history
-     */
     fun getHistory(firebaseToken: String, limit: Int = 10) {
         viewModelScope.launch {
             _historyState.value = DiseaseHistoryState.Loading
@@ -163,10 +145,6 @@ class DiseaseViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Get disease information
-     * GET /api/v1/disease/info/{disease_name}
-     */
     fun getDiseaseInfo(diseaseName: String) {
         viewModelScope.launch {
             _infoState.value = DiseaseInfoState.Loading
@@ -195,7 +173,6 @@ class DiseaseViewModel : ViewModel() {
         _detectState.value = DiseaseDetectState.Idle
     }
 
-    // State classes
     sealed class DiseaseDetectState {
         object Idle : DiseaseDetectState()
         object Loading : DiseaseDetectState()

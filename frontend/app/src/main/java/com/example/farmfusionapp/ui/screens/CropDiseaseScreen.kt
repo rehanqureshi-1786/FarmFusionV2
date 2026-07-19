@@ -71,7 +71,7 @@ fun CropDiseaseScreen(navController: NavController) {
     val diseaseViewModel: DiseaseViewModel = viewModel()
     var state by remember { mutableStateOf(DiseaseScreenState.IDLE) }
     var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
-    
+
     val detectState by diseaseViewModel.detectState
     val currentLang = remember { AuthStore.getLanguage(context) ?: "en" }
     val token = remember { AuthStore.getAuthToken(context) }
@@ -82,7 +82,7 @@ fun CropDiseaseScreen(navController: NavController) {
     val startAnalysis = {
         state = DiseaseScreenState.SCANNING
         diseaseViewModel.detectDisease(
-            imageFile = tempFile, 
+            imageFile = tempFile,
             cropType = null,
             firebaseToken = token,
             responseLanguage = currentLang
@@ -170,8 +170,7 @@ fun CropDiseaseScreen(navController: NavController) {
                 }
             }
         }
-        
-        // Error handling
+
         if (detectState is DiseaseViewModel.DiseaseDetectState.Error) {
             AlertDialog(
                 onDismissRequest = { diseaseViewModel.resetDetectState(); state = DiseaseScreenState.IDLE },
@@ -204,7 +203,7 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
                 Text("Identify pests and diseases instantly with AI biology analysis.", color = Color.Gray)
             }
         }
-        
+
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Surface(
                 onClick = onCapture,
@@ -260,7 +259,7 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
 private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () -> Unit) {
     val scrollState = rememberScrollState()
     val context = LocalContext.current
-    
+
     if (result == null || result.ai_analyzed == false) {
         Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(Icons.Rounded.SentimentDissatisfied, null, modifier = Modifier.size(80.dp), tint = Color.Gray)
@@ -272,8 +271,13 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
         return
     }
 
+    val diseaseName = result.disease_name ?: "Unknown Disease"
+    val severity = result.severity ?: "unknown"
+    val description = result.description ?: ""
+    val treatmentSuggestions = result.treatment_suggestions ?: emptyList()
+    val preventionTips = result.prevention_tips ?: emptyList()
+
     Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        // Hero Image
         Surface(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth().height(200.dp).shadow(8.dp)) {
             Box {
                 if (imageUri != null) Image(painter = rememberAsyncImagePainter(imageUri), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
@@ -283,35 +287,27 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
             }
         }
 
-        // Main Result Card
         NeoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    Text(result.disease_name, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black, color = Color(0xFF1B1B1B)))
-                    
-                    // Confidence Progress (Hidden as per request)
-                    /*
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(44.dp)) {
-                        CircularProgressIndicator(progress = { result.confidence.toFloat() }, color = CropSuccessGreen, strokeWidth = 3.dp, trackColor = Color(0xFFEEEEEE))
-                        Text("${(result.confidence * 100).toInt()}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                    */
+                    Text(
+                        text = diseaseName,
+                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black, color = Color(0xFF1B1B1B))
+                    )
                 }
 
-                // Severity Chip
-                val sevColor = when(result.severity.lowercase()) {
+                val sevColor = when (severity.lowercase()) {
                     "low" -> CropSuccessGreen
                     "moderate" -> CropWarningOrange
                     else -> CropErrorRed
                 }
                 Surface(color = sevColor.copy(alpha = 0.1f), border = BorderStroke(1.dp, sevColor), shape = RoundedCornerShape(8.dp)) {
-                    Text(result.severity.uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = sevColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text(severity.uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = sevColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
-                // Collapsible Description
                 var expanded by remember { mutableStateOf(false) }
                 Text(
-                    text = result.description,
+                    text = description,
                     maxLines = if (expanded) Int.MAX_VALUE else 3,
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
@@ -321,35 +317,41 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
             }
         }
 
-        // Treatment & Prevention
         NeoSectionTitle("Recommended Care", "Scientific steps for recovery")
         NeoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Treatment Steps", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
-                result.treatment_suggestions.forEach { tip ->
-                    Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Rounded.CheckCircle, null, tint = CropPrimaryDark, modifier = Modifier.size(16.dp).padding(top = 2.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(tip, style = MaterialTheme.typography.bodySmall)
+                if (treatmentSuggestions.isEmpty()) {
+                    Text("No treatment steps available.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                } else {
+                    treatmentSuggestions.forEach { tip ->
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Rounded.CheckCircle, null, tint = CropPrimaryDark, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(tip, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
-                
+
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                
+
                 Text("Prevention Tips", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
-                result.prevention_tips.forEach { tip ->
-                    Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Rounded.Shield, null, tint = CropWarningOrange, modifier = Modifier.size(16.dp).padding(top = 2.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(tip, style = MaterialTheme.typography.bodySmall)
+                if (preventionTips.isEmpty()) {
+                    Text("No prevention tips available.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                } else {
+                    preventionTips.forEach { tip ->
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Rounded.Shield, null, tint = CropWarningOrange, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(tip, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
                 }
             }
         }
 
-        // Store Recommendations Carousel
         if (!result.store_recommendations.isNullOrEmpty()) {
-            NeoSectionTitle("Buy Treatment", "Amazon affiliate picks for ${result.disease_name}")
+            NeoSectionTitle("Buy Treatment", "Amazon affiliate picks for $diseaseName")
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
                 items(result.store_recommendations) { item ->
                     StoreMiniCard(item) {

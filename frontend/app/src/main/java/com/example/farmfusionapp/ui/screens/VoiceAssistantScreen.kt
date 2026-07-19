@@ -76,7 +76,7 @@ fun VoiceAssistantScreen(navController: NavController) {
     val voiceState by viewModel.voiceState
     val savedLanguage = remember { AuthStore.getLanguage(context) ?: "en" }
     val listState = rememberLazyListState()
-    
+
     val availableLanguages = remember {
         listOf(
             VoiceLanguage("en", "English", Locale("en", "IN")),
@@ -137,25 +137,12 @@ fun VoiceAssistantScreen(navController: NavController) {
         return availableLanguages.firstOrNull { it.code == code }?.locale ?: selectedLanguage.locale
     }
 
-    fun speak(text: String, languageCode: String, onComplete: (() -> Unit)? = null) {
-        pendingRoute = onComplete
-        if (!ttsReady) {
-            onComplete?.invoke()
-            return
-        }
+    fun speak(text: String, languageCode: String) {
+        if (!ttsReady) return
 
         assistantState = VoiceAssistantState.SPEAKING
         tts.language = resolvedSpeakLocale(languageCode)
         tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "farmfusion_voice")
-    }
-
-    fun routeAssistantAction(response: VoiceQueryResponse) {
-        when {
-            response.intent == "disease_detection" || response.action == "open_camera" -> navController.navigate(NavRoutes.CropDisease)
-            response.intent == "get_weather" -> navController.navigate(NavRoutes.Weather)
-            response.intent == "get_mandi_price" -> navController.navigate(NavRoutes.MandiPrices)
-            response.intent == "crop_prediction" -> navController.navigate(NavRoutes.CropRecommendation)
-        }
     }
 
     fun submitQuery(text: String) {
@@ -171,7 +158,7 @@ fun VoiceAssistantScreen(navController: NavController) {
             languageHint = selectedLanguage.code
         )
         query = ""
-        suggestions = emptyList() // Clear suggestions after query
+        suggestions = emptyList()
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -186,18 +173,14 @@ fun VoiceAssistantScreen(navController: NavController) {
     }
 
     DisposableEffect(speechRecognizer) {
-        val mainHandler = Handler(Looper.getMainLooper())
         tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) = Unit
             override fun onDone(utteranceId: String?) {
                 assistantState = VoiceAssistantState.IDLE
-                pendingRoute?.let { route -> mainHandler.post { route.invoke() } }
-                pendingRoute = null
             }
 
             override fun onError(utteranceId: String?) {
                 assistantState = VoiceAssistantState.IDLE
-                pendingRoute = null
             }
         })
 
@@ -253,7 +236,7 @@ fun VoiceAssistantScreen(navController: NavController) {
                 val responseText = state.response.response.trim()
                 chatMessages.add(ChatMessage(responseText, isUser = false))
                 suggestions = state.response.follow_up_suggestions?.filter { it.isNotBlank() }.orEmpty()
-                speak(responseText, state.response.detected_language) { routeAssistantAction(state.response) }
+                speak(responseText, state.response.detected_language)
                 viewModel.resetState()
             }
 
@@ -328,10 +311,15 @@ fun VoiceAssistantScreen(navController: NavController) {
                     items(chatMessages) { message ->
                         VoiceBubble(message)
                     }
-                    
+
                     if (assistantState == VoiceAssistantState.PROCESSING) {
                         item {
-                            Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                             }
                         }
@@ -341,7 +329,7 @@ fun VoiceAssistantScreen(navController: NavController) {
                 if (suggestions.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            "Suggested for you:", 
+                            "Suggested for you:",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(start = 8.dp)
@@ -375,7 +363,9 @@ fun VoiceAssistantScreen(navController: NavController) {
                 Surface(
                     shape = RoundedCornerShape(32.dp),
                     color = Color.White.copy(alpha = 0.95f),
-                    modifier = Modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(32.dp)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(10.dp, RoundedCornerShape(32.dp)),
                     border = BorderStroke(1.dp, Color(0xFFF0F0F0))
                 ) {
                     Row(
@@ -405,7 +395,7 @@ fun VoiceAssistantScreen(navController: NavController) {
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                             keyboardActions = KeyboardActions(onSend = { submitQuery(query) })
                         )
-                        
+
                         IconButton(
                             onClick = {
                                 if (assistantState == VoiceAssistantState.LISTENING) {
@@ -425,7 +415,7 @@ fun VoiceAssistantScreen(navController: NavController) {
                         if (query.isNotBlank()) {
                             IconButton(onClick = { submitQuery(query) }) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.Send, 
+                                    imageVector = Icons.AutoMirrored.Rounded.Send,
                                     contentDescription = "Send",
                                     tint = MaterialTheme.colorScheme.primary
                                 )

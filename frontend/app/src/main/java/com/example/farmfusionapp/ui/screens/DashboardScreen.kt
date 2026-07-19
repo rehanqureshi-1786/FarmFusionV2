@@ -227,7 +227,6 @@ fun DashboardScreen(navController: NavController) {
         }
     }
 
-    // Refresh city name when language changes
     LaunchedEffect(Unit) {
         val appLanguage = LanguagePreferences.getSelectedLanguage(context) ?: "en"
         val lat = LocationSnapshotStore.latestLatitude
@@ -274,11 +273,11 @@ fun DashboardScreen(navController: NavController) {
                 item {
                     ActionGroup(
                         actions = groupedActions,
-                        onActionClick = { 
+                        onActionClick = {
                             if (it.route == NavRoutes.ProductStore) {
                                 AgriStoreContext.setBrowse()
                             }
-                            navController.navigate(it.route) 
+                            navController.navigate(it.route)
                         }
                     )
                 }
@@ -378,77 +377,59 @@ private fun HeroPagerSection(
     suggestions: List<SuggestionPill>,
     onWeatherClick: () -> Unit
 ) {
-    val pagerState = rememberPagerState(pageCount = { 3 })
-    
-    // Auto-swiping logic: scrolls every 8 seconds
+    val pageCount = 3
+    val pagerState = rememberPagerState(pageCount = { pageCount })
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(pagerState.currentPage) {
         delay(8000)
-        val nextPage = (pagerState.currentPage + 1) % 3
+        val nextPage = (pagerState.currentPage + 1) % pageCount
         pagerState.animateScrollToPage(nextPage)
     }
-    
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(280.dp),
-            contentPadding = PaddingValues(horizontal = 4.dp),
-            pageSpacing = 8.dp
-        ) { page ->
-            Box(
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
-                    .graphicsLayer {
-                        // Add smooth scaling animation
-                        val pageOffset = (
-                            (pagerState.currentPage - page) + pagerState
-                                .currentPageOffsetFraction
-                            ).absoluteValue
-                        
-                        // We animate the scale and alpha based on how far the page is from the center
-                        val scale = lerp(
-                            start = 0.9f,
-                            stop = 1f,
-                            fraction = 1f - pageOffset.coerceIn(0f, 1f)
-                        )
-                        scaleX = scale
-                        scaleY = scale
-                        
-                        alpha = lerp(
-                            start = 0.6f,
-                            stop = 1f,
-                            fraction = 1f - pageOffset.coerceIn(0f, 1f)
-                        )
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .clip(RoundedCornerShape(32.dp)),
+                contentPadding = PaddingValues(horizontal = 0.dp),
+                pageSpacing = 16.dp,
+                beyondViewportPageCount = 1
+            ) { page ->
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (page) {
+                        0 -> WeatherHeroCard(weatherData, onWeatherClick)
+                        1 -> AlertsHeroCard()
+                        2 -> SuggestionsHeroCard(suggestions)
                     }
-            ) {
-                when (page) {
-                    0 -> WeatherHeroCard(weatherData, onWeatherClick)
-                    1 -> AlertsHeroCard()
-                    2 -> SuggestionsHeroCard(suggestions)
                 }
             }
         }
-        
-        // Pager Indicators
+
         Row(
-            Modifier
+            modifier = Modifier
                 .height(8.dp)
                 .fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            repeat(3) { iteration ->
-                val color = if (pagerState.currentPage == iteration) MaterialTheme.colorScheme.primary else Color.LightGray
+            repeat(pageCount) { iteration ->
+                val isSelected = pagerState.currentPage == iteration
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
                         .clip(CircleShape)
-                        .background(color)
-                        .size(if (pagerState.currentPage == iteration) 12.dp else 8.dp)
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary
+                            else Color.LightGray
+                        )
+                        .size(if (isSelected) 10.dp else 6.dp)
                 )
             }
         }
     }
-}
 
 @Composable
 private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Unit) {
@@ -638,7 +619,7 @@ private fun AlertsHeroCard() {
                 }
 
                 Button(
-                    onClick = { /* Navigate to Alerts */ },
+                    onClick = { },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.2f)),
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
@@ -780,8 +761,6 @@ private fun WeatherStatItem(icon: ImageVector, label: String, value: String) {
     }
 }
 
-
-
 @Composable
 private fun ActionGroup(
     actions: List<HomeAction>,
@@ -798,7 +777,7 @@ private fun ActionGroup(
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold)
             )
         }
-        
+
         actions.chunked(2).forEach { rowActions ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -852,7 +831,7 @@ private fun ModernActionCard(
                     modifier = Modifier.size(24.dp)
                 )
             }
-            
+
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     text = action.title,
@@ -945,7 +924,7 @@ private fun HomeBottomBar(navController: NavController) {
         items.forEach { (label, route, icon) ->
             val selected = currentRoute == route
             val primaryColor = MaterialTheme.colorScheme.primary
-            
+
             Column(
                 modifier = Modifier
                     .weight(1f)
