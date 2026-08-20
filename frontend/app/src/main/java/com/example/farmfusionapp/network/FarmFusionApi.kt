@@ -19,6 +19,13 @@ interface FarmFusionApi {
         @Body request: CropRecommendRequest
     ): Response<CropRecommendResponse>
 
+    // ============ CROP RECOMMENDATION - NO SOIL REPORT ============
+
+    @POST("api/v1/crop-recommendation/no-soil-report")
+    suspend fun getNoSoilReportRecommendations(
+        @Body request: NoSoilReportRequest
+    ): Response<NoSoilReportResponse>
+
     @GET("api/v1/crop/history")
     suspend fun getCropRecommendationHistory(
         @Query("firebase_token") token: String,

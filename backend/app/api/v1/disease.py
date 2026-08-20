@@ -59,11 +59,22 @@ async def detect_disease(
                 and float(result.get("confidence", 0.0)) > 0.0
             )
 
+            conf = float(result.get("confidence", 0.0))
+            if conf >= 0.75:
+                conf_tier = "high"
+            elif conf >= 0.45:
+                conf_tier = "medium"
+            elif conf >= 0.30:
+                conf_tier = "low"
+            else:
+                conf_tier = "unclear"
+
             resp = {
                 "success": True,
                 "data": {
                     "disease_name": disease_name or "Unknown",
-                    "confidence": result.get("confidence", 0.0),
+                    "confidence": conf,
+                    "confidence_tier": conf_tier,
                     "severity": result.get("severity", "unknown"),
                     "description": result.get("description", ""),
                     "treatment_suggestions": result.get("treatment", []),
@@ -74,6 +85,7 @@ async def detect_disease(
                     "store_recommendations": [],
                 }
             }
+
 
             # Add store recommendations when AI provided a meaningful problem (not a healthy plant)
             try:

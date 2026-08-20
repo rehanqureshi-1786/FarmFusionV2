@@ -1,37 +1,40 @@
-# FastAPI
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+# FastAPI Framework & Server
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
 
-# Database
-sqlalchemy==2.0.23
-asyncpg==0.29.0
-aiosqlite==0.19.0
-alembic==1.12.1
+# Database & Vector Search
+sqlalchemy>=2.0.23
+asyncpg>=0.29.0
+alembic>=1.12.1
+pgvector>=0.2.4
 
-# Pydantic
-pydantic==2.5.2
-pydantic-settings==2.1.0
-email-validator==2.1.0
+# Pydantic v2
+pydantic>=2.5.2
+pydantic-settings>=2.1.0
+email-validator>=2.1.0
 
-# Authentication
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-firebase-admin==6.5.0
+# Authentication & Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.6
 
-# Redis
-redis==5.0.1
+# Cache & Async HTTP
+redis>=5.0.1
+httpx>=0.25.2
+aiohttp>=3.9.0
 
-# Celery
-celery==5.3.4
+# Logging & Monitoring
+structlog>=23.2.0
 
-# HTTP Client
-httpx==0.25.2
+# Agent Framework & ML
+langgraph>=0.0.20
+prophet>=1.1.5
+lightgbm>=4.1.0
+xgboost>=2.0.0
+torch>=2.1.0
+torchvision>=0.16.0
 
-# AI & Vision
-google-generativeai==0.8.4
-Pillow==10.1.0
-groq==0.4.2
-
-# Utils
-python-dotenv==1.0.0
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+python-dotenv>=1.0.0

@@ -7,7 +7,8 @@ from sqlalchemy import select, desc
 from app.api.deps import get_db, get_current_user
 from app.models.crop import Crop, CropStatus
 from app.models.user import User
-from app.schemas.crop import CropCreate, CropResponse, CropUpdate, CropRecommendationRequest, CropRecommendationResponse
+from app.schemas.crop import CropCreate, CropResponse, CropUpdate
+from app.workflows.crop_recommendation import CropRecommendationInput, run_crop_recommendation_workflow
 
 router = APIRouter(prefix="/crop", tags=["Crops"])
 
@@ -52,23 +53,15 @@ async def get_crop(crop_id: int, db: AsyncSession = Depends(get_db), current_use
     return crop
 
 
-@router.post("/recommend", response_model=CropRecommendationResponse)
-async def get_recommendations(request: CropRecommendationRequest):
-    recommendations = [
-        {
-            "crop_name": "Wheat",
-            "confidence": 0.92,
-            "description": "Best suited for your soil",
-            "expected_yield": "45-50 quintals per hectare"
-        },
-        {
-            "crop_name": "Mustard",
-            "confidence": 0.85,
-            "description": "Good for rotation",
-            "expected_yield": "15-18 quintals per hectare"
-        }
-    ]
-    return CropRecommendationResponse(recommendations=recommendations)
+@router.post("/recommend")
+async def get_recommendations(request: CropRecommendationInput):
+    """
+    POST /crop/recommend
+    Runs XGBoost/LightGBM ML crop recommendation pipeline with RAG agronomic advice.
+    """
+    result = await run_crop_recommendation_workflow(request)
+    return result
+
 
 
 @router.get("/test")

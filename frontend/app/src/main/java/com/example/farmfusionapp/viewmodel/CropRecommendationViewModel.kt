@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.farmfusionapp.data.model.CropRecommendationItem
+import com.example.farmfusionapp.data.model.NoSoilReportResponse
 import com.example.farmfusionapp.data.repository.CropRecommendationRepository
 import com.example.farmfusionapp.utils.Resource
 import kotlinx.coroutines.flow.launchIn
@@ -39,6 +40,67 @@ class CropRecommendationViewModel : ViewModel() {
     private val _isSuccess = mutableStateOf(false)
     val isSuccess: State<Boolean> = _isSuccess
 
+    // ============ NO SOIL REPORT FLOW STATE ============
+
+    private val _noSoilReportResult = mutableStateOf<NoSoilReportResponse?>(null)
+    val noSoilReportResult: State<NoSoilReportResponse?> = _noSoilReportResult
+
+    private val _isNoSoilReportLoading = mutableStateOf(false)
+    val isNoSoilReportLoading: State<Boolean> = _isNoSoilReportLoading
+
+    private val _noSoilReportError = mutableStateOf<String?>(null)
+    val noSoilReportError: State<String?> = _noSoilReportError
+
+    private val _isNoSoilReportSuccess = mutableStateOf(false)
+    val isNoSoilReportSuccess: State<Boolean> = _isNoSoilReportSuccess
+
+    /**
+     * Fetch crop recommendations for the "I don't have a soil report" flow.
+     *
+     * The backend derives soil + weather from the coordinates and returns the
+     * top 3 crops after running the ML model + regional validation.
+     *
+     * @param latitude  Device latitude
+     * @param longitude Device longitude
+     * @param state     Optional state name (regional scoring hint)
+     */
+    fun fetchNoSoilReportRecommendations(
+        latitude: Double,
+        longitude: Double,
+        state: String?
+    ) {
+        repository.getNoSoilReportRecommendations(latitude, longitude, state)
+            .onEach { result ->
+                when (result) {
+                    is Resource.Loading -> {
+                        _isNoSoilReportLoading.value = true
+                        _noSoilReportError.value = null
+                        _isNoSoilReportSuccess.value = false
+                    }
+                    is Resource.Success -> {
+                        _isNoSoilReportLoading.value = false
+                        _noSoilReportResult.value = result.data
+                        _isNoSoilReportSuccess.value = true
+                    }
+                    is Resource.Error -> {
+                        _isNoSoilReportLoading.value = false
+                        _noSoilReportError.value = result.message
+                        _isNoSoilReportSuccess.value = false
+                    }
+                }
+            }.launchIn(viewModelScope)
+    }
+
+    /**
+     * Clear only the No-Soil-Report flow state.
+     */
+    fun resetNoSoilReportState() {
+        _noSoilReportResult.value = null
+        _isNoSoilReportLoading.value = false
+        _noSoilReportError.value = null
+        _isNoSoilReportSuccess.value = false
+    }
+
     /**
      * Fetch crop recommendations from AI backend
      *
@@ -51,10 +113,12 @@ class CropRecommendationViewModel : ViewModel() {
     fun fetchRecommendations(
         location: String = "Mumbai, India",
         soilType: String,
-        rainfallMm: Double = 1000.0,
-        temperatureC: Double = 28.0,
-        farmSizeAcres: Double = 2.0,
+        rainfallMm: Double = -1.0,
+        temperatureC: Double = 25.0,
+        farmSizeAcres: Double = 1.0,
         budgetUsd: Double? = null,
+        latitude: Double? = null,
+        longitude: Double? = null,
         preferredLanguage: String = "en"
     ) {
         // Map frontend soil types to backend expected values
@@ -73,6 +137,8 @@ class CropRecommendationViewModel : ViewModel() {
             temperatureC = temperatureC,
             farmSizeAcres = farmSizeAcres,
             budgetUsd = budgetUsd,
+            latitude = latitude,
+            longitude = longitude,
             preferredLanguage = preferredLanguage
         ).onEach { result ->
             when (result) {

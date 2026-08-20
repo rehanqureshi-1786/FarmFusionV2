@@ -3,7 +3,7 @@ Weather agent powered by Open-Meteo.
 Uses a free no-key weather API and returns normalized weather data for the app.
 """
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -11,6 +11,7 @@ import httpx
 class WeatherAgent:
     def __init__(self) -> None:
         self.base_url = "https://api.open-meteo.com/v1/forecast"
+        self.historical_url = "https://archive-api.open-meteo.com/v1/archive"
 
     def is_available(self) -> bool:
         return True
@@ -91,14 +92,14 @@ class WeatherAgent:
                 past_days=past_days
             )
             daily = payload.get("daily", {})
-            rows = self._build_daily_rows(daily, len(daily.get("time", [])))
-            history = rows[:past_days]
-            forecast = rows[past_days:past_days + forecast_days]
+            past_forecasts = self._build_daily_rows(daily, past_days, past=True)
+            future_forecasts = self._build_daily_rows(daily, forecast_days)
 
             return {
                 "success": True,
-                "history": history,
-                "forecast": forecast,
+                "location": "",
+                "past": past_forecasts,
+                "forecast": future_forecasts,
                 "source": "open-meteo"
             }
         except Exception as exc:
@@ -118,42 +119,26 @@ class WeatherAgent:
         params = {
             "latitude": lat,
             "longitude": lon,
-            "timezone": "auto",
+            "current": "temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,wind_speed_10m,weather_code,visibility,cloud_cover",
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset",
             "forecast_days": forecast_days,
             "past_days": past_days,
-            "current": ",".join([
-                "temperature_2m",
-                "relative_humidity_2m",
-                "apparent_temperature",
-                "pressure_msl",
-                "weather_code",
-                "wind_speed_10m",
-                "visibility",
-                "cloud_cover",
-            ]),
-            "daily": ",".join([
-                "weather_code",
-                "temperature_2m_max",
-                "temperature_2m_min",
-                "precipitation_sum",
-                "precipitation_probability_max",
-                "wind_speed_10m_max",
-                "sunrise",
-                "sunset",
-            ]),
+            "timezone": "auto",
         }
-
-        async with httpx.AsyncClient(trust_env=False, timeout=20.0) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0), trust_env=False) as client:
             response = await client.get(self.base_url, params=params)
             response.raise_for_status()
             return response.json()
 
-    def _build_daily_rows(self, daily: Dict[str, List[Any]], count: int) -> List[Dict[str, Any]]:
-        rows: List[Dict[str, Any]] = []
-        for i in range(count):
-            max_temp = daily.get("temperature_2m_max", [0])[i]
-            min_temp = daily.get("temperature_2m_min", [0])[i]
-            avg_temp = ((max_temp or 0) + (min_temp or 0)) / 2
+    def _build_daily_rows(self, daily: Dict[str, Any], days: int, past: bool = False) -> List[Dict[str, Any]]:
+        rows = []
+        for i in range(min(days, len(daily.get("time", [])))):
+            max_temp = daily.get("temperature_2m_max", [None])[i]
+            min_temp = daily.get("temperature_2m_min", [None])[i]
+            avg_temp = None
+            if max_temp is not None and min_temp is not None:
+                avg_temp = round((max_temp + min_temp) / 2, 1)
+
             rows.append({
                 "date": daily.get("time", [None])[i],
                 "temperature_c": avg_temp,
@@ -238,6 +223,183 @@ class WeatherAgent:
         if speed_kmh is None:
             return 0.0
         return round(float(speed_kmh) / 3.6, 2)
+
+    async def get_historical_rainfall(
+        self,
+        lat: float,
+        lon: float,
+        start_date: str,
+        end_date: str,
+    ) -> Dict[str, Any]:
+        """
+        Fetch historical daily precipitation sum from Open-Meteo Historical API.
+        
+        Uses ERA5-Land reanalysis (0.1 degree, ~11km) for best India coverage.
+        Data available from 1950 (ERA5) or 1981 (ERA5-Land) to present.
+        
+        Args:
+            lat: Latitude
+            lon: Longitude
+            start_date: Start date in YYYY-MM-DD format
+            end_date: End date in YYYY-MM-DD format
+            
+        Returns:
+            Dict with success, daily precipitation values, and sum
+        """
+        try:
+            params = {
+                "latitude": lat,
+                "longitude": lon,
+                "start_date": start_date,
+                "end_date": end_date,
+                "daily": "precipitation_sum",
+                "timezone": "auto",
+            }
+            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0), trust_env=False) as client:
+                response = await client.get(self.historical_url, params=params)
+                response.raise_for_status()
+                payload = response.json()
+            
+            daily = payload.get("daily", {})
+            precip_values = daily.get("precipitation_sum", [])
+            dates = daily.get("time", [])
+            
+            # Filter out None values
+            valid_precip = [float(p) for p in precip_values if p is not None]
+            total = sum(valid_precip)
+            
+            return {
+                "success": True,
+                "daily_precipitation_mm": [
+                    {"date": d, "precipitation_mm": float(p)}
+                    for d, p in zip(dates, precip_values)
+                    if p is not None
+                ],
+                "total_precipitation_mm": round(total, 2),
+                "days_count": len(valid_precip),
+                "source": "Open-Meteo ERA5-Land (historical)",
+            }
+        except httpx.TimeoutException:
+            logger.warning("historical_rainfall_timeout lat=%s lon=%s", lat, lon)
+            return {
+                "success": False,
+                "error": "Historical rainfall API timed out.",
+                "source": "Open-Meteo",
+            }
+        except httpx.HTTPStatusError as exc:
+            logger.warning("historical_rainfall_http_error status=%s", exc.response.status_code)
+            return {
+                "success": False,
+                "error": f"Historical rainfall API returned HTTP {exc.response.status_code}.",
+                "source": "Open-Meteo",
+            }
+        except httpx.HTTPError as exc:
+            logger.warning("historical_rainfall_http_failure: %s", exc)
+            return {
+                "success": False,
+                "error": f"Historical rainfall API request failed: {exc}.",
+                "source": "Open-Meteo",
+            }
+        except (ValueError, TypeError, KeyError) as exc:
+            logger.warning("historical_rainfall_parse_error: %s", exc)
+            return {
+                "success": False,
+                "error": f"Historical rainfall API returned invalid response: {exc}.",
+                "source": "Open-Meteo",
+            }
+
+    async def get_seasonal_rainfall(
+        self,
+        lat: float,
+        lon: float,
+        season: str,
+        year: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get seasonal rainfall for the given season and year.
+        
+        Seasons (Indian cropping calendar):
+        - Kharif: June - October
+        - Rabi: November - March (wraps year boundary)
+        - Zaid: April - May
+        
+        Args:
+            lat: Latitude
+            lon: Longitude
+            season: "Kharif", "Rabi", or "Zaid"
+            year: Year (defaults to current year)
+            
+        Returns:
+            Dict with seasonal rainfall total and daily breakdown
+        """
+        from datetime import datetime
+        
+        if year is None:
+            year = datetime.now().year
+        
+        season_months = {
+            "Kharif": (6, 10),   # June - October
+            "Rabi": (11, 3),     # November - March (wraps)
+            "Zaid": (4, 5),      # April - May
+        }
+        
+        if season not in season_months:
+            return {
+                "success": False,
+                "error": f"Unknown season: {season}",
+                "source": "Open-Meteo",
+            }
+        
+        start_month, end_month = season_months[season]
+        
+        if season == "Rabi":
+            # Rabi wraps year boundary: Nov-Dec of previous year, Jan-Mar of current year
+            start_date = f"{year - 1}-11-01"
+            end_date = f"{year}-03-31"
+        else:
+            start_date = f"{year}-{start_month:02d}-01"
+            # Get last day of end month
+            if end_month == 10:
+                end_day = 31
+            elif end_month in (4, 6, 9, 11):
+                end_day = 30
+            elif end_month == 2:
+                # Handle leap year
+                is_leap = (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
+                end_day = 29 if is_leap else 28
+            else:
+                end_day = 31
+            end_date = f"{year}-{end_month:02d}-{end_day:02d}"
+        
+        return await self.get_historical_rainfall(lat, lon, start_date, end_date)
+
+    async def get_annual_rainfall(
+        self,
+        lat: float,
+        lon: float,
+        year: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get annual rainfall for the given year.
+        
+        Args:
+            lat: Latitude
+            lon: Longitude
+            year: Year (defaults to previous complete year)
+            
+        Returns:
+            Dict with annual rainfall total and daily breakdown
+        """
+        from datetime import datetime
+        
+        if year is None:
+            # Use previous complete year to ensure full data
+            year = datetime.now().year - 1
+        
+        start_date = f"{year}-01-01"
+        end_date = f"{year}-12-31"
+        
+        return await self.get_historical_rainfall(lat, lon, start_date, end_date)
 
 
 weather_agent = WeatherAgent()

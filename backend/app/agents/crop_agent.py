@@ -301,6 +301,101 @@ Respond ONLY with valid JSON, no markdown formatting."""
             f"weather forecasts for optimal planting times."
         )
 
+    async def explain_structured_recommendations(
+        self,
+        candidates: List[Dict],
+        context: Dict[str, Any],
+        language: str = "en",
+    ) -> str:
+        """
+        Generate a natural-language explanation for a set of STRUCTURED ML
+        candidates (from the trained XGBoost model).
+
+        The LLM is explicitly instructed to ONLY explain the provided candidates
+        and MUST NOT invent, add, or re-rank crops on its own. If the LLM is
+        unavailable, a deterministic template explanation is returned instead.
+        """
+        lang = (language or "en").lower().strip()
+        lang_instruction = self._lang_instruction(lang)
+
+        system_prompt = (
+            "You are FarmFusion AI, an expert agricultural advisor. "
+            "You are given crop candidates that came from a trained machine-learning "
+            "model (XGBoost classifier) with their model probability and regional score. "
+            "Your job is to EXPLAIN those exact candidates: relate the inputs "
+            "(soil N/P/K/pH, temperature, humidity, rainfall, season, state) to why each "
+            "crop is recommended, and give practical farming advice. "
+            "STRICT RULE: do NOT add new crops, remove candidates, or change their ranking. "
+            "Only describe and advise on the candidates provided."
+        )
+        user_prompt = (
+            "STRUCTURED ML CANDIDATES (top {n}, ranked):\n"
+            "{candidates}\n\n"
+            "CONTEXT:\n"
+            "- Location: {location}\n"
+            "- State: {state}\n"
+            "- Season: {season}\n"
+            "- Estimated soil: N={n_val}, P={p_val}, K={k_val}, pH={ph_val}\n"
+            "- Weather: {temp}\u00b0C, humidity {hum}%, rainfall {rain}mm\n\n"
+            "{lang_instruction}\n\n"
+            "Provide a concise, practical, farmer-facing explanation (2-4 sentences)."
+        ).format(
+            n=len(candidates),
+            candidates=json.dumps(candidates, indent=2),
+            location=context.get("location", "unknown"),
+            state=context.get("state") or "not provided",
+            season=context.get("season", "unknown"),
+            n_val=context.get("soil", {}).get("N", "?"),
+            p_val=context.get("soil", {}).get("P", "?"),
+            k_val=context.get("soil", {}).get("K", "?"),
+            ph_val=context.get("soil", {}).get("ph", "?"),
+            temp=context.get("weather", {}).get("temperature_c", "?"),
+            hum=context.get("weather", {}).get("humidity_percent", "?"),
+            rain=context.get("weather", {}).get("rainfall_mm", "?"),
+            lang_instruction=lang_instruction,
+        )
+
+        if groq_client.is_available():
+            result = await groq_client.chat_completion(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=0.4,
+                max_tokens=800,
+            )
+            if result.get("success"):
+                content = result["content"].strip()
+                if content:
+                    return content
+            print(f"Groq API error in explain: {result.get('error')}")
+
+        return self._template_explanation(candidates, context, lang)
+
+    def _template_explanation(
+        self,
+        candidates: List[Dict],
+        context: Dict[str, Any],
+        lang: str = "en",
+    ) -> str:
+        """Deterministic fallback explanation when the LLM is unavailable."""
+        names = ", ".join(c.get("crop_name", "?") for c in candidates[:3])
+        soil = context.get("soil", {})
+        season = context.get("season", "this season")
+
+        if lang == "hi":
+            return (
+                f"आपकी मिट्टी (N:{soil.get('N')}, P:{soil.get('P')}, K:{soil.get('K')}, "
+                f"pH:{soil.get('ph')}) और मौसम के आधार पर {season} के लिए सुझाई गई फसलें: "
+                f"{names}। ये सिफारिशें प्रशिक्षित ML मॉडल और क्षेत्रीय सत्यापन पर आधारित हैं। "
+                "कृपया वास्तविक स्थानीय कृषि सलाह के लिए अपने कृषि विशेषज्ञ से परामर्श करें।"
+            )
+        return (
+            f"Based on the estimated soil (N:{soil.get('N')}, P:{soil.get('P')}, "
+            f"K:{soil.get('K')}, pH:{soil.get('ph')}) and the current weather, the "
+            f"recommended crops for {season} are: {names}. These recommendations come from "
+            "a trained ML classifier combined with a regional validation layer. "
+            "Please confirm with a local agricultural expert before large-scale sowing."
+        )
+
 
 # Singleton instance
 crop_agent = CropRecommendationAgent()

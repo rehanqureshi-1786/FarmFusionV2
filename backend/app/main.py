@@ -19,7 +19,10 @@ from app.api.v1.labour import router as labour_router
 from app.api.v1.store import router as store_router
 from app.api.v1.lifecycle import router as lifecycle_router
 from app.api.v1.disease import router as disease_router
+from app.api.v1.knowledge import router as knowledge_router
+from app.api.v1.crop_recommendation import router as crop_recommendation_router
 from app.routes.weather import router as weather_router
+
 
 
 @asynccontextmanager
@@ -88,4 +91,7 @@ app.include_router(labour_router, prefix=settings.api_v1_prefix)
 app.include_router(store_router, prefix=settings.api_v1_prefix)
 app.include_router(lifecycle_router, prefix=settings.api_v1_prefix)
 app.include_router(disease_router, prefix=settings.api_v1_prefix)
+app.include_router(knowledge_router, prefix=settings.api_v1_prefix)
+app.include_router(crop_recommendation_router, prefix=settings.api_v1_prefix)
 app.include_router(weather_router, prefix=settings.api_v1_prefix)
+

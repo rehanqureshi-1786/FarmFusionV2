@@ -1,0 +1,63 @@
+{
+  "model_type": "XGBClassifier",
+  "feature_names": [
+    "N",
+    "P",
+    "K",
+    "temperature",
+    "humidity",
+    "ph",
+    "rainfall",
+    "NPK_sum",
+    "N_to_P_ratio",
+    "temp_humidity_interaction"
+  ],
+  "n_features": 10,
+  "crop_classes": [
+    "apple",
+    "banana",
+    "blackgram",
+    "chickpea",
+    "coconut",
+    "coffee",
+    "cotton",
+    "grapes",
+    "jute",
+    "kidneybeans",
+    "lentil",
+    "maize",
+    "mango",
+    "mothbeans",
+    "mungbean",
+    "muskmelon",
+    "orange",
+    "papaya",
+    "pigeonpeas",
+    "pomegranate",
+    "rice",
+    "watermelon"
+  ],
+  "n_classes": 22,
+  "test_accuracy": 0.9955,
+  "cv_accuracy_mean": 0.9941,
+  "cv_accuracy_std": 0.0023,
+  "training_samples": 1760,
+  "test_samples": 440,
+  "feature_importance": {
+    "N": 0.1282,
+    "P": 0.1016,
+    "K": 0.1334,
+    "temperature": 0.059,
+    "humidity": 0.1332,
+    "ph": 0.0348,
+    "rainfall": 0.129,
+    "NPK_sum": 0.1097,
+    "N_to_P_ratio": 0.0816,
+    "temp_humidity_interaction": 0.0894
+  },
+  "xgb_params": {
+    "n_estimators": 300,
+    "max_depth": 6,
+    "learning_rate": 0.1
+  }
+}

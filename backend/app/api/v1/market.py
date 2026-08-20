@@ -18,6 +18,7 @@ async def get_market_prices(
     state: Optional[str] = Query(None, description="Filter by state"),
     district: Optional[str] = Query(None, description="Filter by district"),
     commodity: Optional[str] = Query(None, description="Filter by commodity"),
+    crop: Optional[str] = Query(None, description="Filter by crop (alias)"),
     market: Optional[str] = Query(None, description="Filter by specific market/mandi"),
     db: AsyncSession = Depends(get_db)
 ):
@@ -25,10 +26,11 @@ async def get_market_prices(
     Get current mandi prices from CSV dataset with AI fallback.
     """
     try:
+        target_commodity = commodity or crop
         prices = await MarketService.get_current_prices(
             state=state,
             district=district,
-            commodity=commodity,
+            commodity=target_commodity,
             market=market
         )
         region = f"{district or ''} {state or 'India'}".strip()
@@ -37,6 +39,7 @@ async def get_market_prices(
             count=len(prices),
             region=region
         )
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching market prices: {str(e)}")
 
@@ -66,6 +69,24 @@ async def predict_market_prices(
             prediction_months=request.prediction_months,
             db=db
         )
-        return MarketPredictionResponse(**prediction)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating prediction: {str(e)}")
+
+
+from app.workflows.market_forecasting import MandiForecastRequest, run_mandi_forecasting_pipeline
+
+
+
+@router.get("/forecast")
+async def get_mandi_price_forecast(
+    commodity: str = Query(..., description="Crop or commodity name e.g. Wheat"),
+    mandi: str = Query("Jaipur Mandi", description="Target market/mandi location"),
+    days: int = Query(7, ge=1, le=30, description="Forecast horizon in days")
+):
+    """
+    GET /market/forecast
+    Prophet + LightGBM ML ensemble model price forecast with 95% confidence intervals and disclaimers.
+    """
+    req = MandiForecastRequest(commodity=commodity, mandi=mandi, days=days)
+    return await run_mandi_forecasting_pipeline(req)
+

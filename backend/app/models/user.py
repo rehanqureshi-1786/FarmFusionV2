@@ -6,7 +6,7 @@ from sqlalchemy import String, Boolean, DateTime, Enum, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 import enum
 
-from app.db.base import Base
+from app.core.database import Base
 
 if TYPE_CHECKING:
     from app.models.crop import Crop
@@ -39,8 +39,10 @@ class User(Base):
     village: Mapped[str] = mapped_column(String(100), nullable=True)
     pincode: Mapped[str] = mapped_column(String(10), nullable=True)
     
-    preferred_language: Mapped[str] = mapped_column(String(10), default="en")
+    preferred_language: Mapped[str] = mapped_column(String(10), default="hi")
+    consent_voice_storage: Mapped[bool] = mapped_column(Boolean, default=False)
     notification_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
     
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

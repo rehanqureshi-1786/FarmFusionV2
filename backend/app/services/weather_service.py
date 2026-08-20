@@ -90,6 +90,49 @@ class WeatherService:
         return await weather_agent.get_weather_timeline(lat, lon, forecast_days, past_days)
 
     @staticmethod
+    async def get_seasonal_rainfall(
+        lat: float,
+        lon: float,
+        season: str,
+        year: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Get seasonal rainfall from historical reanalysis data.
+        
+        This matches the model's training feature (seasonal/annual rainfall)
+        rather than using a short-term forecast.
+        
+        Args:
+            lat: Latitude
+            lon: Longitude
+            season: "Kharif", "Rabi", or "Zaid"
+            year: Year (defaults to current year)
+            
+        Returns:
+            Dict with seasonal rainfall total and daily breakdown
+        """
+        return await weather_agent.get_seasonal_rainfall(lat, lon, season, year)
+
+    @staticmethod
+    async def get_annual_rainfall(
+        lat: float,
+        lon: float,
+        year: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Get annual rainfall from historical reanalysis data.
+        
+        Args:
+            lat: Latitude
+            lon: Longitude
+            year: Year (defaults to previous complete year)
+            
+        Returns:
+            Dict with annual rainfall total and daily breakdown
+        """
+        return await weather_agent.get_annual_rainfall(lat, lon, year)
+
+    @staticmethod
     def _generate_farming_summary(
         current: Dict[str, Any],
         forecast: Dict[str, Any]
@@ -101,18 +144,18 @@ class WeatherService:
         if "temperature_c" in current:
             temp = current["temperature_c"]
             if temp > 35:
-                summary.append("⚠️ High temperatures expected - ensure irrigation")
+                summary.append("High temperatures expected - ensure irrigation")
             elif temp < 15:
-                summary.append("❄️ Cold conditions - protect sensitive crops")
+                summary.append("Cold conditions - protect sensitive crops")
 
         # Rain forecast
         forecast_days = forecast.get("forecast", [])
         rainy_days = sum(1 for day in forecast_days if day.get("rain_chance", 0) > 40)
 
         if rainy_days > 0:
-            summary.append(f"🌧️ {rainy_days} rainy days ahead - adjust irrigation schedule")
+            summary.append(f"{rainy_days} rainy days ahead - adjust irrigation schedule")
         else:
-            summary.append("☀️ Dry period ahead - monitor soil moisture")
+            summary.append("Dry period ahead - monitor soil moisture")
 
         # Wind conditions
         high_wind_days = sum(
@@ -120,6 +163,6 @@ class WeatherService:
             if day.get("wind_speed_ms", 0) > 8
         )
         if high_wind_days > 0:
-            summary.append(f"💨 {high_wind_days} windy days - delay spraying operations")
+            summary.append(f"{high_wind_days} windy days - delay spraying operations")
 
         return " | ".join(summary) if summary else "Good weather conditions for farming"

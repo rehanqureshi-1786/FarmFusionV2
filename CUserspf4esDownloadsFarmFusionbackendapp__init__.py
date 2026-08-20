@@ -1,1 +1,0 @@
-"""FarmFusion backend application."""

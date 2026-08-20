@@ -39,6 +39,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.farmfusionapp.R
 import com.example.farmfusionapp.data.model.CropRecommendationItem
+import com.example.farmfusionapp.data.model.NoSoilReportCropCandidate
+import com.example.farmfusionapp.data.model.NoSoilReportResponse
 import com.example.farmfusionapp.network.RetrofitInstance
 import com.example.farmfusionapp.ui.components.*
 import com.example.farmfusionapp.utils.*
@@ -55,7 +57,23 @@ enum class RecommendationStep {
     FARM_DETAILS,
     REPORT_PHOTO_INPUT,
     AUTO_ANALYSIS,
-    RESULT
+    RESULT,
+    NO_SOIL_REPORT_LOADING,
+    NO_SOIL_REPORT_RESULT
+}
+
+/**
+ * Sub-phases of the No-Soil-Report loading flow.
+ *
+ * The NoSoilReportLoadingStep Composable drives this state machine:
+ * permission → location → API call → (success/error).
+ */
+enum class NoSoilReportPhase {
+    PERMISSION_CHECK,
+    FETCHING_LOCATION,
+    API_LOADING,
+    PERMISSION_DENIED,
+    LOCATION_UNAVAILABLE
 }
 
 data class SoilTypeInfo(
@@ -89,6 +107,7 @@ fun CropRecommendationScreen(
     var selectedSoil by remember { mutableStateOf<SoilTypeInfo?>(null) }
     var isAdvancedMode by remember { mutableStateOf(false) }
     var formInputs by remember { mutableStateOf(CropRecommendationFormInputs()) }
+    var noSoilReportPhase by remember { mutableStateOf(NoSoilReportPhase.PERMISSION_CHECK) }
 
     val isLoading by viewModel.isLoading
     val error by viewModel.error
@@ -96,10 +115,21 @@ fun CropRecommendationScreen(
     val aiInsights by viewModel.aiInsights
     val isSuccess by viewModel.isSuccess
 
+    val noSoilReportResult by viewModel.noSoilReportResult
+    val isNoSoilReportLoading by viewModel.isNoSoilReportLoading
+    val noSoilReportError by viewModel.noSoilReportError
+    val isNoSoilReportSuccess by viewModel.isNoSoilReportSuccess
+
     LaunchedEffect(isSuccess) {
         if (isSuccess && currentStep == RecommendationStep.AUTO_ANALYSIS) {
             delay(500)
             currentStep = RecommendationStep.RESULT
+        }
+    }
+
+    LaunchedEffect(isNoSoilReportSuccess) {
+        if (isNoSoilReportSuccess && currentStep == RecommendationStep.NO_SOIL_REPORT_LOADING) {
+            currentStep = RecommendationStep.NO_SOIL_REPORT_RESULT
         }
     }
 
@@ -135,6 +165,12 @@ fun CropRecommendationScreen(
                                 selectedSoil = null
                                 formInputs = CropRecommendationFormInputs()
                             }
+                            RecommendationStep.NO_SOIL_REPORT_LOADING,
+                            RecommendationStep.NO_SOIL_REPORT_RESULT -> {
+                                currentStep = RecommendationStep.REPORT_CHECK
+                                viewModel.resetNoSoilReportState()
+                                noSoilReportPhase = NoSoilReportPhase.PERMISSION_CHECK
+                            }
                         }
                     }) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", modifier = Modifier.size(28.dp))
@@ -151,7 +187,9 @@ fun CropRecommendationScreen(
                         RecommendationStep.REPORT_CHECK -> 2
                         RecommendationStep.FARM_DETAILS -> 3
                         RecommendationStep.REPORT_PHOTO_INPUT, RecommendationStep.AUTO_ANALYSIS -> 4
-                        RecommendationStep.RESULT -> 5
+                        RecommendationStep.RESULT,
+                        RecommendationStep.NO_SOIL_REPORT_LOADING,
+                        RecommendationStep.NO_SOIL_REPORT_RESULT -> 5
                     },
                     totalSteps = 5,
                     modifier = Modifier.padding(bottom = 24.dp)
@@ -164,10 +202,40 @@ fun CropRecommendationScreen(
                 ) { step ->
                     when (step) {
                         RecommendationStep.SOIL_SELECTION -> SoilSelectionStep(soilTypes, selectedSoil) { selectedSoil = it; currentStep = RecommendationStep.REPORT_CHECK }
-                        RecommendationStep.REPORT_CHECK -> CropRecommendationReportCheckStep { isAdvancedMode = it; currentStep = RecommendationStep.FARM_DETAILS }
+                        RecommendationStep.REPORT_CHECK -> CropRecommendationReportCheckStep(
+                            onChoice = { isAdvancedMode = it; currentStep = RecommendationStep.FARM_DETAILS },
+                            onNoSoilReport = {
+                                noSoilReportPhase = NoSoilReportPhase.PERMISSION_CHECK
+                                viewModel.resetNoSoilReportState()
+                                currentStep = RecommendationStep.NO_SOIL_REPORT_LOADING
+                            }
+                        )
                         RecommendationStep.FARM_DETAILS -> FarmDetailsStep(selectedSoil?.name.orEmpty(), formInputs, { formInputs = it }) { currentStep = if (isAdvancedMode) RecommendationStep.REPORT_PHOTO_INPUT else RecommendationStep.AUTO_ANALYSIS }
                         RecommendationStep.REPORT_PHOTO_INPUT -> PhotoInputStep { currentStep = RecommendationStep.AUTO_ANALYSIS }
                         RecommendationStep.AUTO_ANALYSIS -> AutoAnalysisStep(formInputs, selectedSoil?.name ?: "", viewModel)
+                        RecommendationStep.NO_SOIL_REPORT_LOADING -> NoSoilReportLoadingStep(
+                            viewModel = viewModel,
+                            phase = noSoilReportPhase,
+                            onPhaseChange = { noSoilReportPhase = it },
+                            isLoading = isNoSoilReportLoading,
+                            apiError = noSoilReportError,
+                            onBack = { currentStep = RecommendationStep.REPORT_CHECK },
+                            onReset = {
+                                viewModel.resetNoSoilReportState()
+                                noSoilReportPhase = NoSoilReportPhase.PERMISSION_CHECK
+                            }
+                        )
+                        RecommendationStep.NO_SOIL_REPORT_RESULT -> NoSoilReportResultStep(
+                            result = noSoilReportResult,
+                            onReset = {
+                                currentStep = RecommendationStep.SOIL_SELECTION
+                                viewModel.resetNoSoilReportState()
+                                viewModel.resetState()
+                                selectedSoil = null
+                                formInputs = CropRecommendationFormInputs()
+                                noSoilReportPhase = NoSoilReportPhase.PERMISSION_CHECK
+                            }
+                        )
                         RecommendationStep.RESULT -> RecommendationResultStep(selectedSoil, recommendations, aiInsights, { currentStep = RecommendationStep.SOIL_SELECTION; viewModel.resetState(); selectedSoil = null; formInputs = CropRecommendationFormInputs() }, {
                             val top = recommendations.maxByOrNull { it.confidence_score }
                             if (top != null) { AgriStoreContext.setForCrop(top.crop_name); navController.navigate(NavRoutes.ProductStore) }
@@ -217,7 +285,10 @@ fun SoilSelectionStep(soils: List<SoilTypeInfo>, selected: SoilTypeInfo?, onSele
 }
 
 @Composable
-fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
+fun CropRecommendationReportCheckStep(
+    onChoice: (Boolean) -> Unit,
+    onNoSoilReport: () -> Unit
+) {
     Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(modifier = Modifier.size(140.dp).shadow(8.dp, CircleShape), shape = CircleShape, color = Color.White, border = BorderStroke(1.dp, Color(0xFFF0F0F0))) {
             Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Description, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary) }
@@ -226,9 +297,9 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
         Text(stringResource(R.string.has_soil_health_card), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B)), textAlign = TextAlign.Center)
         Text("क्या आपके पास मिट्टी स्वास्थ्य कार्ड है?", style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold), textAlign = TextAlign.Center)
         Spacer(modifier = Modifier.height(48.dp))
-        PremiumButton(stringResource(R.string.yes_have_report), { onChoice(true) }, icon = Icons.Rounded.PhotoCamera)
+        PremiumOutlinedButton(text = "I Have Soil Report", onClick = { onChoice(true) })
         Spacer(modifier = Modifier.height(16.dp))
-        PremiumOutlinedButton(stringResource(R.string.no_use_auto_analysis), { onChoice(false) }, icon = Icons.Rounded.AutoAwesome)
+        PremiumOutlinedButton(text = "I Don't Have Soil Report", onClick = { onNoSoilReport() })
     }
 }
 
@@ -237,7 +308,7 @@ fun FarmDetailsStep(selectedSoil: String, inputs: CropRecommendationFormInputs, 
     val scrollState = rememberScrollState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val canContinue = inputs.location.isNotBlank() && inputs.farmSizeAcres.isNotBlank() && inputs.rainfallMm.isNotBlank() && inputs.temperatureC.isNotBlank()
+    val canContinue = inputs.location.isNotBlank() && inputs.farmSizeAcres.isNotBlank()
 
     fun autoFillFromLocation() {
         scope.launch {
@@ -249,6 +320,11 @@ fun FarmDetailsStep(selectedSoil: String, inputs: CropRecommendationFormInputs, 
             runCatching { RetrofitInstance.farmFusionApi.getCurrentWeather(lat, lon) }.getOrNull()?.body()?.data?.let { if(next.temperatureC.isBlank()) next = next.copy(temperatureC = it.temperature_c.toInt().toString()) }
             onInputsChange(next)
         }
+    }
+
+    // Auto-detect Village / District from GPS when the screen opens (no manual entry).
+    LaunchedEffect(Unit) {
+        if (inputs.location.isBlank()) autoFillFromLocation()
     }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -263,12 +339,27 @@ fun FarmDetailsStep(selectedSoil: String, inputs: CropRecommendationFormInputs, 
                 }
             }
         }
-        PremiumTextField(inputs.location, { onInputsChange(inputs.copy(location = it)) }, label = stringResource(R.string.village_district_label), leadingIcon = Icons.Rounded.LocationOn)
+        // Farm Location — auto-detected from GPS, not manually typed.
+        Surface(modifier = Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(16.dp)), shape = RoundedCornerShape(16.dp), color = Color(0xFFF9F9F9)) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.LocationOn, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Farm Location", style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        text = if (inputs.location.isNotBlank()) "Automatically detected: ${inputs.location}" else "Detecting location...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray
+                    )
+                }
+                AssistChip(
+                    onClick = { autoFillFromLocation() },
+                    label = { Text(stringResource(R.string.refresh_autofill)) },
+                    leadingIcon = { Icon(Icons.Rounded.MyLocation, null, modifier = Modifier.size(18.dp)) }
+                )
+            }
+        }
         PremiumTextField(inputs.farmSizeAcres, { onInputsChange(inputs.copy(farmSizeAcres = it)) }, label = stringResource(R.string.farm_size_label), leadingIcon = Icons.Rounded.SquareFoot)
-        PremiumTextField(inputs.rainfallMm, { onInputsChange(inputs.copy(rainfallMm = it)) }, label = stringResource(R.string.annual_rainfall_label), leadingIcon = Icons.Rounded.WaterDrop)
-        PremiumTextField(inputs.temperatureC, { onInputsChange(inputs.copy(temperatureC = it)) }, label = stringResource(R.string.avg_temp_label), leadingIcon = Icons.Rounded.Thermostat)
-        
-        AssistChip(onClick = { autoFillFromLocation() }, label = { Text(stringResource(R.string.refresh_autofill)) }, leadingIcon = { Icon(Icons.Rounded.MyLocation, null, modifier = Modifier.size(18.dp)) })
         Spacer(modifier = Modifier.height(16.dp))
         PremiumButton(stringResource(R.string.continue_button), onContinue, icon = Icons.AutoMirrored.Rounded.ArrowForward, enabled = canContinue)
     }
@@ -295,9 +386,11 @@ fun AutoAnalysisStep(formInputs: CropRecommendationFormInputs, soilType: String,
         viewModel.fetchRecommendations(
             location = formInputs.location,
             soilType = soilType,
-            rainfallMm = formInputs.rainfallMm.toDoubleOrNull() ?: 1000.0,
+            rainfallMm = -1.0, // sentinel: backend derives rainfall from weather using coordinates
             temperatureC = formInputs.temperatureC.toDoubleOrNull() ?: 25.0,
             farmSizeAcres = formInputs.farmSizeAcres.toDoubleOrNull() ?: 1.0,
+            latitude = LocationSnapshotStore.latestLatitude,
+            longitude = LocationSnapshotStore.latestLongitude,
             preferredLanguage = lang
         )
     }
@@ -364,4 +457,384 @@ fun ResultDetailItem(icon: ImageVector, label: String, value: String, modifier: 
         Text(label, style = MaterialTheme.typography.labelMedium)
         Text(value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
     }
+}
+
+
+// ============================================
+// NO SOIL REPORT FLOW COMPOSABLES
+// ============================================
+
+/**
+ * Loading step for the "No Soil Report" flow.
+ *
+ * Drives a small state machine (NoSoilReportPhase):
+ *   1. Requests location permission (if not already granted)
+ *   2. Fetches device coordinates via Google Play Services
+ *   3. Resolves state name from coordinates (geocoding)
+ *   4. Calls the backend No-Soil-Report endpoint via the ViewModel
+ *
+ * Handles denied permissions and unavailable location with
+ * user-friendly error messages and retry buttons.
+ */
+@Composable
+fun NoSoilReportLoadingStep(
+    viewModel: CropRecommendationViewModel,
+    phase: NoSoilReportPhase,
+    onPhaseChange: (NoSoilReportPhase) -> Unit,
+    isLoading: Boolean,
+    apiError: String?,
+    onBack: () -> Unit,
+    onReset: () -> Unit
+) {
+    val context = LocalContext.current
+
+    // ---- Side effect: request location permission ----
+    if (phase == NoSoilReportPhase.PERMISSION_CHECK) {
+        LocationPermissionEffect(
+            context = context,
+            onPermissionGranted = { onPhaseChange(NoSoilReportPhase.FETCHING_LOCATION) },
+            onPermissionDenied = { onPhaseChange(NoSoilReportPhase.PERMISSION_DENIED) }
+        )
+    }
+
+    // ---- Side effect: fetch coordinates + call API ----
+    if (phase == NoSoilReportPhase.FETCHING_LOCATION) {
+        LaunchedEffect(Unit) {
+            val location = getDeviceLocation(context)
+            if (location != null) {
+                val (lat, lon) = location
+                val appLanguage = LanguagePreferences.getSelectedLanguage(context) ?: "en"
+                val state = getRegionFromCoordinates(context, lat, lon, appLanguage)
+                viewModel.fetchNoSoilReportRecommendations(lat, lon, state)
+                onPhaseChange(NoSoilReportPhase.API_LOADING)
+            } else {
+                onPhaseChange(NoSoilReportPhase.LOCATION_UNAVAILABLE)
+            }
+        }
+    }
+
+    // ---- UI rendering ----
+    when (phase) {
+        NoSoilReportPhase.PERMISSION_CHECK, NoSoilReportPhase.FETCHING_LOCATION ->
+            NoSoilReportLoadingContent(
+                title = when (phase) {
+                    NoSoilReportPhase.PERMISSION_CHECK -> "Checking location permission..."
+                    NoSoilReportPhase.FETCHING_LOCATION -> "Fetching your location..."
+                    else -> "Loading..."
+                },
+                subtitle = when (phase) {
+                    NoSoilReportPhase.PERMISSION_CHECK -> "We need your permission to access your location"
+                    NoSoilReportPhase.FETCHING_LOCATION -> "Please enable GPS for accurate soil and weather data"
+                    else -> ""
+                },
+                onBack = onBack
+            )
+
+        NoSoilReportPhase.API_LOADING -> {
+            if (isLoading) {
+                NoSoilReportLoadingContent(
+                    title = "Analyzing your field...",
+                    subtitle = "Our AI is preparing crop recommendations",
+                    onBack = onBack
+                )
+            } else if (apiError != null) {
+                NoSoilReportErrorContent(
+                    message = apiError,
+                    onRetry = {
+                        onReset()
+                        onPhaseChange(NoSoilReportPhase.PERMISSION_CHECK)
+                    },
+                    onBack = onBack
+                )
+            } else {
+                // API finished without observable error — show neutral loader
+                NoSoilReportLoadingContent(
+                    title = "Preparing recommendations...",
+                    subtitle = "",
+                    onBack = onBack
+                )
+            }
+        }
+
+        NoSoilReportPhase.PERMISSION_DENIED ->
+            NoSoilReportErrorContent(
+                message = "Location permission is required to estimate soil conditions. " +
+                    "The backend needs your coordinates to derive soil and weather data.",
+                onRetry = { onPhaseChange(NoSoilReportPhase.PERMISSION_CHECK) },
+                onBack = onBack
+            )
+
+        NoSoilReportPhase.LOCATION_UNAVAILABLE ->
+            NoSoilReportErrorContent(
+                message = "Location information is currently unavailable. " +
+                    "GPS may be disabled or no fix is possible.",
+                onRetry = {
+                    onReset()
+                    onPhaseChange(NoSoilReportPhase.PERMISSION_CHECK)
+                },
+                onBack = onBack
+            )
+    }
+}
+
+@Composable
+private fun NoSoilReportLoadingContent(
+    title: String,
+    subtitle: String,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        CircularProgressIndicator(modifier = Modifier.size(64.dp))
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+        if (subtitle.isNotBlank()) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Color.Gray, textAlign = TextAlign.Center)
+        }
+        Spacer(modifier = Modifier.height(24.dp))
+        PremiumOutlinedButton("Go Back", onBack, icon = Icons.AutoMirrored.Rounded.ArrowBack)
+    }
+}
+
+@Composable
+private fun NoSoilReportErrorContent(
+    message: String,
+    onRetry: () -> Unit,
+    onBack: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            Icons.Rounded.Warning, null,
+            modifier = Modifier.size(80.dp),
+            tint = MaterialTheme.colorScheme.error
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(message, style = MaterialTheme.typography.bodyLarge, color = Color(0xFF1B1B1B), textAlign = TextAlign.Center)
+        Spacer(modifier = Modifier.height(24.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            PremiumOutlinedButton("Go Back", onBack, icon = Icons.AutoMirrored.Rounded.ArrowBack)
+            PremiumButton("Retry", onRetry, icon = Icons.Rounded.Refresh)
+        }
+    }
+}
+
+/**
+ * Results screen for the "No Soil Report" flow.
+ *
+ * Displays: season, season window, estimated soil (N/P/K/pH) + source,
+ * weather summary, top-3 crop candidates with scores, an LLM-generated
+ * explanation, and any warnings.
+ */
+@Composable
+fun NoSoilReportResultStep(
+    result: NoSoilReportResponse?,
+    onReset: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+    val soil = result?.estimated_soil
+    val weather = result?.weather
+    val topCrops = result?.top_crops ?: emptyList()
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // ---- Header ----
+        Surface(
+            modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(24.dp)),
+            shape = RoundedCornerShape(24.dp),
+            color = Color.White
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.AccountBalance, null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(12.dp))
+                    Text("Top Recommendations", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+                }
+                Text("Generated without a soil report — soil estimated from your location", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+            }
+        }
+
+        // ---- Season ----
+        if (!result?.season.isNullOrBlank()) {
+            NoSoilReportInfoCard(
+                icon = Icons.Rounded.Schedule,
+                title = "Growing Season",
+                value = result!!.season,
+                subtitle = result.season_window
+            )
+        }
+
+        // ---- Estimated Soil ----
+        if (soil != null) {
+            Surface(
+                modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(24.dp)),
+                shape = RoundedCornerShape(24.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFF0F0F0))
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Grass, null, tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(12.dp))
+                        Text("Estimated Soil", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    }
+                    Text(
+                        soilSourceText(result.soil_source),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    Row(horizontalArrangement = Arrangement.SpaceEvenly) {
+                        SoilNutrientItem("N", "${soil.N.toInt()} mg/kg", Color(0xFF4CAF50))
+                        SoilNutrientItem("P", "${soil.P.toInt()} mg/kg", Color(0xFFFF9800))
+                        SoilNutrientItem("K", "${soil.K.toInt()} mg/kg", Color(0xFF2196F3))
+                        SoilNutrientItem("pH", "${soil.ph}", Color(0xFF9C27B0))
+                    }
+                }
+            }
+        }
+
+        // ---- Weather ----
+        if (weather != null) {
+            NoSoilReportInfoCard(
+                icon = Icons.Rounded.WaterDrop,
+                title = "Weather",
+                value = "${weather.temperature_c.toInt()}°C, ${weather.humidity_percent.toInt()} % humidity",
+                subtitle = weather.current_conditions
+            )
+        }
+
+        // ---- Top 3 Crops ----
+        Text("Top Crops", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+        topCrops.forEach { crop -> NoSoilReportCropCard(crop) }
+
+        // ---- Explanation ----
+        if (!result?.explanation.isNullOrBlank()) {
+            GlassPanel {
+                Row {
+                    Text("🤖", fontSize = 20.sp)
+                    Spacer(Modifier.width(12.dp))
+                    Text(result!!.explanation, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+
+        // ---- Warnings ----
+        result?.warnings?.let { warnings ->
+            if (warnings.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Important Notes", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFFFF9800)))
+                    warnings.forEach { warning ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFFFF3E0)
+                        ) {
+                            Row(modifier = Modifier.padding(12.dp)) {
+                                Icon(Icons.Rounded.Info, null, tint = Color(0xFFFF9800), modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(warning, style = MaterialTheme.typography.bodySmall, color = Color(0xFF795548))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        PremiumOutlinedButton("START OVER", onReset, icon = Icons.Rounded.Refresh)
+        Spacer(Modifier.height(40.dp))
+    }
+}
+
+@Composable
+private fun NoSoilReportInfoCard(icon: ImageVector, title: String, value: String, subtitle: String?) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFF0F0F0))
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(48.dp).background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(icon, null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(color = Color.Gray))
+                Text(value, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
+                if (!subtitle.isNullOrBlank()) {
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SoilNutrientItem(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = color))
+        Text(label, style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+    }
+}
+
+@Composable
+private fun NoSoilReportCropCard(crop: NoSoilReportCropCandidate) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(20.dp)),
+        shape = RoundedCornerShape(20.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFF0F0F0))
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("#${crop.rank}", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary))
+                    Text(crop.crop_name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B)))
+                    Text(
+                        "Model score: ${(crop.model_probability * 100).toInt()}%",  // labelled as model score, NOT guaranteed probability
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray
+                    )
+                }
+                Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), shape = CircleShape, modifier = Modifier.size(48.dp)) {
+                    Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Agriculture, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp)) }
+                }
+            }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color(0xFFF5F5F5))
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                NoSoilReportScoreRow("Model score", "${(crop.model_probability * 100).toInt()}%", Icons.Rounded.Psychology)
+                NoSoilReportScoreRow("Regional score", "${crop.regional_score}", Icons.Rounded.Place)
+                NoSoilReportScoreRow("Final score", "${crop.final_score}", Icons.Rounded.Star)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoSoilReportScoreRow(label: String, value: String, icon: ImageVector) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, modifier = Modifier.size(16.dp), tint = Color(0xFF666666))
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.bodySmall, color = Color(0xFF666666), modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold), color = Color(0xFF1B1B1B))
+    }
+}
+
+/**
+ * Format the soil_source string so DEV MOCK labels are visible to the user.
+ * The mock backend marks the source as "SIS India (mock)"; we surface that
+ * so developers / testers can distinguish mock data at a glance.
+ */
+private fun soilSourceText(raw: String?): String {
+    return raw ?: "Unknown source"
 }

@@ -1,20 +1,20 @@
 import asyncio
 from logging.config import fileConfig
-
-from sqlalchemy import pool
+from sqlalchemy import pool, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
-
 from alembic import context
+
 from app.core.config import settings
-from app.db.base import Base
+from app.core.database import Base
+import app.models  # Ensure all models are imported so Base.metadata knows about them
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.sync_database_url)
+config.set_main_option("sqlalchemy.url", settings.effective_async_database_url)
 target_metadata = Base.metadata
 
 
@@ -31,6 +31,10 @@ def run_migrations_offline():
 
 
 def do_run_migrations(connection: Connection):
+    # Enable pgvector extension automatically on PostgreSQL
+    if connection.dialect.name == "postgresql":
+        connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+    
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
         context.run_migrations()

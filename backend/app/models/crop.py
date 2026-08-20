@@ -6,7 +6,7 @@ from sqlalchemy import String, Float, DateTime, Text, ForeignKey, Integer, Enum
 from sqlalchemy.orm import Mapped, mapped_column
 import enum
 
-from app.db.base import Base
+from app.core.database import Base
 
 
 class SoilType(str, enum.Enum):

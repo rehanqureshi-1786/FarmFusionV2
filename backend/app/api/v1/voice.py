@@ -10,7 +10,9 @@ Endpoints:
 - GET /voice/languages - Get supported languages
 - GET /voice/intents - Get supported intents
 """
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, WebSocket, WebSocketDisconnect
+from app.orchestrator.graph import run_orchestrator_pipeline
+from app.voice.bhashini import BhashiniClient
 from app.models.voice import (
     VoiceQueryRequest,
     VoiceQueryResponse,
@@ -29,6 +31,47 @@ logger = logging.getLogger(__name__)
 
 # Create router
 router = APIRouter(prefix="/voice", tags=["voice-assistant"])
+
+
+@router.websocket("/session")
+async def voice_session_websocket(websocket: WebSocket):
+    """
+    WS /voice/session
+    Real-time streaming voice WebSocket session connecting Android app to Bhashini ASR/TTS and LangGraph Orchestrator.
+    """
+    await websocket.accept()
+    logger.info("voice_websocket_connected")
+    bhashini = BhashiniClient()
+    try:
+        while True:
+            # Receive text payload or audio bytes
+            data = await websocket.receive_text()
+            logger.info("voice_ws_message_received", message=data)
+            
+            # Transcribe audio if needed or run orchestrator directly on query text
+            orchestrator_result = await run_orchestrator_pipeline(
+                user_input=data,
+                detected_language="hi",
+                session_id="ws_session"
+            )
+            
+            # Generate TTS audio for final response
+            final_text = orchestrator_result.get("final_response", "")
+            tts_audio = await bhashini.generate_tts(final_text, language="hi")
+            
+            await websocket.send_json({
+                "response_text": final_text,
+                "intent": orchestrator_result.get("intent"),
+                "detected_language": orchestrator_result.get("detected_language"),
+                "requires_clarification": orchestrator_result.get("requires_clarification"),
+                "tts_audio_base64": tts_audio.hex()
+            })
+    except WebSocketDisconnect:
+        logger.info("voice_websocket_disconnected")
+    except Exception as e:
+        logger.error("voice_websocket_error", error=str(e))
+        await websocket.close()
+
 
 
 # ============ MAIN VOICE ENDPOINT ============
