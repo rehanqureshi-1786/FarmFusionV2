@@ -157,6 +157,6 @@ async def test_endpoint():
             "history": "GET /crop/history",
             "test": "GET /crop/test"
         },
-        "ai_provider": "Groq API (Llama 3.3) or rule-based fallback",
+        "ai_provider": "FarmFusion Local Crop Agent V2 (ICAR/CRIDA + XGBoost) with Groq safety fallback",
         "timestamp": datetime.now().isoformat()
     }

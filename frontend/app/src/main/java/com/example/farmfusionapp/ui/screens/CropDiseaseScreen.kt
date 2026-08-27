@@ -260,29 +260,32 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
-    if (result == null || result.ai_analyzed == false) {
+    val isFailed = result == null || result.disease_name.isNullOrBlank() || result.disease_name == "Could not analyze" || result.disease_name == "Error" || result.disease_name == "Unable to analyze"
+    if (isFailed) {
         Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(Icons.Rounded.SentimentDissatisfied, null, modifier = Modifier.size(80.dp), tint = Color.Gray)
             Text("Analysis Failed", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-            Text(result?.invalid_image_reason ?: "The AI could not identify a clear plant in this image.", textAlign = TextAlign.Center, color = Color.Gray)
+            Text(result?.invalid_image_reason ?: result?.message ?: "The AI could not identify a clear plant in this image. Please ensure the leaf is centered with good lighting.", textAlign = TextAlign.Center, color = Color.Gray)
             Spacer(Modifier.height(24.dp))
             PremiumButton(text = "Try Again", onClick = onScanAgain)
         }
         return
     }
 
-    val diseaseName = result.disease_name ?: "Unknown Disease"
-    val severity = result.severity ?: "unknown"
-    val description = result.description ?: ""
-    val treatmentSuggestions = result.treatment_suggestions ?: emptyList()
-    val preventionTips = result.prevention_tips ?: emptyList()
+    val diseaseName = result?.disease_name ?: "Unknown Disease"
+    val severity = result?.severity ?: "unknown"
+    val description = result?.description ?: ""
+    val treatmentSuggestions = result?.treatment_suggestions ?: emptyList()
+    val preventionTips = result?.prevention_tips ?: emptyList()
+    val confidenceTier = result?.confidence_tier ?: "unclear"
+    val confidencePct = ((result?.confidence ?: 0.0) * 100).toInt()
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Surface(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth().height(200.dp).shadow(8.dp)) {
             Box {
                 if (imageUri != null) Image(painter = rememberAsyncImagePainter(imageUri), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                Surface(color = CropErrorRed, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)) {
-                    Text("DISEASED", modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Surface(color = if ("healthy" in diseaseName.lowercase()) CropSuccessGreen else CropErrorRed, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)) {
+                    Text(if ("healthy" in diseaseName.lowercase()) "HEALTHY" else "DISEASED", modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -296,13 +299,31 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
                     )
                 }
 
-                val sevColor = when (severity.lowercase()) {
-                    "low" -> CropSuccessGreen
-                    "moderate" -> CropWarningOrange
-                    else -> CropErrorRed
+                if (!result?.scientific_name.isNullOrBlank() && result?.scientific_name != "N/A" && result?.scientific_name != "NOT_AVAILABLE") {
+                    Text(
+                        text = "Pathogen: ${result?.scientific_name}",
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontWeight = FontWeight.Medium)
+                    )
                 }
-                Surface(color = sevColor.copy(alpha = 0.1f), border = BorderStroke(1.dp, sevColor), shape = RoundedCornerShape(8.dp)) {
-                    Text(severity.uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = sevColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val sevColor = when (severity.lowercase()) {
+                        "low" -> CropSuccessGreen
+                        "moderate", "medium" -> CropWarningOrange
+                        else -> CropErrorRed
+                    }
+                    Surface(color = sevColor.copy(alpha = 0.1f), border = BorderStroke(1.dp, sevColor), shape = RoundedCornerShape(8.dp)) {
+                        Text(severity.uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = sevColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    val tierColor = when (confidenceTier.lowercase()) {
+                        "high" -> CropSuccessGreen
+                        "medium" -> CropWarningOrange
+                        else -> CropErrorRed
+                    }
+                    Surface(color = tierColor.copy(alpha = 0.1f), border = BorderStroke(1.dp, tierColor), shape = RoundedCornerShape(8.dp)) {
+                        Text("${confidenceTier.uppercase()} ($confidencePct%)", modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = tierColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
 
                 var expanded by remember { mutableStateOf(false) }
@@ -314,6 +335,21 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
                     modifier = Modifier.clickable { expanded = !expanded }
                 )
                 Text(if (expanded) "Show Less" else "Read More", color = CropPrimaryDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        if (!result?.symptoms.isNullOrEmpty()) {
+            NeoSectionTitle("Symptoms / लक्षण", "Observed leaf patterns")
+            NeoCard {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    result.symptoms.forEach { symptom ->
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Rounded.FiberManualRecord, null, tint = CropPrimaryDark, modifier = Modifier.size(12.dp).padding(top = 4.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(symptom, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
             }
         }
 

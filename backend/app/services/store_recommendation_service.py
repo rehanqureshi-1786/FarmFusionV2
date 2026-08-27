@@ -42,6 +42,8 @@ class StoreRecommendationService:
         crop: Optional[str] = None,
         disease_name: Optional[str] = None,
         crop_hint: Optional[str] = None,
+        active_ingredients: Optional[List[str]] = None,
+        product_categories: Optional[List[str]] = None,
     ) -> dict:
         source = (source or "browse").lower().strip()
         if source == "crop":
@@ -50,90 +52,80 @@ class StoreRecommendationService:
             return {
                 "success": True,
                 "source": source,
-                "items": StoreRecommendationService._for_disease(disease_name or "", crop_hint),
+                "items": StoreRecommendationService._for_disease(
+                    disease_name or "",
+                    crop_hint,
+                    active_ingredients=active_ingredients,
+                    product_categories=product_categories,
+                ),
             }
         return {"success": True, "source": "browse", "items": StoreRecommendationService._browse()}
 
     @staticmethod
-    def _browse() -> List[dict]:
-        return [
-            {
-                "title": "Organic NPK fertilizer",
-                "subtitle": "Balanced nutrition for field crops",
-                "category": "Fertilizer",
-                "image_url": IMG["fertilizer"],
-                "shop_url": _amz("NPK fertilizer organic farming India 50kg"),
-            },
-            {
-                "title": "Certified wheat seeds",
-                "subtitle": "High-yield varieties",
-                "category": "Seeds",
-                "image_url": IMG["wheat"],
-                "shop_url": _amz("wheat seeds certified farming India"),
-            },
-            {
-                "title": "Neem oil spray",
-                "subtitle": "Organic pest care",
-                "category": "Crop care",
-                "image_url": IMG["spray"],
-                "shop_url": _amz("neem oil for plants spray organic"),
-            },
-            {
-                "title": "Garden hand tools set",
-                "subtitle": "Daily farm & kitchen garden",
-                "category": "Tools",
-                "image_url": IMG["generic"],
-                "shop_url": _amz("agriculture hand tools kit India"),
-            },
-        ]
-
-    @staticmethod
-    def _for_crop(crop: str) -> List[dict]:
-        c = _norm(crop)
-        if not c:
-            return StoreRecommendationService._browse()
-        # Use first meaningful token for display
-        display = crop.strip()[:60]
-        seed_q = f"{display} seeds certified organic farming India"
-        fert_q = f"NPK fertilizer for {display} crop India"
-        care_q = f"bio pesticide organic {display} plants India"
-        mulch_q = f"mulch sheet agriculture {display} India"
-        return [
-            {
-                "title": f"Best match: {display} seeds",
-                "subtitle": "Certified / high germination — check reviews & seller rating",
-                "category": "Seeds",
-                "image_url": IMG.get("seeds") or IMG["generic"],
-                "shop_url": _amz(seed_q),
-            },
-            {
-                "title": f"Fertilizer for {display}",
-                "subtitle": "NPK & micronutrients suited to your top recommendation",
-                "category": "Fertilizer",
-                "image_url": IMG["fertilizer"],
-                "shop_url": _amz(fert_q),
-            },
-            {
-                "title": f"Crop protection for {display}",
-                "subtitle": "Organic neem / bio options (read label for your crop)",
-                "category": "Protection",
-                "image_url": IMG["spray"],
-                "shop_url": _amz(care_q),
-            },
-            {
-                "title": "Mulch & water-saving",
-                "subtitle": "Supports soil moisture for long-season crops",
-                "category": "Supplies",
-                "image_url": IMG["generic"],
-                "shop_url": _amz(mulch_q),
-            },
-        ]
-
-    @staticmethod
-    def _for_disease(disease_name: str, crop_hint: Optional[str]) -> List[dict]:
+    def _for_disease(
+        disease_name: str,
+        crop_hint: Optional[str],
+        active_ingredients: Optional[List[str]] = None,
+        product_categories: Optional[List[str]] = None,
+    ) -> List[dict]:
         d = _norm(disease_name)
         ch = _norm(crop_hint or "")
         items: List[dict] = []
+
+        # 1. Targeted recommendations based on active ingredients from ICAR knowledge base
+        if active_ingredients:
+            for active in active_ingredients[:3]:
+                act_norm = _norm(active)
+                if not act_norm:
+                    continue
+                if "copper" in act_norm or "mancozeb" in act_norm or "metalaxyl" in act_norm:
+                    items.append({
+                        "title": f"{active} Formulation",
+                        "subtitle": f"Recommended active ingredient for {disease_name}",
+                        "category": "Fungicide / Bactericide",
+                        "image_url": IMG["spray"],
+                        "shop_url": _amz(f"{active} fungicide agriculture India 500g"),
+                    })
+                elif "streptocycline" in act_norm:
+                    items.append({
+                        "title": "Streptocycline Bactericide (90:10)",
+                        "subtitle": f"Antibacterial agricultural formulation for {disease_name}",
+                        "category": "Bactericide",
+                        "image_url": IMG["spray"],
+                        "shop_url": _amz("streptocycline agricultural bactericide India"),
+                    })
+                elif "propiconazole" in act_norm or "tebuconazole" in act_norm or "tricyclazole" in act_norm:
+                    items.append({
+                        "title": f"{active} Systemic Fungicide",
+                        "subtitle": f"Effective against rusts and blights in {crop_hint or 'crops'}",
+                        "category": "Systemic Fungicide",
+                        "image_url": IMG["spray"],
+                        "shop_url": _amz(f"{active} systemic fungicide agriculture India"),
+                    })
+                elif "trichoderma" in act_norm or "pseudomonas" in act_norm:
+                    items.append({
+                        "title": f"Bio-control {active}",
+                        "subtitle": "Organic beneficial bio-fungicide for seed & soil treatment",
+                        "category": "Bio-pesticide",
+                        "image_url": IMG["fertilizer"],
+                        "shop_url": _amz(f"{active} organic bio fungicide farming India"),
+                    })
+                elif "neem" in act_norm:
+                    items.append({
+                        "title": "Neem Oil 10000 PPM (Azadirachtin)",
+                        "subtitle": "Organic bio-pesticide and insect vector deterrent",
+                        "category": "Organic Crop Care",
+                        "image_url": IMG["spray"],
+                        "shop_url": _amz("neem oil 10000 ppm cold pressed agriculture India"),
+                    })
+                else:
+                    items.append({
+                        "title": f"{active} Crop Protection",
+                        "subtitle": f"Targeted active ingredient for {disease_name}",
+                        "category": "Crop Protection",
+                        "image_url": IMG["spray"],
+                        "shop_url": _amz(f"{active} agriculture plant care India"),
+                    })
 
         fungal = any(
             x in d
@@ -149,70 +141,81 @@ class StoreRecommendationService:
                 "anthracnose",
                 "downy",
                 "powdery",
+                "scab",
+                "mold",
             )
         )
-        insect = any(x in d for x in ("borer", "worm", "caterpillar", "aphid", "jassid", "whitefly", "mite", "insect", "pest"))
-        bacterial = any(x in d for x in ("bacterial", "wilt", "canker", "leaf spot"))
+        insect = any(x in d for x in ("borer", "worm", "caterpillar", "aphid", "jassid", "whitefly", "mite", "insect", "pest", "spider"))
+        bacterial = any(x in d for x in ("bacterial", "wilt", "canker", "blight", "spot"))
 
-        if fungal:
+        if fungal and not items:
             items.append(
                 {
-                    "title": "Systemic / contact fungicide",
+                    "title": "Systemic / Contact Fungicide",
                     "subtitle": "Use as per label; wear PPE. Prefer extension-office advice.",
-                    "category": "Treatment",
+                    "category": "Fungicide",
                     "image_url": IMG["spray"],
                     "shop_url": _amz(f"fungicide for plants {' '.join(filter(None, [ch, disease_name]))}".strip()),
                 }
             )
             items.append(
                 {
-                    "title": "Copper oxychloride / Bordeaux mixture",
-                    "subtitle": "Common for fungal spots & blights (follow dosage)",
-                    "category": "Treatment",
+                    "title": "Copper Oxychloride 50% WP",
+                    "subtitle": "Broad-spectrum protection for fungal spots & blights",
+                    "category": "Fungicide",
                     "image_url": IMG["spray"],
-                    "shop_url": _amz("copper oxychloride fungicide agriculture India"),
+                    "shop_url": _amz("copper oxychloride 50 wp fungicide agriculture India"),
                 }
             )
 
-        if insect:
+        if (insect or "curl_virus" in d or "yellow_leaf_curl" in d) and not any("neem" in it["title"].lower() for it in items):
             items.append(
                 {
-                    "title": "Neem oil / bio insecticide",
-                    "subtitle": "Organic-first option; rotate actives if needed",
-                    "category": "Treatment",
+                    "title": "Neem Oil 10000 PPM Spray",
+                    "subtitle": "Organic-first insect vector & mite control",
+                    "category": "Bio-pesticide",
                     "image_url": IMG["spray"],
-                    "shop_url": _amz(f"neem oil insecticide plants {' '.join(filter(None, [ch]))}".strip()),
+                    "shop_url": _amz(f"neem oil 10000 ppm insecticide plants {' '.join(filter(None, [ch]))}".strip()),
                 }
             )
-
-        if bacterial:
             items.append(
                 {
-                    "title": "Copper-based bactericide",
-                    "subtitle": "Often used for bacterial leaf issues — confirm with local expert",
-                    "category": "Treatment",
-                    "image_url": IMG["spray"],
-                    "shop_url": _amz("bactericide copper agriculture India"),
+                    "title": "Yellow Sticky Traps (Pack of 25)",
+                    "subtitle": "Mass-trapping for whiteflies, aphids & thrips",
+                    "category": "Vector Trapping",
+                    "image_url": IMG["generic"],
+                    "shop_url": _amz("yellow sticky traps agriculture whitefly traps"),
                 }
             )
 
-        # Always useful for diseased plants
+        if bacterial and not any("copper" in it["title"].lower() for it in items):
+            items.append(
+                {
+                    "title": "Copper-based Agricultural Bactericide",
+                    "subtitle": "Synergistic bacterial control formulation",
+                    "category": "Bactericide",
+                    "image_url": IMG["spray"],
+                    "shop_url": _amz("copper oxychloride streptocycline agriculture India"),
+                }
+            )
+
+        # Essential safety & application gear
         items.append(
             {
-                "title": "Sticky traps & monitoring",
-                "subtitle": "Helps confirm insect pressure in the field",
-                "category": "Supplies",
+                "title": "Pesticide Spraying PPE Safety Kit",
+                "subtitle": "Chemical-resistant mask, goggles, and nitrile gloves",
+                "category": "Farmer Safety",
                 "image_url": IMG["generic"],
-                "shop_url": _amz("yellow sticky trap agriculture insects"),
+                "shop_url": _amz("pesticide spraying PPE safety kit mask gloves goggles"),
             }
         )
         items.append(
             {
-                "title": "PPE: mask, gloves, goggles",
-                "subtitle": "Essential when spraying chemicals",
-                "category": "Safety",
+                "title": "16L Battery Knapsack Sprayer",
+                "subtitle": "Continuous uniform pressure for foliar fungicide application",
+                "category": "Application Equipment",
                 "image_url": IMG["generic"],
-                "shop_url": _amz("pesticide spraying PPE kit gloves mask"),
+                "shop_url": _amz("16 liter battery knapsack sprayer agriculture"),
             }
         )
 
@@ -243,4 +246,4 @@ class StoreRecommendationService:
                     "shop_url": _amz("neem oil for plants organic spray India"),
                 },
             ]
-        return out[:8]
+        return out[:6]

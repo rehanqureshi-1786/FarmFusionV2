@@ -30,15 +30,27 @@ class CropService:
         Returns:
             CropRecommendResponse with recommendations
         """
-        # Call AI agent
-        recommendations, insights = await crop_agent.get_recommendations(
+        # Call Crop Agent V2 (Primary local ICAR + XGBoost engine, Groq as fallback)
+        from app.services.crop_agent_v2 import crop_agent_v2
+
+        # Extract state or clean location if present
+        loc_str = request.location or ""
+        state_candidate = None
+        for part in loc_str.split(","):
+            part_clean = part.strip().lower()
+            if part_clean in ["rajasthan", "punjab", "haryana", "uttar pradesh", "madhya pradesh", "maharashtra", "gujarat", "karnataka", "tamil nadu", "west bengal", "bihar", "odisha", "andhra pradesh", "telangana", "kerala", "assam"]:
+                state_candidate = part_clean
+                break
+
+        recommendations, insights, metadata = await crop_agent_v2.get_recommendations(
             location=request.location,
-            soil_type=request.soil_type,
+            soil_type=request.soil_type.value if hasattr(request.soil_type, "value") else str(request.soil_type),
             rainfall_mm=request.rainfall_mm,
             temperature_c=request.temperature_c,
             farm_size_acres=request.farm_size_acres,
             budget_usd=request.budget_usd,
-            language=request.preferred_language
+            language=request.preferred_language,
+            state=state_candidate,
         )
 
         from datetime import datetime

@@ -57,18 +57,56 @@ class Settings(BaseSettings):
     redis_url: str = Field("redis://localhost:6379/0", validation_alias="REDIS_URL")
     embedding_model_name: str = Field("BAAI/bge-m3", validation_alias="EMBEDDING_MODEL_NAME")
 
-    # Crop Recommendation ML artifacts (trained XGBoost model)
+    # Crop Recommendation ML artifacts (trained XGBoost model V2 & V1 fallback)
     crop_model_path: str = Field(
-        "app/ml_models/crop_recommendation.joblib",
-        validation_alias="CROP_MODEL_PATH",
+        "app/ml_models/crop/v2/crop_recommendation_v2.joblib",
+        validation_alias=AliasChoices("CROP_MODEL_PATH", "CROP_MODEL_V2_PATH"),
     )
     crop_label_encoder_path: str = Field(
-        "app/ml_models/crop_label_encoder.joblib",
-        validation_alias="CROP_LABEL_ENCODER_PATH",
+        "app/ml_models/crop/v2/crop_label_encoder_v2.joblib",
+        validation_alias=AliasChoices("CROP_LABEL_ENCODER_PATH", "CROP_LABEL_ENCODER_V2_PATH"),
     )
     crop_model_metadata_path: str = Field(
+        "app/ml_models/crop/v2/crop_model_metadata_v2.json",
+        validation_alias=AliasChoices("CROP_MODEL_METADATA_PATH", "CROP_MODEL_V2_METADATA_PATH"),
+    )
+    crop_model_v1_path: str = Field(
+        "app/ml_models/crop_recommendation.joblib",
+        validation_alias="CROP_MODEL_V1_PATH",
+    )
+    crop_label_encoder_v1_path: str = Field(
+        "app/ml_models/crop_label_encoder.joblib",
+        validation_alias="CROP_LABEL_ENCODER_V1_PATH",
+    )
+    crop_model_metadata_v1_path: str = Field(
         "app/ml_models/crop_model_metadata.json",
-        validation_alias="CROP_MODEL_METADATA_PATH",
+        validation_alias="CROP_MODEL_METADATA_V1_PATH",
+    )
+
+    # Disease Detection ML artifacts (trained EfficientNet-B3 model)
+    disease_model_path: str = Field(
+        "app/ml_models/disease/v2/disease_model_v2_38class.pth",
+        validation_alias=AliasChoices("DISEASE_MODEL_PATH", "DISEASE_MODEL_V2_PATH"),
+    )
+    disease_label_mapping_path: str = Field(
+        "app/ml_models/disease/v2/disease_label_mapping_v2_38class.json",
+        validation_alias=AliasChoices("DISEASE_LABEL_MAPPING_PATH", "DISEASE_LABEL_MAPPING_V2_PATH"),
+    )
+    disease_model_metadata_path: str = Field(
+        "app/ml_models/disease/v2/disease_model_metadata_v2_38class.json",
+        validation_alias=AliasChoices("DISEASE_MODEL_METADATA_PATH", "DISEASE_MODEL_V2_METADATA_PATH"),
+    )
+    disease_model_v1_path: str = Field(
+        "app/ml_models/disease/v1/disease_model_v1.pth",
+        validation_alias="DISEASE_MODEL_V1_PATH",
+    )
+    disease_label_mapping_v1_path: str = Field(
+        "app/ml_models/disease/v1/disease_label_mapping.json",
+        validation_alias="DISEASE_LABEL_MAPPING_V1_PATH",
+    )
+    disease_model_v1_metadata_path: str = Field(
+        "app/ml_models/disease/v1/disease_model_metadata.json",
+        validation_alias="DISEASE_MODEL_V1_METADATA_PATH",
     )
 
     # Soil Data Service (SoilGrids/ISRIC) for the "No Soil Report" flow

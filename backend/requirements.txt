@@ -33,6 +33,7 @@ lightgbm>=4.1.0
 xgboost>=2.0.0
 torch>=2.1.0
 torchvision>=0.16.0
+timm>=0.9.12
 
 # Testing
 pytest>=7.4.0

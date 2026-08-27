@@ -1,0 +1,74 @@
+{
+  "model_name": "FarmFusion Disease Detection V1",
+  "architecture": "efficientnet_b3",
+  "timm_pretrained": true,
+  "image_size": 300,
+  "dataset": {
+    "name": "PlantVillage",
+    "path": "/content/data/PlantVillage",
+    "total_images": 20638,
+    "num_classes": 15,
+    "class_names": [
+      "Pepper__bell___Bacterial_spot",
+      "Pepper__bell___healthy",
+      "Potato___Early_blight",
+      "Potato___Late_blight",
+      "Potato___healthy",
+      "Tomato_Bacterial_spot",
+      "Tomato_Early_blight",
+      "Tomato_Late_blight",
+      "Tomato_Leaf_Mold",
+      "Tomato_Septoria_leaf_spot",
+      "Tomato_Spider_mites_Two_spotted_spider_mite",
+      "Tomato__Target_Spot",
+      "Tomato__Tomato_YellowLeaf__Curl_Virus",
+      "Tomato__Tomato_mosaic_virus",
+      "Tomato_healthy"
+    ],
+    "splits": {
+      "train_count": 16510,
+      "val_count": 2064,
+      "test_count": 2064,
+      "stratified": true,
+      "random_seed": 42
+    }
+  },
+  "training_details": {
+    "num_epochs_trained": 12,
+    "best_epoch": 10,
+    "batch_size": 32,
+    "optimizer": "AdamW",
+    "base_lr": 0.0002,
+    "weight_decay": 0.01,
+    "scheduler": "ReduceLROnPlateau(mode=max, factor=0.5, patience=2)",
+    "loss": "CrossEntropyLoss(balanced_class_weights)"
+  },
+  "validation_metrics_at_best_epoch": {
+    "val_macro_f1": 0.9993142073595203,
+    "val_accuracy": 0.999031007751938,
+    "val_loss": 0.011264174902432507
+  },
+  "test_metrics": {
+    "accuracy": 0.9951550387596899,
+    "balanced_accuracy": 0.9963564048345925,
+    "macro_f1": 0.9960462472872535,
+    "weighted_f1": 0.9951551397214511,
+    "top3_accuracy": 0.999515503875969,
+    "brier_score": 0.0068407063372433186,
+    "ece": 0.0028293281216029975
+  },
+  "confidence_safety_tiers": {
+    "high": ">=0.75",
+    "medium": "0.45-0.74",
+    "low": "0.30-0.44",
+    "unclear": "<0.30"
+  },
+  "environment": {
+    "training_date_utc": "2026-08-26T14:37:46.943194",
+    "device": "cuda",
+    "gpu_name": "Tesla T4",
+    "torch_version": "2.11.0+cu128",
+    "torchvision_version": "torchvision",
+    "timm_version": "1.0.28"
+  }
+}

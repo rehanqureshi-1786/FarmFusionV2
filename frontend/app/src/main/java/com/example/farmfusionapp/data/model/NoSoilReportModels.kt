@@ -1,70 +1,115 @@
 package com.example.farmfusionapp.data.model
 
 /**
- * Data classes for the "No Soil Report" crop recommendation flow.
+ * Data classes for the "No Soil Report" crop recommendation and Environmental Suitability flow.
  *
- * These match the FastAPI endpoint:
+ * Matches the FastAPI endpoint:
  *     POST /api/v1/crop-recommendation/no-soil-report
- *
- * Field names map 1:1 to the backend JSON (snake_case, plus the literal
- * uppercase "N"/"P"/"K"/"ph" keys inside `estimated_soil`), so Gson can parse
- * them without extra annotations. Optional fields are nullable so the app is
- * resilient to a malformed / partial response.
  */
 
-/** Request sent to the backend. `state` is optional. */
+/** Request sent to the backend. `state`, `soil_type`, and `location_name` are optional. */
 data class NoSoilReportRequest(
     val latitude: Double,
     val longitude: Double,
-    val state: String? = null
+    val state: String? = null,
+    val farmer_selected_soil_type: String? = null,
+    val soil_type: String? = null,
+    val location_name: String? = null
 )
 
-/** Response from the backend. */
-data class NoSoilReportResponse(
-    val success: Boolean = false,
-    val location: NoSoilReportLocation? = null,
-    val season: String? = null,
-    val season_window: String? = null,
-    val estimated_soil: EstimatedSoilValues? = null,
-    val soil_source: String? = null,
-    val weather: NoSoilReportWeather? = null,
-    val top_crops: List<NoSoilReportCropCandidate>? = null,
-    val explanation: String? = null,
-    val warnings: List<String>? = null
-)
+/** Single value with complete source and status metadata. */
+data class ProvenanceField(
+    val value: Any? = null,
+    val unit: String? = null,
+    val source: String? = null,
+    val status: String = "REAL",
+    val period: String? = null,
+    val depth: String? = null
+) {
+    fun getDoubleValue(): Double? {
+        return when (value) {
+            is Number -> value.toDouble()
+            is String -> value.toDoubleOrNull()
+            else -> null
+        }
+    }
 
-data class NoSoilReportLocation(
+    fun getDisplayString(): String {
+        val d = getDoubleValue()
+        return when {
+            d != null && unit != null -> "${String.format(java.util.Locale.US, "%.1f", d)} $unit"
+            d != null -> String.format(java.util.Locale.US, "%.1f", d)
+            value != null -> value.toString()
+            else -> "Unavailable"
+        }
+    }
+}
+
+data class ProvenanceLocation(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
+    val display_name: String? = null,
     val state: String? = null,
-    val display_name: String? = null
+    val source: String = "Device GPS"
 )
 
-/** N/P/K/pH are the literal keys used by the backend. Texture info is optional. */
-data class EstimatedSoilValues(
-    val N: Double = 0.0,
-    val P: Double = 0.0,
-    val K: Double = 0.0,
-    val ph: Double = 0.0,
-    val texture: Map<String, Double>? = null,
-    val texture_class: String? = null,
-    val depth_used: String? = null
-)
-
-data class NoSoilReportWeather(
-    val temperature_c: Double = 0.0,
-    val humidity_percent: Double = 0.0,
-    val rainfall_mm_7day_forecast: Double = 0.0,
-    val rainfall_mm: Double? = null,
-    val rainfall_source: String? = null,
+data class ProvenanceWeather(
+    val temperature: ProvenanceField? = null,
+    val humidity: ProvenanceField? = null,
     val current_conditions: String? = null,
-    val source: String? = null
+    val weather_available: Boolean = true
 )
 
-data class NoSoilReportCropCandidate(
+data class ProvenanceRainfall(
+    val annual_rainfall: ProvenanceField? = null,
+    val period: String? = "2025",
+    val rainfall_available: Boolean = true
+)
+
+data class ProvenanceSoil(
+    val farmer_selected_type: String? = null,
+    val ph: ProvenanceField? = null,
+    val sand: ProvenanceField? = null,
+    val clay: ProvenanceField? = null,
+    val silt: ProvenanceField? = null,
+    val texture_class: String? = null,
+    val depth_used: String? = "0-5cm",
+    val soil_data_available: Boolean = false
+)
+
+data class ProvenanceNutrients(
+    val nitrogen: ProvenanceField? = null,
+    val phosphorus: ProvenanceField? = null,
+    val potassium: ProvenanceField? = null
+)
+
+data class EnvironmentalCropRecommendation(
     val crop_name: String = "",
-    val rank: Int = 0,
-    val model_probability: Double = 0.0,
-    val regional_score: Double = 0.0,
-    val final_score: Double = 0.0
+    val hindi_name: String? = null,
+    val suitability_level: String = "Suitable",
+    val suitability_score: Double = 0.0,
+    val season: String = "Kharif",
+    val water_requirement: String? = null,
+    val contributing_factors: List<String>? = null,
+    val management_notes: List<String>? = null
+)
+
+/** Response from the backend with data provenance and environmental suitability recommendations. */
+data class NoSoilReportResponse(
+    val success: Boolean = false,
+    val recommendation_available: Boolean = true,
+    val recommendation_mode: String = "ENVIRONMENTAL_SUITABILITY",
+    val reason: String? = null,
+    val message: String? = null,
+    val location: ProvenanceLocation? = null,
+    val weather: ProvenanceWeather? = null,
+    val rainfall: ProvenanceRainfall? = null,
+    val soil: ProvenanceSoil? = null,
+    val nutrients: ProvenanceNutrients? = null,
+    val recommendations: List<EnvironmentalCropRecommendation>? = null,
+    val season: String? = null,
+    val season_window: String? = null,
+    val soil_source: String? = null,
+    val explanation: String? = null,
+    val warnings: List<String>? = null
 )

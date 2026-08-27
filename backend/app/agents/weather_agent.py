@@ -3,9 +3,12 @@ Weather agent powered by Open-Meteo.
 Uses a free no-key weather API and returns normalized weather data for the app.
 """
 from datetime import datetime
+import logging
 from typing import Any, Dict, List, Optional
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 
 class WeatherAgent:
@@ -380,26 +383,30 @@ class WeatherAgent:
         year: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
-        Get annual rainfall for the given year.
+        Get annual rainfall for the given year (previous complete calendar year).
         
         Args:
             lat: Latitude
             lon: Longitude
-            year: Year (defaults to previous complete year)
+            year: Year (defaults to previous complete calendar year)
             
         Returns:
-            Dict with annual rainfall total and daily breakdown
+            Dict with annual rainfall total, daily breakdown, and provenance metadata
         """
-        from datetime import datetime
-        
         if year is None:
-            # Use previous complete year to ensure full data
+            # Use previous complete calendar year to ensure full year data
             year = datetime.now().year - 1
         
         start_date = f"{year}-01-01"
         end_date = f"{year}-12-31"
         
-        return await self.get_historical_rainfall(lat, lon, start_date, end_date)
+        result = await self.get_historical_rainfall(lat, lon, start_date, end_date)
+        if result.get("success"):
+            result["annual_rainfall_mm"] = result.get("total_precipitation_mm", 0.0)
+            result["rainfall_source"] = "Open-Meteo ERA5-Land"
+            result["rainfall_period"] = str(year)
+            result["source"] = "Open-Meteo ERA5-Land"
+        return result
 
 
 weather_agent = WeatherAgent()

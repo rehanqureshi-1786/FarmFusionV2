@@ -102,21 +102,36 @@ data class DiseaseDetectResponse(
     val data: DiseaseResult?
 )
 
+data class TreatmentDetail(
+    val biological: List<String>? = null,
+    val cultural: List<String>? = null,
+    val chemical: List<String>? = null,
+    val active_ingredients: List<String>? = null,
+    val treatment_notes: List<String>? = null
+)
+
 data class DiseaseResult(
-    @com.google.gson.annotations.SerializedName("disease") val disease_name: String?,
-    @com.google.gson.annotations.SerializedName("confidence") val confidence: Double?,
-    @com.google.gson.annotations.SerializedName("severity") val severity: String?,
-    @com.google.gson.annotations.SerializedName("description") val description: String?,
-    @com.google.gson.annotations.SerializedName("treatment") val treatment_suggestions: List<String>?,
-    @com.google.gson.annotations.SerializedName("prevention") val prevention_tips: List<String>?,
-    @com.google.gson.annotations.SerializedName("crop_type") val crop_type: String?,
-    @com.google.gson.annotations.SerializedName("timestamp") val timestamp: String?,
-    @com.google.gson.annotations.SerializedName("source") val source: String?,
-    @com.google.gson.annotations.SerializedName("is_plant_image") val is_plant_image: Boolean?,
-    @com.google.gson.annotations.SerializedName("can_analyze") val can_analyze: Boolean?,
-    @com.google.gson.annotations.SerializedName("invalid_image_reason") val invalid_image_reason: String?,
-    @com.google.gson.annotations.SerializedName("ai_analyzed") val ai_analyzed: Boolean?,
-    @com.google.gson.annotations.SerializedName("store_recommendations") val store_recommendations: List<StoreRecommendationItem>?
+    @com.google.gson.annotations.SerializedName(value = "disease_name", alternate = ["disease"]) val disease_name: String? = null,
+    @com.google.gson.annotations.SerializedName("scientific_name") val scientific_name: String? = null,
+    @com.google.gson.annotations.SerializedName("confidence") val confidence: Double? = null,
+    @com.google.gson.annotations.SerializedName("confidence_tier") val confidence_tier: String? = null,
+    @com.google.gson.annotations.SerializedName("diagnosis_status") val diagnosis_status: String? = null,
+    @com.google.gson.annotations.SerializedName("severity") val severity: String? = null,
+    @com.google.gson.annotations.SerializedName("description") val description: String? = null,
+    @com.google.gson.annotations.SerializedName("symptoms") val symptoms: List<String>? = null,
+    @com.google.gson.annotations.SerializedName("treatment_suggestions") val treatment_suggestions: List<String>? = null,
+    @com.google.gson.annotations.SerializedName("prevention_tips") val prevention_tips: List<String>? = null,
+    @com.google.gson.annotations.SerializedName("treatment") val treatment: TreatmentDetail? = null,
+    @com.google.gson.annotations.SerializedName("crop_type") val crop_type: String? = null,
+    @com.google.gson.annotations.SerializedName("timestamp") val timestamp: String? = null,
+    @com.google.gson.annotations.SerializedName("source") val source: String? = null,
+    @com.google.gson.annotations.SerializedName("sources") val sources: List<String>? = null,
+    @com.google.gson.annotations.SerializedName("message") val message: String? = null,
+    @com.google.gson.annotations.SerializedName("is_plant_image") val is_plant_image: Boolean? = true,
+    @com.google.gson.annotations.SerializedName("can_analyze") val can_analyze: Boolean? = true,
+    @com.google.gson.annotations.SerializedName("invalid_image_reason") val invalid_image_reason: String? = null,
+    @com.google.gson.annotations.SerializedName("ai_analyzed") val ai_analyzed: Boolean? = true,
+    @com.google.gson.annotations.SerializedName("store_recommendations") val store_recommendations: List<StoreRecommendationItem>? = null
 )
 
 data class DiseaseHistoryResponse(

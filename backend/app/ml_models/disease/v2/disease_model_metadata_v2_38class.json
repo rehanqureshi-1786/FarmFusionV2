@@ -1,0 +1,94 @@
+{
+  "model_name": "FarmFusion Disease Model V2 (38-Class)",
+  "architecture": "efficientnet_b3",
+  "image_size": 300,
+  "normalization": {
+    "mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "dataset_source": "PlantVillage Full Dataset (38 Classes)",
+  "num_classes": 38,
+  "class_names": [
+    "Apple___Apple_scab",
+    "Apple___Black_rot",
+    "Apple___Cedar_apple_rust",
+    "Apple___healthy",
+    "Blueberry___healthy",
+    "Cherry_(including_sour)___Powdery_mildew",
+    "Cherry_(including_sour)___healthy",
+    "Corn_(maize)___Cercospora_leaf_spot Gray_leaf_spot",
+    "Corn_(maize)___Common_rust_",
+    "Corn_(maize)___Northern_Leaf_Blight",
+    "Corn_(maize)___healthy",
+    "Grape___Black_rot",
+    "Grape___Esca_(Black_Measles)",
+    "Grape___Leaf_blight_(Isariopsis_Leaf_Spot)",
+    "Grape___healthy",
+    "Orange___Haunglongbing_(Citrus_greening)",
+    "Peach___Bacterial_spot",
+    "Peach___healthy",
+    "Pepper,_bell___Bacterial_spot",
+    "Pepper,_bell___healthy",
+    "Potato___Early_blight",
+    "Potato___Late_blight",
+    "Potato___healthy",
+    "Raspberry___healthy",
+    "Soybean___healthy",
+    "Squash___Powdery_mildew",
+    "Strawberry___Leaf_scorch",
+    "Strawberry___healthy",
+    "Tomato___Bacterial_spot",
+    "Tomato___Early_blight",
+    "Tomato___Late_blight",
+    "Tomato___Leaf_Mold",
+    "Tomato___Septoria_leaf_spot",
+    "Tomato___Spider_mites Two-spotted_spider_mite",
+    "Tomato___Target_Spot",
+    "Tomato___Tomato_Yellow_Leaf_Curl_Virus",
+    "Tomato___Tomato_mosaic_virus",
+    "Tomato___healthy"
+  ],
+  "splits": {
+    "total_images": 54305,
+    "train_count": 43444,
+    "val_count": 5430,
+    "test_count": 5431,
+    "random_seed": 42
+  },
+  "training": {
+    "epochs_trained": 15,
+    "best_epoch": 15,
+    "best_val_macro_f1": 0.9967288488220248,
+    "optimizer": "AdamW",
+    "learning_rate": 0.0002,
+    "precision": "Mixed Precision (AMP FP16)"
+  },
+  "test_metrics": {
+    "accuracy": 0.9987111029276377,
+    "balanced_accuracy": 0.9980542368698438,
+    "macro_f1": 0.9974952813001277,
+    "weighted_f1": 0.9987134727488961,
+    "top3_accuracy": 0.9998158718468054,
+    "brier_score": 0.002244682516902685,
+    "ece": 0.0008377668783384036
+  },
+  "confidence_thresholds": {
+    "HIGH": ">=0.75",
+    "MEDIUM": "0.45-0.74",
+    "LOW": "0.30-0.44",
+    "UNCLEAR": "<0.30"
+  },
+  "timestamp_utc": "2026-08-25T08:54:01.414304",
+  "framework_versions": {
+    "torch": "2.11.0+cu128",
+    "timm": "1.0.28"
+  }
+}

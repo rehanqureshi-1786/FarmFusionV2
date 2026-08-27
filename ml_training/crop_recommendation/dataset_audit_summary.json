@@ -1,0 +1,1704 @@
+{
+  "57k_crop_recommendation": {
+    "file_name": "Crop_recommendation_dataset.csv",
+    "file_path": "external/AgriAdvisor-AI/datasets/Crop_recommendation_dataset.csv",
+    "rows": 57000,
+    "columns_count": 23,
+    "columns": [
+      "CROPS",
+      "TYPE_OF_CROP",
+      "SOIL",
+      "SEASON",
+      "SOWN",
+      "HARVESTED",
+      "WATER_SOURCE",
+      "SOIL_PH",
+      "SOIL_PH_HIGH",
+      "CROPDURATION",
+      "CROPDURATION_MAX",
+      "TEMP",
+      "MAX_TEMP",
+      "WATERREQUIRED",
+      "WATERREQUIRED_MAX",
+      "RELATIVE_HUMIDITY",
+      "RELATIVE_HUMIDITY_MAX",
+      "N",
+      "N_MAX",
+      "P",
+      "P_MAX",
+      "K",
+      "K_MAX"
+    ],
+    "null_counts": {},
+    "total_nulls": 0,
+    "duplicate_rows": 0,
+    "numeric_stats": {
+      "SOIL_PH": {
+        "min": 5.0,
+        "max": 9.0,
+        "mean": 6.62,
+        "median": 6.6,
+        "std": 0.65
+      },
+      "SOIL_PH_HIGH": {
+        "min": 6.0,
+        "max": 9.0,
+        "mean": 7.25,
+        "median": 7.0,
+        "std": 0.61
+      },
+      "CROPDURATION": {
+        "min": 21.0,
+        "max": 330.0,
+        "mean": 109.35,
+        "median": 99.9,
+        "std": 52.93
+      },
+      "CROPDURATION_MAX": {
+        "min": 21.0,
+        "max": 330.0,
+        "mean": 117.74,
+        "median": 105.0,
+        "std": 54.93
+      },
+      "TEMP": {
+        "min": 5.0,
+        "max": 47.0,
+        "mean": 24.76,
+        "median": 24.8,
+        "std": 5.86
+      },
+      "MAX_TEMP": {
+        "min": 18.0,
+        "max": 47.0,
+        "mean": 30.39,
+        "median": 30.0,
+        "std": 6.35
+      },
+      "WATERREQUIRED": {
+        "min": 330.0,
+        "max": 2499.8,
+        "mean": 887.26,
+        "median": 929.5,
+        "std": 356.33
+      },
+      "WATERREQUIRED_MAX": {
+        "min": 350.0,
+        "max": 2500.0,
+        "mean": 1038.6,
+        "median": 1000.0,
+        "std": 438.1
+      },
+      "RELATIVE_HUMIDITY": {
+        "min": 15.0,
+        "max": 100.0,
+        "mean": 71.2,
+        "median": 78.2,
+        "std": 23.16
+      },
+      "RELATIVE_HUMIDITY_MAX": {
+        "min": 18.0,
+        "max": 100.0,
+        "mean": 76.42,
+        "median": 85.0,
+        "std": 23.86
+      },
+      "N": {
+        "min": 20.0,
+        "max": 199.9,
+        "mean": 81.28,
+        "median": 80.5,
+        "std": 33.79
+      },
+      "N_MAX": {
+        "min": 40.0,
+        "max": 200.0,
+        "mean": 98.95,
+        "median": 100.0,
+        "std": 37.54
+      },
+      "P": {
+        "min": 20.0,
+        "max": 100.0,
+        "mean": 48.2,
+        "median": 47.7,
+        "std": 17.16
+      },
+      "P_MAX": {
+        "min": 30.0,
+        "max": 100.0,
+        "mean": 60.53,
+        "median": 60.0,
+        "std": 19.41
+      },
+      "K": {
+        "min": 20.0,
+        "max": 149.9,
+        "mean": 56.61,
+        "median": 50.5,
+        "std": 27.44
+      },
+      "K_MAX": {
+        "min": 30.0,
+        "max": 150.0,
+        "mean": 69.12,
+        "median": 60.0,
+        "std": 30.68
+      }
+    },
+    "crops_count": 57,
+    "crops_sample": [
+      "rice",
+      "wheat",
+      "maize",
+      "sorghum",
+      "Pearl millet",
+      "ragi",
+      "panivaragu",
+      "samai",
+      "thinai",
+      "varagu",
+      "kudiraivali",
+      "blackgram",
+      "greengram",
+      "cowpea",
+      "bengalgram",
+      "horsegram",
+      "redgram",
+      "soyabean",
+      "groundnut",
+      "sunflower"
+    ],
+    "all_crops": [
+      "Cabbage",
+      "Pearl millet",
+      "annual moringa",
+      "ash gourd",
+      "beetroot",
+      "bengalgram",
+      "bhendi",
+      "bitter gourd",
+      "blackgram",
+      "bottle gourd",
+      "brinjal",
+      "capsicum",
+      "carrot",
+      "castor",
+      "cauliflower",
+      "chillies",
+      "chowchow",
+      "cluster bean",
+      "cotton",
+      "cowpea",
+      "cucumber",
+      "elephant foot yam",
+      "french bean",
+      "gingely",
+      "greengram",
+      "groundnut",
+      "horsegram",
+      "jute",
+      "kudiraivali",
+      "maize",
+      "muskmelon",
+      "onion",
+      "panivaragu",
+      "peas",
+      "pumpkin",
+      "radish",
+      "ragi",
+      "redgram",
+      "ribbed gourd",
+      "rice",
+      "samai",
+      "small onion",
+      "snake gourd",
+      "sorghum",
+      "soyabean",
+      "sugarbeet",
+      "sugarcane",
+      "sunflower",
+      "sweet potato",
+      "tapoica",
+      "thinai",
+      "tinda",
+      "tomato",
+      "varagu",
+      "vegetable cowpea",
+      "watermelon",
+      "wheat"
+    ],
+    "crop_counts_top15": {
+      "rice": 1000,
+      "wheat": 1000,
+      "maize": 1000,
+      "sorghum": 1000,
+      "Pearl millet": 1000,
+      "ragi": 1000,
+      "panivaragu": 1000,
+      "samai": 1000,
+      "thinai": 1000,
+      "varagu": 1000,
+      "kudiraivali": 1000,
+      "blackgram": 1000,
+      "greengram": 1000,
+      "cowpea": 1000,
+      "bengalgram": 1000
+    },
+    "seasons": [
+      "kharif",
+      "rabi",
+      "Zaid"
+    ]
+  },
+  "2.2k_crop_recommendation": {
+    "file_name": "Crop_recommendation.csv",
+    "file_path": "external/AgriAdvisor-AI/datasets/Crop_production_data/Crop_recommendation.csv",
+    "rows": 2200,
+    "columns_count": 8,
+    "columns": [
+      "N",
+      "P",
+      "K",
+      "temperature",
+      "humidity",
+      "ph",
+      "rainfall",
+      "label"
+    ],
+    "null_counts": {},
+    "total_nulls": 0,
+    "duplicate_rows": 0,
+    "numeric_stats": {
+      "N": {
+        "min": 0.0,
+        "max": 140.0,
+        "mean": 50.55,
+        "median": 37.0,
+        "std": 36.92
+      },
+      "P": {
+        "min": 5.0,
+        "max": 145.0,
+        "mean": 53.36,
+        "median": 51.0,
+        "std": 32.99
+      },
+      "K": {
+        "min": 5.0,
+        "max": 205.0,
+        "mean": 48.15,
+        "median": 32.0,
+        "std": 50.65
+      },
+      "temperature": {
+        "min": 8.825674745,
+        "max": 43.67549305,
+        "mean": 25.62,
+        "median": 25.6,
+        "std": 5.06
+      },
+      "humidity": {
+        "min": 14.25803981,
+        "max": 99.98187601,
+        "mean": 71.48,
+        "median": 80.47,
+        "std": 22.26
+      },
+      "ph": {
+        "min": 3.504752314,
+        "max": 9.93509073,
+        "mean": 6.47,
+        "median": 6.43,
+        "std": 0.77
+      },
+      "rainfall": {
+        "min": 20.21126747,
+        "max": 298.5601175,
+        "mean": 103.46,
+        "median": 94.87,
+        "std": 54.96
+      }
+    },
+    "crops_count": 22,
+    "crops_sample": [
+      "rice",
+      "maize",
+      "chickpea",
+      "kidneybeans",
+      "pigeonpeas",
+      "mothbeans",
+      "mungbean",
+      "blackgram",
+      "lentil",
+      "pomegranate",
+      "banana",
+      "mango",
+      "grapes",
+      "watermelon",
+      "muskmelon",
+      "apple",
+      "orange",
+      "papaya",
+      "coconut",
+      "cotton"
+    ],
+    "all_crops": [
+      "apple",
+      "banana",
+      "blackgram",
+      "chickpea",
+      "coconut",
+      "coffee",
+      "cotton",
+      "grapes",
+      "jute",
+      "kidneybeans",
+      "lentil",
+      "maize",
+      "mango",
+      "mothbeans",
+      "mungbean",
+      "muskmelon",
+      "orange",
+      "papaya",
+      "pigeonpeas",
+      "pomegranate",
+      "rice",
+      "watermelon"
+    ],
+    "crop_counts_top15": {
+      "rice": 100,
+      "maize": 100,
+      "chickpea": 100,
+      "kidneybeans": 100,
+      "pigeonpeas": 100,
+      "mothbeans": 100,
+      "mungbean": 100,
+      "blackgram": 100,
+      "lentil": 100,
+      "pomegranate": 100,
+      "banana": 100,
+      "mango": 100,
+      "grapes": 100,
+      "watermelon": 100,
+      "muskmelon": 100
+    }
+  },
+  "2.2k_crop_data": {
+    "file_name": "Crop_Data.csv",
+    "file_path": "external/AgriAdvisor-AI/datasets/Crop_production_data/Crop_Data.csv",
+    "rows": 2200,
+    "columns_count": 6,
+    "columns": [
+      "temperature",
+      "humidity",
+      "ph",
+      "rainfall",
+      "label",
+      "Label_Num"
+    ],
+    "null_counts": {},
+    "total_nulls": 0,
+    "duplicate_rows": 0,
+    "numeric_stats": {
+      "temperature": {
+        "min": 8.825674745,
+        "max": 43.67549305,
+        "mean": 25.62,
+        "median": 25.6,
+        "std": 5.06
+      },
+      "humidity": {
+        "min": 14.25803981,
+        "max": 99.98187601,
+        "mean": 71.48,
+        "median": 80.47,
+        "std": 22.26
+      },
+      "ph": {
+        "min": 3.504752314,
+        "max": 9.93509073,
+        "mean": 6.47,
+        "median": 6.43,
+        "std": 0.77
+      },
+      "rainfall": {
+        "min": 20.21126747,
+        "max": 298.5601175,
+        "mean": 103.46,
+        "median": 94.87,
+        "std": 54.96
+      },
+      "Label_Num": {
+        "min": 0.0,
+        "max": 21.0,
+        "mean": 10.5,
+        "median": 10.5,
+        "std": 6.35
+      }
+    },
+    "crops_count": 22,
+    "crops_sample": [
+      "rice",
+      "maize",
+      "chickpea",
+      "kidneybeans",
+      "pigeonpeas",
+      "mothbeans",
+      "mungbean",
+      "blackgram",
+      "lentil",
+      "pomegranate",
+      "banana",
+      "mango",
+      "grapes",
+      "watermelon",
+      "muskmelon",
+      "apple",
+      "orange",
+      "papaya",
+      "coconut",
+      "cotton"
+    ],
+    "all_crops": [
+      "apple",
+      "banana",
+      "blackgram",
+      "chickpea",
+      "coconut",
+      "coffee",
+      "cotton",
+      "grapes",
+      "jute",
+      "kidneybeans",
+      "lentil",
+      "maize",
+      "mango",
+      "mothbeans",
+      "mungbean",
+      "muskmelon",
+      "orange",
+      "papaya",
+      "pigeonpeas",
+      "pomegranate",
+      "rice",
+      "watermelon"
+    ],
+    "crop_counts_top15": {
+      "rice": 100,
+      "maize": 100,
+      "chickpea": 100,
+      "kidneybeans": 100,
+      "pigeonpeas": 100,
+      "mothbeans": 100,
+      "mungbean": 100,
+      "blackgram": 100,
+      "lentil": 100,
+      "pomegranate": 100,
+      "banana": 100,
+      "mango": 100,
+      "grapes": 100,
+      "watermelon": 100,
+      "muskmelon": 100
+    }
+  },
+  "wholesale_crop_prices": {
+    "file_name": "Wholesale_Crop_Prices_with_Weather_Data_India.xlsx",
+    "file_path": "external/AgriAdvisor-AI/datasets/Wholesale_Crop_Prices_with_Weather_Data_India.xlsx",
+    "rows": 2280,
+    "columns_count": 7,
+    "columns": [
+      "Year",
+      "Month",
+      "State",
+      "Crop ",
+      "Wholesale_Price [Rs. Per Quintal]",
+      "Temperature (Celsis)",
+      "Rainfall in mm"
+    ],
+    "null_counts": {},
+    "total_nulls": 0,
+    "duplicate_rows": 0,
+    "numeric_stats": {
+      "Year": {
+        "min": 2022.0,
+        "max": 2023.0,
+        "mean": 2022.5,
+        "median": 2022.5,
+        "std": 0.5
+      },
+      "Month": {
+        "min": 1.0,
+        "max": 12.0,
+        "mean": 6.5,
+        "median": 6.5,
+        "std": 3.45
+      },
+      "Wholesale_Price [Rs. Per Quintal]": {
+        "min": 696.0,
+        "max": 41750.0,
+        "mean": 5164.94,
+        "median": 2980.0,
+        "std": 5739.33
+      },
+      "Temperature (Celsis)": {
+        "min": -2.4,
+        "max": 3.7,
+        "mean": 0.44,
+        "median": 0.4,
+        "std": 0.79
+      },
+      "Rainfall in mm": {
+        "min": 0.0,
+        "max": 689.0,
+        "mean": 107.75,
+        "median": 51.5,
+        "std": 144.8
+      }
+    },
+    "states_count": 11,
+    "states_sample": [
+      "Andhra Pradesh",
+      "Assam",
+      "Bihar",
+      "Gujarat",
+      "Haryana",
+      "Maharashtra",
+      "Punjab",
+      "Rajasthan",
+      "Tamil Nadu",
+      "Uttar Pradesh",
+      "West Bengal"
+    ]
+  },
+  "icrisat_district_data": {
+    "file_name": "ICRISAT-District-Level-Data.csv",
+    "file_path": "external/AgriAdvisor-AI/datasets/ICRISAT-District-Level-Data.csv",
+    "rows": 16146,
+    "columns_count": 80,
+    "columns": [
+      "Dist Code",
+      "Year",
+      "State Code",
+      "State Name",
+      "Dist Name",
+      "RICE AREA (1000 ha)",
+      "RICE PRODUCTION (1000 tons)",
+      "RICE YIELD (Kg per ha)",
+      "WHEAT AREA (1000 ha)",
+      "WHEAT PRODUCTION (1000 tons)",
+      "WHEAT YIELD (Kg per ha)",
+      "KHARIF SORGHUM AREA (1000 ha)",
+      "KHARIF SORGHUM PRODUCTION (1000 tons)",
+      "KHARIF SORGHUM YIELD (Kg per ha)",
+      "RABI SORGHUM AREA (1000 ha)",
+      "RABI SORGHUM PRODUCTION (1000 tons)",
+      "RABI SORGHUM YIELD (Kg per ha)",
+      "SORGHUM AREA (1000 ha)",
+      "SORGHUM PRODUCTION (1000 tons)",
+      "SORGHUM YIELD (Kg per ha)",
+      "PEARL MILLET AREA (1000 ha)",
+      "PEARL MILLET PRODUCTION (1000 tons)",
+      "PEARL MILLET YIELD (Kg per ha)",
+      "MAIZE AREA (1000 ha)",
+      "MAIZE PRODUCTION (1000 tons)",
+      "MAIZE YIELD (Kg per ha)",
+      "FINGER MILLET AREA (1000 ha)",
+      "FINGER MILLET PRODUCTION (1000 tons)",
+      "FINGER MILLET YIELD (Kg per ha)",
+      "BARLEY AREA (1000 ha)",
+      "BARLEY PRODUCTION (1000 tons)",
+      "BARLEY YIELD (Kg per ha)",
+      "CHICKPEA AREA (1000 ha)",
+      "CHICKPEA PRODUCTION (1000 tons)",
+      "CHICKPEA YIELD (Kg per ha)",
+      "PIGEONPEA AREA (1000 ha)",
+      "PIGEONPEA PRODUCTION (1000 tons)",
+      "PIGEONPEA YIELD (Kg per ha)",
+      "MINOR PULSES AREA (1000 ha)",
+      "MINOR PULSES PRODUCTION (1000 tons)",
+      "MINOR PULSES YIELD (Kg per ha)",
+      "GROUNDNUT AREA (1000 ha)",
+      "GROUNDNUT PRODUCTION (1000 tons)",
+      "GROUNDNUT YIELD (Kg per ha)",
+      "SESAMUM AREA (1000 ha)",
+      "SESAMUM PRODUCTION (1000 tons)",
+      "SESAMUM YIELD (Kg per ha)",
+      "RAPESEED AND MUSTARD AREA (1000 ha)",
+      "RAPESEED AND MUSTARD PRODUCTION (1000 tons)",
+      "RAPESEED AND MUSTARD YIELD (Kg per ha)",
+      "SAFFLOWER AREA (1000 ha)",
+      "SAFFLOWER PRODUCTION (1000 tons)",
+      "SAFFLOWER YIELD (Kg per ha)",
+      "CASTOR AREA (1000 ha)",
+      "CASTOR PRODUCTION (1000 tons)",
+      "CASTOR YIELD (Kg per ha)",
+      "LINSEED AREA (1000 ha)",
+      "LINSEED PRODUCTION (1000 tons)",
+      "LINSEED YIELD (Kg per ha)",
+      "SUNFLOWER AREA (1000 ha)",
+      "SUNFLOWER PRODUCTION (1000 tons)",
+      "SUNFLOWER YIELD (Kg per ha)",
+      "SOYABEAN AREA (1000 ha)",
+      "SOYABEAN PRODUCTION (1000 tons)",
+      "SOYABEAN YIELD (Kg per ha)",
+      "OILSEEDS AREA (1000 ha)",
+      "OILSEEDS PRODUCTION (1000 tons)",
+      "OILSEEDS YIELD (Kg per ha)",
+      "SUGARCANE AREA (1000 ha)",
+      "SUGARCANE PRODUCTION (1000 tons)",
+      "SUGARCANE YIELD (Kg per ha)",
+      "COTTON AREA (1000 ha)",
+      "COTTON PRODUCTION (1000 tons)",
+      "COTTON YIELD (Kg per ha)",
+      "FRUITS AREA (1000 ha)",
+      "VEGETABLES AREA (1000 ha)",
+      "FRUITS AND VEGETABLES AREA (1000 ha)",
+      "POTATOES AREA (1000 ha)",
+      "ONION AREA (1000 ha)",
+      "FODDER AREA (1000 ha)"
+    ],
+    "null_counts": {},
+    "total_nulls": 0,
+    "duplicate_rows": 0,
+    "numeric_stats": {
+      "Dist Code": {
+        "min": 1.0,
+        "max": 917.0,
+        "mean": 269.77,
+        "median": 156.0,
+        "std": 278.31
+      },
+      "Year": {
+        "min": 1966.0,
+        "max": 2017.0,
+        "mean": 1991.5,
+        "median": 1991.0,
+        "std": 15.01
+      },
+      "State Code": {
+        "min": 1.0,
+        "max": 20.0,
+        "mean": 9.57,
+        "median": 10.0,
+        "std": 4.99
+      },
+      "RICE AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 1154.23,
+        "mean": 128.59,
+        "median": 66.8,
+        "std": 160.08
+      },
+      "RICE PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 3215.01,
+        "mean": 224.89,
+        "median": 95.84,
+        "std": 326.63
+      },
+      "RICE YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 5653.83,
+        "mean": 1486.92,
+        "median": 1333.21,
+        "std": 956.19
+      },
+      "WHEAT AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 879.49,
+        "mean": 77.06,
+        "median": 36.8,
+        "std": 100.39
+      },
+      "WHEAT PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 4305.5,
+        "mean": 182.01,
+        "median": 42.7,
+        "std": 348.83
+      },
+      "WHEAT YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 5541.52,
+        "mean": 1492.42,
+        "median": 1347.45,
+        "std": 1081.26
+      },
+      "KHARIF SORGHUM AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 334.8,
+        "mean": 22.63,
+        "median": 2.05,
+        "std": 45.06
+      },
+      "KHARIF SORGHUM PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 604.7,
+        "mean": 18.36,
+        "median": 1.2,
+        "std": 44.45
+      },
+      "KHARIF SORGHUM YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 6531.25,
+        "mean": 586.03,
+        "median": 544.92,
+        "std": 559.25
+      },
+      "RABI SORGHUM AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 835.0,
+        "mean": 17.39,
+        "median": 0.0,
+        "std": 72.37
+      },
+      "RABI SORGHUM PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 464.6,
+        "mean": 10.0,
+        "median": 0.0,
+        "std": 38.99
+      },
+      "RABI SORGHUM YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 10000.0,
+        "mean": 225.64,
+        "median": 0.0,
+        "std": 550.76
+      },
+      "SORGHUM AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 836.7,
+        "mean": 40.15,
+        "median": 2.94,
+        "std": 92.28
+      },
+      "SORGHUM PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 692.2,
+        "mean": 28.46,
+        "median": 1.84,
+        "std": 65.86
+      },
+      "SORGHUM YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 5742.59,
+        "mean": 586.09,
+        "median": 558.76,
+        "std": 547.04
+      },
+      "PEARL MILLET AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 1174.0,
+        "mean": 33.2,
+        "median": 0.48,
+        "std": 90.8
+      },
+      "PEARL MILLET PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 826.82,
+        "mean": 22.13,
+        "median": 0.3,
+        "std": 59.99
+      },
+      "PEARL MILLET YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 10000.0,
+        "mean": 517.92,
+        "median": 400.0,
+        "std": 587.56
+      },
+      "MAIZE AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 295.0,
+        "mean": 20.12,
+        "median": 5.13,
+        "std": 34.82
+      },
+      "MAIZE PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 1510.95,
+        "mean": 36.05,
+        "median": 6.1,
+        "std": 81.79
+      },
+      "MAIZE YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 21428.57,
+        "mean": 1408.76,
+        "median": 1159.06,
+        "std": 1191.69
+      },
+      "FINGER MILLET AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 261.0,
+        "mean": 6.25,
+        "median": 0.0,
+        "std": 22.07
+      },
+      "FINGER MILLET PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 459.98,
+        "mean": 7.11,
+        "median": 0.0,
+        "std": 29.04
+      },
+      "FINGER MILLET YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 9286.86,
+        "mean": 354.85,
+        "median": 0.0,
+        "std": 572.89
+      },
+      "BARLEY AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 137.7,
+        "mean": 4.17,
+        "median": 0.0,
+        "std": 10.28
+      },
+      "BARLEY PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 361.59,
+        "mean": 5.88,
+        "median": 0.0,
+        "std": 16.05
+      },
+      "BARLEY YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 14441.86,
+        "mean": 734.25,
+        "median": 0.0,
+        "std": 949.5
+      },
+      "CHICKPEA AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 665.2,
+        "mean": 23.87,
+        "median": 5.0,
+        "std": 46.43
+      },
+      "CHICKPEA PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 563.1,
+        "mean": 18.05,
+        "median": 3.1,
+        "std": 37.46
+      },
+      "CHICKPEA YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 58363.64,
+        "mean": 630.82,
+        "median": 613.68,
+        "std": 655.59
+      },
+      "PIGEONPEA AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 480.89,
+        "mean": 10.48,
+        "median": 3.3,
+        "std": 23.66
+      },
+      "PIGEONPEA PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 618.53,
+        "mean": 7.44,
+        "median": 2.0,
+        "std": 17.85
+      },
+      "PIGEONPEA YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 12402.6,
+        "mean": 618.02,
+        "median": 605.95,
+        "std": 496.93
+      },
+      "MINOR PULSES AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 698.55,
+        "mean": 41.46,
+        "median": 21.12,
+        "std": 58.33
+      },
+      "MINOR PULSES PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 404.31,
+        "mean": 16.67,
+        "median": 7.6,
+        "std": 27.8
+      },
+      "MINOR PULSES YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 18888.89,
+        "mean": 453.63,
+        "median": 400.0,
+        "std": 499.82
+      },
+      "GROUNDNUT AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 899.04,
+        "mean": 22.44,
+        "median": 1.68,
+        "std": 62.22
+      },
+      "GROUNDNUT PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 1688.11,
+        "mean": 22.03,
+        "median": 1.5,
+        "std": 68.63
+      },
+      "GROUNDNUT YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 8500.0,
+        "mean": 765.95,
+        "median": 774.41,
+        "std": 627.71
+      },
+      "SESAMUM AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 181.93,
+        "mean": 6.1,
+        "median": 1.6,
+        "std": 12.31
+      },
+      "SESAMUM PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 74.9,
+        "mean": 1.87,
+        "median": 0.36,
+        "std": 4.53
+      },
+      "SESAMUM YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 6625.0,
+        "mean": 264.73,
+        "median": 230.77,
+        "std": 231.26
+      },
+      "RAPESEED AND MUSTARD AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 466.22,
+        "mean": 12.97,
+        "median": 1.44,
+        "std": 35.29
+      },
+      "RAPESEED AND MUSTARD PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 787.38,
+        "mean": 12.4,
+        "median": 0.75,
+        "std": 43.48
+      },
+      "RAPESEED AND MUSTARD YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 10000.0,
+        "mean": 497.95,
+        "median": 448.82,
+        "std": 460.54
+      },
+      "SAFFLOWER AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 147.6,
+        "mean": 1.76,
+        "median": 0.0,
+        "std": 9.19
+      },
+      "SAFFLOWER PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 83.0,
+        "mean": 0.69,
+        "median": 0.0,
+        "std": 4.33
+      },
+      "SAFFLOWER YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 4166.67,
+        "mean": 73.05,
+        "median": 0.0,
+        "std": 204.39
+      },
+      "CASTOR AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 234.89,
+        "mean": 2.19,
+        "median": 0.0,
+        "std": 11.87
+      },
+      "CASTOR PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 450.33,
+        "mean": 2.21,
+        "median": 0.0,
+        "std": 16.47
+      },
+      "CASTOR YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 4600.0,
+        "mean": 215.41,
+        "median": 0.0,
+        "std": 439.11
+      },
+      "LINSEED AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 120.7,
+        "mean": 2.45,
+        "median": 0.0,
+        "std": 7.47
+      },
+      "LINSEED PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 28.7,
+        "mean": 0.69,
+        "median": 0.0,
+        "std": 1.87
+      },
+      "LINSEED YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 7000.0,
+        "mean": 175.55,
+        "median": 0.0,
+        "std": 271.87
+      },
+      "SUNFLOWER AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 476.67,
+        "mean": 3.01,
+        "median": 0.0,
+        "std": 18.73
+      },
+      "SUNFLOWER PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 222.67,
+        "mean": 1.59,
+        "median": 0.0,
+        "std": 8.43
+      },
+      "SUNFLOWER YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 4282.05,
+        "mean": 278.45,
+        "median": 0.0,
+        "std": 503.52
+      },
+      "SOYABEAN AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 529.6,
+        "mean": 13.67,
+        "median": 0.0,
+        "std": 53.51
+      },
+      "SOYABEAN PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 940.8,
+        "mean": 13.95,
+        "median": 0.0,
+        "std": 58.59
+      },
+      "SOYABEAN YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 3884.06,
+        "mean": 242.96,
+        "median": 0.0,
+        "std": 467.45
+      },
+      "OILSEEDS AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 951.24,
+        "mean": 66.74,
+        "median": 32.88,
+        "std": 94.03
+      },
+      "OILSEEDS PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 1712.92,
+        "mean": 50.91,
+        "median": 13.2,
+        "std": 99.83
+      },
+      "OILSEEDS YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 25500.0,
+        "mean": 593.66,
+        "median": 536.26,
+        "std": 673.28
+      },
+      "SUGARCANE AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 342.41,
+        "mean": 11.91,
+        "median": 1.73,
+        "std": 29.59
+      },
+      "SUGARCANE PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 3252.9,
+        "mean": 75.51,
+        "median": 7.24,
+        "std": 198.82
+      },
+      "SUGARCANE YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 22062.3,
+        "mean": 4500.15,
+        "median": 4502.21,
+        "std": 3153.97
+      },
+      "COTTON AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 800.89,
+        "mean": 28.02,
+        "median": 0.05,
+        "std": 74.24
+      },
+      "COTTON PRODUCTION (1000 tons)": {
+        "min": -1.0,
+        "max": 376.61,
+        "mean": 7.23,
+        "median": 0.0,
+        "std": 25.04
+      },
+      "COTTON YIELD (Kg per ha)": {
+        "min": -1.0,
+        "max": 5000.0,
+        "mean": 124.64,
+        "median": 0.0,
+        "std": 207.68
+      },
+      "FRUITS AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 159.54,
+        "mean": 7.75,
+        "median": 2.22,
+        "std": 13.59
+      },
+      "VEGETABLES AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 200.06,
+        "mean": 11.09,
+        "median": 4.74,
+        "std": 18.0
+      },
+      "FRUITS AND VEGETABLES AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 240.99,
+        "mean": 18.68,
+        "median": 8.94,
+        "std": 25.88
+      },
+      "POTATOES AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 111.61,
+        "mean": 3.18,
+        "median": 0.39,
+        "std": 8.03
+      },
+      "ONION AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 131.35,
+        "mean": 1.19,
+        "median": 0.28,
+        "std": 4.29
+      },
+      "FODDER AREA (1000 ha)": {
+        "min": -1.0,
+        "max": 1162.66,
+        "mean": 21.55,
+        "median": 1.2,
+        "std": 60.06
+      }
+    },
+    "states_count": 20,
+    "states_sample": [
+      "Chhattisgarh",
+      "Madhya Pradesh",
+      "Andhra Pradesh",
+      "Telangana",
+      "Karnataka",
+      "Tamil Nadu",
+      "Maharashtra",
+      "Gujarat",
+      "Rajasthan",
+      "Punjab",
+      "Haryana",
+      "Uttar Pradesh",
+      "Uttarakhand",
+      "Assam",
+      "Himachal Pradesh"
+    ],
+    "districts_count": 311
+  },
+  "india_crop_production": {
+    "file_name": "India_Agriculture_Crop_Production.csv",
+    "file_path": "external/AgriAdvisor-AI/datasets/India_Agriculture_Crop_Production.csv",
+    "rows": 345407,
+    "columns_count": 10,
+    "columns": [
+      "State",
+      "District",
+      "Crop",
+      "Year",
+      "Season",
+      "Area",
+      "Area Units",
+      "Production",
+      "Production Units",
+      "Yield"
+    ],
+    "null_counts": {
+      "Crop": 32,
+      "Season": 1,
+      "Area": 33,
+      "Production": 4993,
+      "Yield": 33
+    },
+    "total_nulls": 5092,
+    "duplicate_rows": 0,
+    "numeric_stats": {
+      "Area": {
+        "min": 0.004,
+        "max": 8580100.0,
+        "mean": 11670.19,
+        "median": 532.0,
+        "std": 45838.43
+      },
+      "Production": {
+        "min": 0.0,
+        "max": 1597800000.0,
+        "mean": 958371.15,
+        "median": 717.0,
+        "std": 21529855.09
+      },
+      "Yield": {
+        "min": 0.0,
+        "max": 43958.333333333336,
+        "mean": 79.41,
+        "median": 1.0,
+        "std": 916.63
+      }
+    },
+    "crops_count": 56,
+    "crops_sample": [
+      "Arecanut",
+      "Banana",
+      "Black pepper",
+      "Cashewnut",
+      "Coconut",
+      "Dry chillies",
+      "Ginger",
+      "Other Kharif pulses",
+      "other oilseeds",
+      "Rice",
+      "Sugarcane",
+      "Sweet potato",
+      "Arhar/Tur",
+      "Bajra",
+      "Castor seed",
+      "Coriander",
+      "Cotton(lint)",
+      "Gram",
+      "Groundnut",
+      "Horse-gram"
+    ],
+    "all_crops": [
+      "Arecanut",
+      "Arhar/Tur",
+      "Bajra",
+      "Banana",
+      "Barley",
+      "Black pepper",
+      "Cardamom",
+      "Cashewnut",
+      "Castor seed",
+      "Coconut",
+      "Coriander",
+      "Cotton(lint)",
+      "Cowpea(Lobia)",
+      "Dry Ginger",
+      "Dry chillies",
+      "Garlic",
+      "Ginger",
+      "Gram",
+      "Groundnut",
+      "Guar seed",
+      "Horse-gram",
+      "Jowar",
+      "Jute",
+      "Khesari",
+      "Linseed",
+      "Maize",
+      "Masoor",
+      "Mesta",
+      "Moong(Green Gram)",
+      "Moth",
+      "Niger seed",
+      "Oilseeds total",
+      "Onion",
+      "Other Cereals",
+      "Other Kharif pulses",
+      "Other Rabi pulses",
+      "Other Summer Pulses",
+      "Peas & beans (Pulses)",
+      "Potato",
+      "Ragi",
+      "Rapeseed &Mustard",
+      "Rice",
+      "Safflower",
+      "Sannhamp",
+      "Sesamum",
+      "Small millets",
+      "Soyabean",
+      "Sugarcane",
+      "Sunflower",
+      "Sweet potato",
+      "Tapioca",
+      "Tobacco",
+      "Turmeric",
+      "Urad",
+      "Wheat",
+      "other oilseeds"
+    ],
+    "crop_counts_top15": {
+      "Rice": 21611,
+      "Maize": 20507,
+      "Moong(Green Gram)": 15101,
+      "Urad": 14581,
+      "Sesamum": 13049,
+      "Groundnut": 12586,
+      "Wheat": 11248,
+      "Rapeseed &Mustard": 11034,
+      "Sugarcane": 10942,
+      "Arhar/Tur": 10895,
+      "Potato": 10756,
+      "Onion": 10675,
+      "Gram": 10474,
+      "Jowar": 9769,
+      "Dry chillies": 8971
+    },
+    "states_count": 36,
+    "states_sample": [
+      "Andaman and Nicobar Islands",
+      "Andhra Pradesh",
+      "Arunachal Pradesh",
+      "Assam",
+      "Bihar",
+      "Chandigarh",
+      "Chhattisgarh",
+      "Dadra and Nagar Haveli",
+      "Daman and Diu",
+      "Delhi",
+      "Goa",
+      "Gujarat",
+      "Haryana",
+      "Himachal Pradesh",
+      "Jammu and Kashmir"
+    ],
+    "districts_count": 729,
+    "seasons": [
+      "Kharif",
+      "Whole Year",
+      "Rabi",
+      "Autumn",
+      "Summer",
+      "Winter"
+    ]
+  },
+  "crop_yield": {
+    "file_name": "crop_yield.csv",
+    "file_path": "external/AgriAdvisor-AI/datasets/crop_yield.csv",
+    "rows": 19689,
+    "columns_count": 10,
+    "columns": [
+      "Crop",
+      "Crop_Year",
+      "Season",
+      "State",
+      "Area",
+      "Production",
+      "Annual_Rainfall",
+      "Fertilizer",
+      "Pesticide",
+      "Yield"
+    ],
+    "null_counts": {},
+    "total_nulls": 0,
+    "duplicate_rows": 0,
+    "numeric_stats": {
+      "Crop_Year": {
+        "min": 1997.0,
+        "max": 2020.0,
+        "mean": 2009.13,
+        "median": 2010.0,
+        "std": 6.5
+      },
+      "Area": {
+        "min": 0.5,
+        "max": 50808100.0,
+        "mean": 179926.57,
+        "median": 9317.0,
+        "std": 732828.68
+      },
+      "Production": {
+        "min": 0.0,
+        "max": 6326000000.0,
+        "mean": 16435941.27,
+        "median": 13804.0,
+        "std": 263056839.81
+      },
+      "Annual_Rainfall": {
+        "min": 301.3,
+        "max": 6552.7,
+        "mean": 1437.76,
+        "median": 1247.6,
+        "std": 816.91
+      },
+      "Fertilizer": {
+        "min": 54.17,
+        "max": 4835406877.0,
+        "mean": 24103312.45,
+        "median": 1234957.44,
+        "std": 94946004.48
+      },
+      "Pesticide": {
+        "min": 0.09,
+        "max": 15750511.0,
+        "mean": 48848.35,
+        "median": 2421.9,
+        "std": 213287.35
+      },
+      "Yield": {
+        "min": 0.0,
+        "max": 21105.0,
+        "mean": 79.95,
+        "median": 1.03,
+        "std": 878.31
+      }
+    },
+    "crops_count": 55,
+    "crops_sample": [
+      "Arecanut",
+      "Arhar/Tur",
+      "Castor seed",
+      "Coconut",
+      "Cotton(lint)",
+      "Dry chillies",
+      "Gram",
+      "Jute",
+      "Linseed",
+      "Maize",
+      "Mesta",
+      "Niger seed",
+      "Onion",
+      "Other  Rabi pulses",
+      "Potato",
+      "Rapeseed &Mustard",
+      "Rice",
+      "Sesamum",
+      "Small millets",
+      "Sugarcane"
+    ],
+    "all_crops": [
+      "Arecanut",
+      "Arhar/Tur",
+      "Bajra",
+      "Banana",
+      "Barley",
+      "Black pepper",
+      "Cardamom",
+      "Cashewnut",
+      "Castor seed",
+      "Coconut",
+      "Coriander",
+      "Cotton(lint)",
+      "Cowpea(Lobia)",
+      "Dry chillies",
+      "Garlic",
+      "Ginger",
+      "Gram",
+      "Groundnut",
+      "Guar seed",
+      "Horse-gram",
+      "Jowar",
+      "Jute",
+      "Khesari",
+      "Linseed",
+      "Maize",
+      "Masoor",
+      "Mesta",
+      "Moong(Green Gram)",
+      "Moth",
+      "Niger seed",
+      "Oilseeds total",
+      "Onion",
+      "Other  Rabi pulses",
+      "Other Cereals",
+      "Other Kharif pulses",
+      "Other Summer Pulses",
+      "Peas & beans (Pulses)",
+      "Potato",
+      "Ragi",
+      "Rapeseed &Mustard",
+      "Rice",
+      "Safflower",
+      "Sannhamp",
+      "Sesamum",
+      "Small millets",
+      "Soyabean",
+      "Sugarcane",
+      "Sunflower",
+      "Sweet potato",
+      "Tapioca",
+      "Tobacco",
+      "Turmeric",
+      "Urad",
+      "Wheat",
+      "other oilseeds"
+    ],
+    "crop_counts_top15": {
+      "Rice": 1197,
+      "Maize": 975,
+      "Moong(Green Gram)": 740,
+      "Urad": 733,
+      "Groundnut": 725,
+      "Sesamum": 685,
+      "Potato": 628,
+      "Sugarcane": 605,
+      "Wheat": 545,
+      "Rapeseed &Mustard": 528,
+      "Bajra": 524,
+      "Jowar": 513,
+      "Arhar/Tur": 508,
+      "Ragi": 498,
+      "Gram": 490
+    },
+    "states_count": 30,
+    "states_sample": [
+      "Assam",
+      "Karnataka",
+      "Kerala",
+      "Meghalaya",
+      "West Bengal",
+      "Puducherry",
+      "Goa",
+      "Andhra Pradesh",
+      "Tamil Nadu",
+      "Odisha",
+      "Bihar",
+      "Gujarat",
+      "Madhya Pradesh",
+      "Maharashtra",
+      "Mizoram"
+    ],
+    "seasons": [
+      "Whole Year",
+      "Kharif",
+      "Rabi",
+      "Autumn",
+      "Summer",
+      "Winter"
+    ]
+  },
+  "nw_india_rainfall": {
+    "file_name": "nw_India_rainfall_act_dep_1901_2015.csv",
+    "file_path": "external/AgriAdvisor-AI/datasets/nw_India_rainfall_act_dep_1901_2015.csv",
+    "rows": 115,
+    "columns_count": 11,
+    "columns": [
+      "YEAR",
+      "Actual Rainfall: JUN",
+      "Actual Rainfall: JUL",
+      "Actual Rainfall: AUG",
+      "Actual Rainfall: SEPT",
+      "Actual Rainfall: JUN-SEPT",
+      "Departure Percentage: JUN",
+      "Departure Percentage: JUL",
+      "Departure Percentage: AUG",
+      "Departure Percentage: SEP",
+      "Departure Percentage: JUN-SEPT"
+    ],
+    "null_counts": {},
+    "total_nulls": 0,
+    "duplicate_rows": 0,
+    "numeric_stats": {
+      "YEAR": {
+        "min": 1901.0,
+        "max": 2015.0,
+        "mean": 1958.0,
+        "median": 1958.0,
+        "std": 33.34
+      },
+      "Actual Rainfall: JUN": {
+        "min": 17.7,
+        "max": 161.0,
+        "mean": 72.73,
+        "median": 68.8,
+        "std": 35.87
+      },
+      "Actual Rainfall: JUL": {
+        "min": 59.0,
+        "max": 353.5,
+        "mean": 221.43,
+        "median": 226.9,
+        "std": 57.91
+      },
+      "Actual Rainfall: AUG": {
+        "min": 87.1,
+        "max": 366.9,
+        "mean": 220.36,
+        "median": 226.0,
+        "std": 57.58
+      },
+      "Actual Rainfall: SEPT": {
+        "min": 13.5,
+        "max": 299.6,
+        "mean": 113.78,
+        "median": 113.3,
+        "std": 51.41
+      },
+      "Actual Rainfall: JUN-SEPT": {
+        "min": 345.4,
+        "max": 1024.0,
+        "mean": 628.29,
+        "median": 642.5,
+        "std": 119.83
+      },
+      "Departure Percentage: JUN": {
+        "min": -74.2,
+        "max": 138.4,
+        "mean": 5.85,
+        "median": 0.5,
+        "std": 52.1
+      },
+      "Departure Percentage: JUL": {
+        "min": -74.5,
+        "max": 52.6,
+        "mean": -1.43,
+        "median": 0.9,
+        "std": 25.29
+      },
+      "Departure Percentage: AUG": {
+        "min": -60.7,
+        "max": 55.4,
+        "mean": -1.87,
+        "median": 0.0,
+        "std": 25.16
+      },
+      "Departure Percentage: SEP": {
+        "min": -88.4,
+        "max": 156.7,
+        "mean": -2.32,
+        "median": -3.2,
+        "std": 44.49
+      },
+      "Departure Percentage: JUN-SEPT": {
+        "min": -46.9,
+        "max": 57.4,
+        "mean": -0.97,
+        "median": 1.7,
+        "std": 18.51
+      }
+    }
+  }
+}

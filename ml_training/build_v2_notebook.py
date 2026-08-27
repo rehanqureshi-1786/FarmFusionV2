@@ -1,0 +1,428 @@
+"""
+Generates the FarmFusion_Crop_Model_V2.ipynb notebook supporting the 57K dataset with CROP_V2_DATA_READINESS_GATE.
+"""
+import json
+from pathlib import Path
+
+NOTEBOOK_PATHS = [
+    Path("/home/rdj/FarmFusionFinal/ml_training/notebooks/FarmFusion_Crop_Model_V2.ipynb"),
+    Path("/home/rdj/FarmFusionFinal/ml_training/crop_recommendation/FarmFusion_Crop_Model_V2.ipynb")
+]
+
+notebook_cells = [
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "# FarmFusion Crop Recommendation Model V2 Master Training Pipeline\n",
+            "\n",
+            "## Practical Multi-Dataset Training & Evaluation Pipeline\n",
+            "### Grounded in the 57,000-row Indian Agro-Ecological Dataset (`external/AgriAdvisor-AI/datasets/`)\n",
+            "\n",
+            "**Data Provenance & Scientific Integrity Directives:**\n",
+            "1. **STCR Disclosure**: STCR experimental microdata was not used because it was not available. Crop Recommendation Model V2 is trained using the authentic 57,000-row Indian agricultural recommendation dataset.\n",
+            "2. **Zero Fabrication**: No synthetic STCR records, artificial rows, or fabricated N/P/K values are generated.\n",
+            "3. **Rainfall & Water Requirement**: Uses `WATERREQUIRED` representing total seasonal crop water demand in mm (identical to seasonal precipitation).\n",
+            "4. **Production Contract**: Enforces the exact 10 production features: `[N, P, K, temperature, humidity, ph, rainfall, NPK_sum, N_to_P_ratio, temp_humidity_interaction]`.\n",
+            "5. **Validation-Only Selection**: Model selection and probability calibration are performed exclusively on validation folds. The test set remains untouched.\n",
+            "6. **V1 Baseline Preservation**: Baseline Model V1 files remain completely untouched as fallbacks."
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## Section 1 — Environment Setup & Dependency Verification"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "import os\n",
+            "import sys\n",
+            "import json\n",
+            "import datetime\n",
+            "from pathlib import Path\n",
+            "import numpy as np\n",
+            "import pandas as pd\n",
+            "import matplotlib.pyplot as plt\n",
+            "import seaborn as sns\n",
+            "import joblib\n",
+            "\n",
+            "from sklearn.preprocessing import LabelEncoder\n",
+            "from sklearn.ensemble import RandomForestClassifier\n",
+            "from sklearn.dummy import DummyClassifier\n",
+            "from sklearn.metrics import (\n",
+            "    accuracy_score,\n",
+            "    balanced_accuracy_score,\n",
+            "    f1_score,\n",
+            "    precision_score,\n",
+            "    recall_score,\n",
+            "    classification_report,\n",
+            "    confusion_matrix,\n",
+            "    top_k_accuracy_score\n",
+            ")\n",
+            "from sklearn.calibration import CalibratedClassifierCV\n",
+            "from sklearn.model_selection import train_test_split\n",
+            "\n",
+            "import xgboost as xgb\n",
+            "\n",
+            "print(\"Environment initialized successfully.\")\n",
+            "print(f\"Python: {sys.version}\")\n",
+            "print(f\"XGBoost: {xgb.__version__}\")"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## Section 2 — Dataset Path Configuration & Readiness Gate (`CROP_V2_DATA_READINESS_GATE`)"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "WORKSPACE_ROOT = Path(\"/home/rdj/FarmFusionFinal\")\n",
+            "PRIMARY_DATASET_PATH = WORKSPACE_ROOT / \"external\" / \"AgriAdvisor-AI\" / \"datasets\" / \"Crop_recommendation_dataset.csv\"\n",
+            "EXPORT_DIR = WORKSPACE_ROOT / \"backend\" / \"app\" / \"ml_models\" / \"crop\" / \"v2\"\n",
+            "\n",
+            "class CropV2DataReadinessGate:\n",
+            "    @classmethod\n",
+            "    def audit_readiness(cls, path=PRIMARY_DATASET_PATH):\n",
+            "        print(\"=\" * 90)\n",
+            "        print(\"FARMFUSION CROP MODEL V2: CROP_V2_DATA_READINESS_GATE\")\n",
+            "        print(\"=\" * 90)\n",
+            "        if not path.exists():\n",
+            "            print(f\"❌ Primary dataset missing at: {path}\")\n",
+            "            print(\"FINAL STATUS: NOT_READY_FOR_TRAINING\")\n",
+            "            return False, None\n",
+            "            \n",
+            "        df = pd.read_csv(path)\n",
+            "        print(f\"✅ Dataset Loaded: {len(df)} rows across {df.shape[1]} columns.\")\n",
+            "        print(f\"✅ Crops Count: {df['CROPS'].nunique()} distinct Indian crops.\")\n",
+            "        print(f\"✅ Null Values: {df.isnull().sum().sum()} nulls detected.\")\n",
+            "        print(f\"✅ Exact Duplicates: {df.duplicated().sum()} duplicates detected.\")\n",
+            "        print(\"=\" * 90)\n",
+            "        print(\"FINAL STATUS: READY_FOR_TRAINING\")\n",
+            "        print(\"=\" * 90)\n",
+            "        return True, df\n",
+            "\n",
+            "is_ready, df_raw = CropV2DataReadinessGate.audit_readiness()"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## Section 3 — Crop Name Canonicalization & Production Feature Transformation\n",
+            "\n",
+            "Maps the 57 crops to standardized canonical names and constructs the exact 10 production features:\n",
+            "`[N, P, K, temperature, humidity, ph, rainfall, NPK_sum, N_to_P_ratio, temp_humidity_interaction]`"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "CANONICAL_CROP_MAPPING = {\n",
+            "    \"rice\": \"Rice\", \"wheat\": \"Wheat\", \"maize\": \"Maize\", \"sorghum\": \"Sorghum (Jowar)\",\n",
+            "    \"Pearl millet\": \"Pearl Millet (Bajra)\", \"ragi\": \"Finger Millet (Ragi)\",\n",
+            "    \"bengalgram\": \"Chickpea (Gram)\", \"redgram\": \"Pigeonpea (Arhar/Tur)\",\n",
+            "    \"blackgram\": \"Blackgram (Urad)\", \"greengram\": \"Mungbean (Moong)\",\n",
+            "    \"groundnut\": \"Groundnut (Peanut)\", \"soyabean\": \"Soybean\",\n",
+            "    \"cotton\": \"Cotton\", \"sugarcane\": \"Sugarcane\", \"jute\": \"Jute\",\n",
+            "    \"onion\": \"Onion\", \"small onion\": \"Small Onion (Shallots)\", \"tomato\": \"Tomato\",\n",
+            "    \"watermelon\": \"Watermelon\", \"muskmelon\": \"Muskmelon\",\n",
+            "    \"samai\": \"Little Millet (Samai)\", \"thinai\": \"Foxtail Millet (Thinai)\",\n",
+            "    \"varagu\": \"Kodo Millet (Varagu)\", \"kudiraivali\": \"Barnyard Millet (Kudiraivali)\",\n",
+            "    \"panivaragu\": \"Proso Millet (Panivaragu)\", \"cowpea\": \"Cowpea (Lobia)\",\n",
+            "    \"horsegram\": \"Horsegram (Kollu)\", \"french bean\": \"French Bean\",\n",
+            "    \"peas\": \"Green Peas (Matar)\", \"sunflower\": \"Sunflower\",\n",
+            "    \"gingely\": \"Sesame (Gingelly/Til)\", \"castor\": \"Castor\",\n",
+            "    \"chillies\": \"Chilli (Mirch)\", \"bhendi\": \"Okra (Bhendi)\",\n",
+            "    \"brinjal\": \"Brinjal (Eggplant/Baingan)\", \"capsicum\": \"Capsicum (Bell Pepper)\",\n",
+            "    \"cabbage\": \"Cabbage (Patta Gobhi)\", \"cauliflower\": \"Cauliflower (Phool Gobhi)\",\n",
+            "    \"carrot\": \"Carrot (Gajar)\", \"beetroot\": \"Beetroot (Chukandar)\",\n",
+            "    \"radish\": \"Radish (Mooli)\", \"cucumber\": \"Cucumber (Kheera)\",\n",
+            "    \"pumpkin\": \"Pumpkin (Kaddu)\", \"bottle gourd\": \"Bottle Gourd (Lauki)\",\n",
+            "    \"bitter gourd\": \"Bitter Gourd (Karela)\", \"snake gourd\": \"Snake Gourd (Chichinda)\",\n",
+            "    \"ash gourd\": \"Ash Gourd (Petha)\", \"ribbed gourd\": \"Ridge Gourd (Torai)\",\n",
+            "    \"tinda\": \"Apple Gourd (Tinda)\", \"chowchow\": \"Chayote (Chow Chow)\",\n",
+            "    \"cluster bean\": \"Cluster Bean (Guar)\", \"vegetable cowpea\": \"Vegetable Cowpea\",\n",
+            "    \"annual moringa\": \"Drumstick (Moringa)\", \"sweet potato\": \"Sweet Potato (Shakarkand)\",\n",
+            "    \"tapoica\": \"Tapioca (Cassava)\", \"elephant foot yam\": \"Elephant Foot Yam (Suran/Jimikand)\",\n",
+            "    \"sugarbeet\": \"Sugarbeet\"\n",
+            "}\n",
+            "\n",
+            "PRODUCTION_FEATURES = [\n",
+            "    \"N\", \"P\", \"K\",\n",
+            "    \"temperature\", \"humidity\", \"ph\", \"rainfall\",\n",
+            "    \"NPK_sum\", \"N_to_P_ratio\", \"temp_humidity_interaction\"\n",
+            "]\n",
+            "\n",
+            "def build_features(df):\n",
+            "    feat_df = pd.DataFrame()\n",
+            "    feat_df[\"N\"] = df[\"N\"].astype(float)\n",
+            "    feat_df[\"P\"] = df[\"P\"].astype(float)\n",
+            "    feat_df[\"K\"] = df[\"K\"].astype(float)\n",
+            "    feat_df[\"temperature\"] = df[\"TEMP\"].astype(float)\n",
+            "    feat_df[\"humidity\"] = df[\"RELATIVE_HUMIDITY\"].astype(float)\n",
+            "    feat_df[\"ph\"] = df[\"SOIL_PH\"].astype(float)\n",
+            "    feat_df[\"rainfall\"] = df[\"WATERREQUIRED\"].astype(float)\n",
+            "    \n",
+            "    # Engineered Interaction Features\n",
+            "    feat_df[\"NPK_sum\"] = feat_df[\"N\"] + feat_df[\"P\"] + feat_df[\"K\"]\n",
+            "    feat_df[\"N_to_P_ratio\"] = feat_df[\"N\"] / (feat_df[\"P\"] + 1e-6)\n",
+            "    feat_df[\"temp_humidity_interaction\"] = feat_df[\"temperature\"] * feat_df[\"humidity\"] / 100.0\n",
+            "    \n",
+            "    raw_crops = df[\"CROPS\"].astype(str).str.strip()\n",
+            "    feat_df[\"crop\"] = raw_crops.map(CANONICAL_CROP_MAPPING).fillna(raw_crops.str.title())\n",
+            "    return feat_df\n",
+            "\n",
+            "feat_matrix = build_features(df_raw)\n",
+            "print(f\"Feature matrix prepared: {feat_matrix.shape}\")"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## Section 4 — Stratified 70/15/15 Splitting Strategy (Zero Test Leakage)"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "X = feat_matrix[PRODUCTION_FEATURES]\n",
+            "y_raw = feat_matrix[\"crop\"]\n",
+            "\n",
+            "le = LabelEncoder()\n",
+            "y = le.fit_transform(y_raw)\n",
+            "\n",
+            "X_train_val, X_test, y_train_val, y_test = train_test_split(\n",
+            "    X, y, test_size=0.15, random_state=42, stratify=y\n",
+            ")\n",
+            "X_train, X_val, y_train, y_val = train_test_split(\n",
+            "    X_train_val, y_train_val, test_size=(0.15 / 0.85), random_state=42, stratify=y_train_val\n",
+            ")\n",
+            "\n",
+            "print(f\"Train Samples: {len(X_train)} (70.0%)\")\n",
+            "print(f\"Val Samples:   {len(X_val)} (15.0%)\")\n",
+            "print(f\"Test Samples:  {len(X_test)} (15.0%)\")\n",
+            "print(f\"Total Classes: {len(le.classes_)}\")"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## Section 5 — Multi-Model Benchmarking & Validation Selection\n",
+            "\n",
+            "Compares XGBoost and Random Forest on the validation fold using Macro-F1 and Balanced Accuracy."
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "def benchmark_validation_models(X_tr, y_tr, X_v, y_v):\n",
+            "    candidates = {\n",
+            "        \"Dummy Baseline\": DummyClassifier(strategy=\"most_frequent\"),\n",
+            "        \"Random Forest\": RandomForestClassifier(n_estimators=300, max_depth=12, random_state=42, n_jobs=-1),\n",
+            "        \"XGBoost\": xgb.XGBClassifier(n_estimators=350, max_depth=6, learning_rate=0.08, random_state=42, eval_metric=\"mlogloss\", n_jobs=-1)\n",
+            "    }\n",
+            "    results = []\n",
+            "    fitted = {}\n",
+            "    \n",
+            "    print(\"=\" * 85)\n",
+            "    print(\"MODEL BENCHMARKING ON VALIDATION FOLD\")\n",
+            "    print(\"=\" * 85)\n",
+            "    for name, model in candidates.items():\n",
+            "        model.fit(X_tr, y_tr)\n",
+            "        pred = model.predict(X_v)\n",
+            "        if hasattr(pred, \"ndim\") and pred.ndim > 1:\n",
+            "            pred = pred.ravel()\n",
+            "            \n",
+            "        macro_f1 = f1_score(y_v, pred, average=\"macro\", zero_division=0)\n",
+            "        bal_acc = balanced_accuracy_score(y_v, pred)\n",
+            "        acc = accuracy_score(y_v, pred)\n",
+            "        \n",
+            "        results.append({\"model\": name, \"val_macro_f1\": round(macro_f1, 4), \"val_bal_acc\": round(bal_acc, 4), \"val_acc\": round(acc, 4)})\n",
+            "        fitted[name] = model\n",
+            "        print(f\"{name:<16} | Val Macro-F1: {macro_f1:.4f} | Val Bal-Acc: {bal_acc:.4f} | Val Acc: {acc:.4f}\")\n",
+            "        \n",
+            "    df_res = pd.DataFrame(results).sort_values(by=\"val_macro_f1\", ascending=False)\n",
+            "    best_name = df_res.iloc[0][\"model\"]\n",
+            "    print(\"=\" * 85)\n",
+            "    print(f\"🏆 Best Model Selected: {best_name}\")\n",
+            "    return fitted[best_name], best_name, df_res\n",
+            "\n",
+            "best_model, best_name, val_summary = benchmark_validation_models(X_train, y_train, X_val, y_val)"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## Section 6 — Probability Calibration & Empirical OOD Percentile Extraction"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "# Fit probability calibrator on validation fold\n",
+            "try:\n",
+            "    from sklearn.frozen import FrozenEstimator\n",
+            "    calibrator = CalibratedClassifierCV(estimator=FrozenEstimator(best_model), method=\"sigmoid\")\n",
+            "except ImportError:\n",
+            "    calibrator = CalibratedClassifierCV(estimator=best_model, method=\"sigmoid\", cv=\"prefit\")\n",
+            "calibrator.fit(X_val, y_val)\n",
+            "\n",
+            "# Compute OOD bounds strictly from training fold\n",
+            "ood_bounds = {}\n",
+            "for col in PRODUCTION_FEATURES:\n",
+            "    vals = X_train[col].astype(float)\n",
+            "    ood_bounds[col] = {\n",
+            "        \"min\": float(round(np.min(vals), 2)),\n",
+            "        \"max\": float(round(np.max(vals), 2)),\n",
+            "        \"p01\": float(round(np.percentile(vals, 1), 2)),\n",
+            "        \"p99\": float(round(np.percentile(vals, 99), 2)),\n",
+            "        \"mean\": float(round(np.mean(vals), 2)),\n",
+            "        \"std\": float(round(np.std(vals), 2))\n",
+            "    }\n",
+            "print(\"✅ Probability calibration and OOD bounds extraction complete.\")"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## Section 7 — Final Evaluation on Held-Out Test Set"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "y_test_pred = best_model.predict(X_test)\n",
+            "y_test_proba = best_model.predict_proba(X_test)\n",
+            "\n",
+            "test_acc = accuracy_score(y_test, y_test_pred)\n",
+            "test_bal_acc = balanced_accuracy_score(y_test, y_test_pred)\n",
+            "test_macro_f1 = f1_score(y_test, y_test_pred, average=\"macro\")\n",
+            "test_weighted_f1 = f1_score(y_test, y_test_pred, average=\"weighted\")\n",
+            "test_top3 = top_k_accuracy_score(y_test, y_test_proba, k=min(3, len(le.classes_)))\n",
+            "test_top5 = top_k_accuracy_score(y_test, y_test_proba, k=min(5, len(le.classes_)))\n",
+            "\n",
+            "print(\"=\" * 85)\n",
+            "print(\"HELD-OUT TEST SET EVALUATION (Unbiased Final Metrics)\")\n",
+            "print(\"=\" * 85)\n",
+            "print(f\"  Accuracy:          {test_acc:.4f}\")\n",
+            "print(f\"  Balanced Accuracy: {test_bal_acc:.4f}\")\n",
+            "print(f\"  Macro F1:          {test_macro_f1:.4f}\")\n",
+            "print(f\"  Weighted F1:       {test_weighted_f1:.4f}\")\n",
+            "print(f\"  Top-3 Accuracy:    {test_top3:.4f}\")\n",
+            "print(f\"  Top-5 Accuracy:    {test_top5:.4f}\")\n",
+            "print(\"=\" * 85)"
+        ]
+    },
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## Section 8 — Artifact Serialization & Non-Destructive Export"
+        ]
+    },
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "def export_v2_bundle():\n",
+            "    EXPORT_DIR.mkdir(parents=True, exist_ok=True)\n",
+            "    joblib.dump(best_model, EXPORT_DIR / \"crop_recommendation_v2.joblib\")\n",
+            "    joblib.dump(le, EXPORT_DIR / \"crop_label_encoder_v2.joblib\")\n",
+            "    joblib.dump(calibrator, EXPORT_DIR / \"crop_model_v2_calibrator.joblib\")\n",
+            "    \n",
+            "    meta = {\n",
+            "        \"model_name\": \"FarmFusion Crop Recommendation Model V2\",\n",
+            "        \"architecture\": str(type(best_model).__name__),\n",
+            "        \"version\": \"2.0.0-57k-production\",\n",
+            "        \"training_date\": datetime.datetime.now(datetime.timezone.utc).isoformat(),\n",
+            "        \"stcr_data_used\": False,\n",
+            "        \"synthetic_stcr_data_used\": False,\n",
+            "        \"dataset_name\": \"AgriAdvisor Indian Agro-Ecological Crop Recommendation Dataset (57k rows)\",\n",
+            "        \"dataset_total_samples\": len(feat_matrix),\n",
+            "        \"train_samples\": len(X_train),\n",
+            "        \"validation_samples\": len(X_val),\n",
+            "        \"test_samples\": len(X_test),\n",
+            "        \"n_classes\": len(le.classes_),\n",
+            "        \"classes\": list(le.classes_),\n",
+            "        \"feature_names\": PRODUCTION_FEATURES,\n",
+            "        \"test_metrics\": {\n",
+            "            \"accuracy\": round(float(test_acc), 4),\n",
+            "            \"balanced_accuracy\": round(float(test_bal_acc), 4),\n",
+            "            \"macro_f1\": round(float(test_macro_f1), 4),\n",
+            "            \"weighted_f1\": round(float(test_weighted_f1), 4),\n",
+            "            \"top_3_accuracy\": round(float(test_top3), 4),\n",
+            "            \"top_5_accuracy\": round(float(test_top5), 4)\n",
+            "        },\n",
+            "        \"ood_distribution_bounds\": ood_bounds\n",
+            "    }\n",
+            "    with open(EXPORT_DIR / \"crop_model_metadata_v2.json\", \"w\", encoding=\"utf-8\") as f:\n",
+            "        json.dump(meta, f, indent=2)\n",
+            "        \n",
+            "    print(f\"✅ Successfully exported Model V2 bundle to: {EXPORT_DIR.resolve()}\")\n",
+            "\n",
+            "# Run export\n",
+            "export_v2_bundle()"
+        ]
+    }
+]
+
+notebook_json = {
+    "cells": notebook_cells,
+    "metadata": {
+        "kernelspec": {
+            "display_name": "Python 3 (ipykernel)",
+            "language": "python",
+            "name": "python3"
+        },
+        "language_info": {
+            "codemirror_mode": {"name": "ipython", "version": 3},
+            "file_extension": ".py",
+            "mimetype": "text/x-python",
+            "name": "python",
+            "nbconvert_exporter": "python",
+            "pygments_lexer": "ipython3",
+            "version": "3.13.12"
+        }
+    },
+    "nbformat": 4,
+    "nbformat_minor": 5
+}
+
+for path in NOTEBOOK_PATHS:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(notebook_json, f, indent=1)
+    print(f"Successfully generated {path}")

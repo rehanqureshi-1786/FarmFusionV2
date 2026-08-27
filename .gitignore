@@ -21,6 +21,12 @@ ai-venv/
 # Database
 *.db
 *.sqlite3
+!backend/app/data/agriculture/farmfusion_agriculture.db
+
+# External / Raw Datasets
+external/
+data/raw/
+backend/app/ml_models/crop/v2_previous_4800_32class/
 
 # Tools
 .aider*

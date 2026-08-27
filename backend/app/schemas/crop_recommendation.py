@@ -1,53 +1,120 @@
 """
-Crop Recommendation schemas for the "No Soil Report" flow.
+Crop Recommendation schemas for the "No Soil Report" and Environmental Suitability flow.
 
-These are the data contracts for
-    POST /api/v1/crop-recommendation/no-soil-report
+Every returned parameter contains full data provenance:
+- value
+- unit
+- source
+- status (e.g. REAL, UNAVAILABLE)
+- period / depth where applicable
 """
-from typing import List, Optional
-
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
 class NoSoilReportRequest(BaseModel):
     """
     Request body for the No Soil Report crop recommendation flow.
-
-    Latitude/longitude are used to obtain soil (SIS India) and weather
-    (Open-Meteo). ``state`` is optional and only softens regional validation.
     """
     latitude: float = Field(..., ge=-90, le=90, description="Latitude in decimal degrees")
     longitude: float = Field(..., ge=-180, le=180, description="Longitude in decimal degrees")
     state: Optional[str] = Field(
         default=None,
-        description="State name (optional). Used only for the regional scoring layer.",
+        description="State name (optional). Used for regional context.",
+    )
+    location_name: Optional[str] = Field(
+        default=None,
+        description="Full place name from device geocoding (e.g. Village/City, District, State, Country)",
+    )
+    farmer_selected_soil_type: Optional[str] = Field(
+        default=None,
+        description="Farmer selected soil type: Sandy Soil, Black Soil, Red Soil, Alluvial Soil",
+    )
+    soil_type: Optional[str] = Field(
+        default=None,
+        description="Alias for farmer_selected_soil_type for compatibility",
     )
 
 
-class NoSoilReportLocation(BaseModel):
+class ProvenanceField(BaseModel):
+    """A single parameter with transparent provenance metadata."""
+    value: Optional[Any] = None
+    unit: Optional[str] = None
+    source: Optional[str] = None
+    status: str = Field(default="REAL", description="REAL or UNAVAILABLE")
+    period: Optional[str] = None
+    depth: Optional[str] = None
+
+
+class ProvenanceLocation(BaseModel):
     latitude: float
     longitude: float
-    state: Optional[str] = None
     display_name: Optional[str] = None
+    state: Optional[str] = None
+    source: str = "Device GPS"
 
 
-class CropCandidate(BaseModel):
-    """A single candidate crop emitted after regional validation."""
+class ProvenanceWeather(BaseModel):
+    temperature: ProvenanceField
+    humidity: ProvenanceField
+    current_conditions: Optional[str] = None
+    weather_available: bool = True
+
+
+class ProvenanceRainfall(BaseModel):
+    annual_rainfall: ProvenanceField
+    period: Optional[str] = "2025"
+    rainfall_available: bool = True
+
+
+class ProvenanceSoil(BaseModel):
+    farmer_selected_type: Optional[str] = None
+    ph: ProvenanceField
+    sand: ProvenanceField
+    clay: ProvenanceField
+    silt: ProvenanceField
+    texture_class: Optional[str] = None
+    depth_used: str = "0-5cm"
+    soil_data_available: bool = False
+
+
+class ProvenanceNutrients(BaseModel):
+    nitrogen: ProvenanceField
+    phosphorus: ProvenanceField
+    potassium: ProvenanceField
+
+
+class EnvironmentalCropRecommendation(BaseModel):
     crop_name: str
-    rank: int
-    model_probability: float = Field(..., ge=0, le=1)
-    regional_score: float = Field(..., ge=0)
-    final_score: float = Field(..., ge=0)
+    hindi_name: Optional[str] = None
+    suitability_level: str = Field(..., description="Highly Suitable, Suitable, Moderately Suitable")
+    suitability_score: float = Field(..., ge=0, le=1)
+    season: str
+    water_requirement: Optional[str] = None
+    contributing_factors: List[str] = []
+    management_notes: List[str] = []
 
 
 class NoSoilReportResponse(BaseModel):
+    """
+    Structured real-data-only response with complete provenance for all parameters.
+    """
     success: bool = True
-    location: Optional[NoSoilReportLocation] = None
+    recommendation_available: bool = True
+    recommendation_mode: str = "ENVIRONMENTAL_SUITABILITY"
+    reason: Optional[str] = None
+    message: Optional[str] = None
+    location: ProvenanceLocation
+    weather: ProvenanceWeather
+    rainfall: ProvenanceRainfall
+    soil: ProvenanceSoil
+    nutrients: ProvenanceNutrients
+    recommendations: List[EnvironmentalCropRecommendation] = []
+    # Retain top_crops / estimated_soil dictionary aliases for backward client resilience
+    top_crops: List[Dict[str, Any]] = []
+    estimated_soil: Optional[Dict[str, Any]] = None
     season: Optional[str] = None
     season_window: Optional[str] = None
-    estimated_soil: Optional[dict] = None
     soil_source: Optional[str] = None
-    weather: Optional[dict] = None
-    top_crops: List[CropCandidate] = Field(default_factory=list)
     explanation: Optional[str] = None
-    warnings: List[str] = Field(default_factory=list)
+    warnings: List[str] = []

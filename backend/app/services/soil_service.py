@@ -106,6 +106,7 @@ class SoilService:
             logger.warning("soilgrids_timeout lat=%s lon=%s", latitude, longitude)
             return {
                 "success": False,
+                "soil_data_available": False,
                 "source": "SoilGrids",
                 "error": "SoilGrids API timed out.",
             }
@@ -113,6 +114,7 @@ class SoilService:
             logger.warning("soilgrids_http_error status=%s", exc.response.status_code)
             return {
                 "success": False,
+                "soil_data_available": False,
                 "source": "SoilGrids",
                 "error": f"SoilGrids API returned HTTP {exc.response.status_code}.",
             }
@@ -120,12 +122,14 @@ class SoilService:
             logger.warning("soilgrids_http_failure: %s", exc)
             return {
                 "success": False,
+                "soil_data_available": False,
                 "source": "SoilGrids",
                 "error": f"SoilGrids API request failed: {exc}.",
             }
         except (ValueError, TypeError):
             return {
                 "success": False,
+                "soil_data_available": False,
                 "source": "SoilGrids",
                 "error": "SoilGrids API returned an invalid (non-JSON) response.",
             }
@@ -150,6 +154,7 @@ class SoilService:
         if not self._sanitize_value("ph", ph):
             return {
                 "success": False,
+                "soil_data_available": False,
                 "source": "SoilGrids",
                 "error": "SoilGrids API returned invalid pH value.",
             }
@@ -163,7 +168,9 @@ class SoilService:
 
         return {
             "success": True,
+            "soil_data_available": True,
             "ph": float(ph),
+            "ph_source": "SoilGrids (ISRIC)",
             "texture": {
                 "clay": float(clay) if clay is not None else None,
                 "sand": float(sand) if sand is not None else None,
@@ -179,28 +186,37 @@ class SoilService:
         """
         Fetch soil data for the No-Soil-Report flow.
         
-        This method maintains backward compatibility with the existing API contract.
-        Since no scientifically compatible N/P/K source is available via lat/lon,
-        this returns success=False with a descriptive error for N/P/K.
-        
-        The caller (NoSoilCropService) will handle the missing N/P/K case.
+        Since no scientifically compatible N/P/K source is available via coordinates,
+        N/P/K are returned as null with status 'UNAVAILABLE'.
         """
         soil_data = await self.get_soil_data(latitude, longitude)
         
-        if not soil_data["success"]:
-            return soil_data
+        if not soil_data.get("success"):
+            return {
+                "success": False,
+                "soil_data_available": False,
+                "source": soil_data.get("source", "SoilGrids"),
+                "error": soil_data.get("error", "SoilGrids unavailable"),
+                "warnings": ["SoilGrids data unavailable for this location."],
+                "N": {"value": None, "source": None, "status": "UNAVAILABLE"},
+                "P": {"value": None, "source": None, "status": "UNAVAILABLE"},
+                "K": {"value": None, "source": None, "status": "UNAVAILABLE"},
+                "npk_available": False,
+            }
         
         return {
             "success": True,
-            "ph": soil_data["ph"],
-            "texture": soil_data["texture"],
-            "texture_class": soil_data["texture_class"],
-            "source": soil_data["source"],
-            "depth_used": soil_data["depth_used"],
-            "warnings": soil_data["warnings"],
-            "N": None,
-            "P": None,
-            "K": None,
+            "soil_data_available": True,
+            "ph": soil_data.get("ph"),
+            "ph_source": "SoilGrids (ISRIC)",
+            "texture": soil_data.get("texture"),
+            "texture_class": soil_data.get("texture_class"),
+            "source": soil_data.get("source", "SoilGrids (ISRIC)"),
+            "depth_used": soil_data.get("depth_used", "0-5cm"),
+            "warnings": soil_data.get("warnings", []),
+            "N": {"value": None, "source": None, "status": "UNAVAILABLE"},
+            "P": {"value": None, "source": None, "status": "UNAVAILABLE"},
+            "K": {"value": None, "source": None, "status": "UNAVAILABLE"},
             "npk_available": False,
         }
 

@@ -1,41 +1,32 @@
 """
-No-Soil-Report Crop Recommendation Service (orchestrator).
+No-Soil-Report Crop Recommendation Service.
 
-Pipeline:
-    FARMER -> No Soil Report -> Location (lat/lon) ->
-    Soil Data Service (SoilGrids/ISRIC) -> Weather Service (Open-Meteo Historical) ->
-    Season Engine -> XGBoost Model (top-5 proba) ->
-    Regional Validation (separate layer) -> crop_agent explanation -> top 3.
+Coordinates real data retrieval:
+1. Open-Meteo for real-time temperature and relative humidity
+2. Open-Meteo ERA5-Land for real annual rainfall (previous complete calendar year)
+3. SoilGrids (ISRIC) for real coordinate-based pH and sand/clay/silt texture (0-5cm depth)
+4. EnvironmentalSuitabilityService for transparent, agronomic suitability assessment
 
-Reuses existing FarmFusion components:
-    - WeatherService (app/services/weather_service.py -> weather_agent)
-    - CropRecommendationAgent (app/agents/crop_agent.py) for the final LLM
-      explanation of the *structured* ML candidates.
-
-Key changes from SIS India implementation:
-- SoilGrids provides pH and texture (clay/sand/silt) but NOT scientifically
-  compatible N/P/K (concentration vs. stock units). N/P/K from SoilGrids
-  are NOT used as model inputs.
-- Historical ANNUAL rainfall from Open-Meteo ERA5-Land replaces 7-day forecast.
-  This matches the Kaggle Crop Recommendation Dataset training feature.
-- If N/P/K cannot be obtained from a compatible source, the flow fails
-  gracefully with HTTP 503 rather than fabricating values.
+CRITICAL CONSTRAINTS:
+- NEVER calls the N/P/K ML model (since N/P/K are not available without a lab soil report).
+- N, P, and K are strictly marked as UNAVAILABLE.
+- Never fabricates numbers, defaults, or pseudo-ML probabilities.
 """
-from __future__ import annotations
-
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-from fastapi import HTTPException
-
-from app.agents.crop_agent import crop_agent
 from app.schemas.crop_recommendation import (
-    CropCandidate,
-    NoSoilReportLocation,
+    EnvironmentalCropRecommendation,
     NoSoilReportRequest,
     NoSoilReportResponse,
+    ProvenanceField,
+    ProvenanceLocation,
+    ProvenanceNutrients,
+    ProvenanceRainfall,
+    ProvenanceSoil,
+    ProvenanceWeather,
 )
-from app.services.ml_service import crop_ml_service
+from app.services.environmental_suitability_service import environmental_suitability_service
 from app.services.season_service import season_service
 from app.services.soil_service import soil_service
 from app.services.weather_service import WeatherService
@@ -43,55 +34,12 @@ from app.services.weather_service import WeatherService
 logger = logging.getLogger(__name__)
 
 
-def _display_name(lat: float, lon: float, state) -> str:
-    if state:
-        return f"{state} (lat {lat:.4f}, lon {lon:.4f})"
-    return f"lat {lat:.4f}, lon {lon:.4f}"
-
-
-async def _resolve_weather(lat: float, lon: float, season: str) -> Dict:
-    """
-    Fetch temperature/humidity from current weather, and ANNUAL rainfall
-    from historical reanalysis data (ERA5-Land via Open-Meteo Historical API).
-
-    This matches the model's training feature (annual rainfall in mm)
-    from the Kaggle Crop Recommendation Dataset (range ~20-298 mm).
-    """
-    current = await WeatherService.get_current_weather(lat, lon)
-    if not current.get("success"):
-        raise HTTPException(
-            status_code=503,
-            detail=f"Weather service unavailable: {current.get('error', 'unknown error')}",
-        )
-
-    # Get ANNUAL rainfall from historical data (previous complete calendar year)
-    # This matches the Kaggle dataset's "rainfall" feature semantics
-    annual_rainfall = await WeatherService.get_annual_rainfall(lat, lon)
-    if not annual_rainfall.get("success"):
-        raise HTTPException(
-            status_code=503,
-            detail=f"Historical annual rainfall unavailable: {annual_rainfall.get('error', 'unknown error')}",
-        )
-    rainfall = annual_rainfall.get("total_precipitation_mm", 0.0)
-    rainfall_source = "Open-Meteo ERA5-Land (annual, previous calendar year)"
-
-    temperature = current.get("temperature_c")
-    humidity = current.get("humidity_percent")
-
-    if temperature is None or humidity is None or rainfall is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Weather data is missing required fields (temperature/humidity/rainfall); cannot run the model.",
-        )
-
-    return {
-        "temperature_c": float(temperature),
-        "humidity_percent": float(humidity),
-        "rainfall_mm": float(rainfall),
-        "rainfall_source": rainfall_source,
-        "current_conditions": current.get("weather"),
-        "source": "open-meteo",
-    }
+def _display_name(lat: float, lon: float, state: Optional[str], location_name: Optional[str] = None) -> str:
+    if location_name and location_name.strip():
+        return location_name.strip()
+    if state and state.strip():
+        return f"{state.strip()} ({lat:.4f}° N, {lon:.4f}° E)"
+    return f"{lat:.4f}° N, {lon:.4f}° E"
 
 
 class NoSoilCropService:
@@ -100,138 +48,216 @@ class NoSoilCropService:
         lat = request.latitude
         lon = request.longitude
         state = request.state
+        location_name = request.location_name
+        soil_type = request.farmer_selected_soil_type or request.soil_type
 
         warnings: List[str] = []
 
-        # 1. Soil data service (SoilGrids/ISRIC) -> pH, texture
-        soil = await soil_service.get_soil_nutrients(lat, lon)
-        if not soil.get("success"):
-            raise HTTPException(
-                status_code=503,
-                detail=f"Soil information unavailable: {soil.get('error', 'unknown error')}",
-            )
-
-        # Check if N/P/K are available (they won't be with current implementation)
-        if not soil.get("npk_available", False):
-            # No scientifically compatible N/P/K source available via lat/lon
-            # We cannot fabricate values - fail gracefully
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "Soil nutrient data (N/P/K) is not available for this location. "
-                    "The crop recommendation model requires plant-available N/P/K in kg/ha, "
-                    "which cannot be reliably derived from global mapped datasets (SoilGrids) "
-                    "without ground-truth calibration. "
-                    "Please use the 'I Have Soil Report' flow with lab-tested values."
-                ),
-            )
-
-        # 2. Add soil service warnings to response
-        for w in soil.get("warnings", []):
+        # 1. SoilGrids ISRIC data (pH and texture fractions at 0-5cm depth)
+        soil_res = await soil_service.get_soil_nutrients(lat, lon)
+        for w in soil_res.get("warnings", []):
             warnings.append(w)
 
-        # 3. Weather service -> temperature / humidity / ANNUAL rainfall
+        soil_available = soil_res.get("soil_data_available", False)
+        ph_val = soil_res.get("ph")
+        texture_dict = soil_res.get("texture") or {}
+        texture_class = soil_res.get("texture_class")
+
+        sand_val = texture_dict.get("sand")
+        clay_val = texture_dict.get("clay")
+        silt_val = texture_dict.get("silt")
+
+        # 2. Weather & ERA5-Land Annual Rainfall
         season = season_service.get_current_season()
-        weather = await _resolve_weather(lat, lon, season)
-        rainfall = weather["rainfall_mm"]
-
-        # Using annual historical rainfall (matches training feature)
-        warnings.append(
-            f"Rainfall is {weather.get('rainfall_source', 'historical')} total (mm); "
-            "model was trained on annual rainfall, results are indicative."
-        )
-
-        # 4. Season engine
         season_window = season_service.get_season_window(season)
 
-        # 5. XGBoost model -> top-5 internal candidates
-        if not crop_ml_service.is_available():
-            raise HTTPException(
-                status_code=503,
-                detail="Crop recommendation ML model is not available on the server.",
-            )
-        candidates = crop_ml_service.predict_top_candidates(
-            nitrogen=soil["N"],
-            phosphorus=soil["P"],
-            potassium=soil["K"],
-            temperature=weather["temperature_c"],
-            humidity=weather["humidity_percent"],
-            ph=soil["ph"],
-            rainfall=rainfall,
-            top_k=5,
+        current_weather = await WeatherService.get_current_weather(lat, lon)
+        annual_rainfall_res = await WeatherService.get_annual_rainfall(lat, lon)
+
+        temp_val = current_weather.get("temperature_c") if current_weather.get("success") else None
+        hum_val = current_weather.get("humidity_percent") if current_weather.get("success") else None
+        weather_cond = current_weather.get("weather") if current_weather.get("success") else None
+
+        annual_rain_val = annual_rainfall_res.get("annual_rainfall_mm") if annual_rainfall_res.get("success") else None
+        rainfall_period = annual_rainfall_res.get("rainfall_period", "2025")
+        rainfall_source = annual_rainfall_res.get("rainfall_source", "Open-Meteo ERA5-Land")
+
+        if annual_rain_val is not None:
+            warnings.append(f"Annual Rainfall: {annual_rain_val:.1f} mm from {rainfall_source} (Period: {rainfall_period}).")
+
+        # 3. Transparent Environmental Suitability Assessment (No ML model invocation)
+        suitability_results = environmental_suitability_service.evaluate(
+            temperature_c=temp_val,
+            humidity_percent=hum_val,
+            annual_rainfall_mm=annual_rain_val,
+            soil_type=soil_type,
+            ph=ph_val,
+            texture=texture_dict if texture_dict else None,
+            season=season,
+            state=state,
         )
 
-        # 6. Regional validation (separate layer, re-ranks -> top 3)
-        from app.services import regional_validation
-
-        ranked, reg_warnings = regional_validation.apply(state, candidates, season)
-        warnings.extend(reg_warnings)
-        top_three = ranked[:3]
-
-        # Build final candidate objects
-        top_crops = [
-            CropCandidate(
-                crop_name=c["crop_name"],
-                rank=c["rank"],
-                model_probability=c["model_probability"],
-                regional_score=c["regional_score"],
-                final_score=c["final_score"],
+        recommendations: List[EnvironmentalCropRecommendation] = [
+            EnvironmentalCropRecommendation(
+                crop_name=item["crop_name"],
+                hindi_name=item.get("hindi_name"),
+                suitability_level=item["suitability_level"],
+                suitability_score=item["suitability_score"],
+                season=item["season"],
+                water_requirement=item.get("water_requirement"),
+                contributing_factors=item["contributing_factors"],
+                management_notes=item["management_notes"],
             )
-            for c in top_three
+            for item in suitability_results
         ]
 
-        # 7. Reuse crop_agent for the final explanation of structured candidates
-        context = {
-            "location": _display_name(lat, lon, state),
-            "state": state,
-            "season": season,
-            "soil": {
-                "N": soil["N"], "P": soil["P"], "K": soil["K"], "ph": soil["ph"],
-            },
-            "weather": {
-                "temperature_c": weather["temperature_c"],
-                "humidity_percent": weather["humidity_percent"],
-                "rainfall_mm": rainfall,
-            },
-        }
-        explanation = await crop_agent.explain_structured_recommendations(
-            candidates=[dict(c) for c in top_crops],
-            context=context,
-            language="en",
+        # 4. Build Structured Provenance Objects
+        loc_display = _display_name(lat, lon, state, location_name)
+
+        loc_prov = ProvenanceLocation(
+            latitude=lat,
+            longitude=lon,
+            display_name=loc_display,
+            state=state,
+            source="Device GPS",
         )
 
-        # Build estimated soil response including texture info
-        estimated_soil = {
-            "N": soil["N"],
-            "P": soil["P"],
-            "K": soil["K"],
-            "ph": soil["ph"],
+        weather_prov = ProvenanceWeather(
+            temperature=ProvenanceField(
+                value=temp_val,
+                unit="°C",
+                source="Open-Meteo" if temp_val is not None else None,
+                status="REAL" if temp_val is not None else "UNAVAILABLE",
+            ),
+            humidity=ProvenanceField(
+                value=hum_val,
+                unit="%",
+                source="Open-Meteo" if hum_val is not None else None,
+                status="REAL" if hum_val is not None else "UNAVAILABLE",
+            ),
+            current_conditions=weather_cond,
+            weather_available=(temp_val is not None),
+        )
+
+        rainfall_prov = ProvenanceRainfall(
+            annual_rainfall=ProvenanceField(
+                value=annual_rain_val,
+                unit="mm",
+                source=rainfall_source if annual_rain_val is not None else None,
+                status="REAL" if annual_rain_val is not None else "UNAVAILABLE",
+                period=rainfall_period,
+            ),
+            period=rainfall_period,
+            rainfall_available=(annual_rain_val is not None),
+        )
+
+        soil_prov = ProvenanceSoil(
+            farmer_selected_type=soil_type,
+            ph=ProvenanceField(
+                value=ph_val,
+                unit=None,
+                source="SoilGrids (ISRIC)" if ph_val is not None else None,
+                status="REAL" if ph_val is not None else "UNAVAILABLE",
+                depth="0-5cm",
+            ),
+            sand=ProvenanceField(
+                value=sand_val,
+                unit="%",
+                source="SoilGrids (ISRIC)" if sand_val is not None else None,
+                status="REAL" if sand_val is not None else "UNAVAILABLE",
+                depth="0-5cm",
+            ),
+            clay=ProvenanceField(
+                value=clay_val,
+                unit="%",
+                source="SoilGrids (ISRIC)" if clay_val is not None else None,
+                status="REAL" if clay_val is not None else "UNAVAILABLE",
+                depth="0-5cm",
+            ),
+            silt=ProvenanceField(
+                value=silt_val,
+                unit="%",
+                source="SoilGrids (ISRIC)" if silt_val is not None else None,
+                status="REAL" if silt_val is not None else "UNAVAILABLE",
+                depth="0-5cm",
+            ),
+            texture_class=texture_class,
+            depth_used="0-5cm",
+            soil_data_available=soil_available,
+        )
+
+        nutrients_prov = ProvenanceNutrients(
+            nitrogen=ProvenanceField(
+                value=None,
+                unit="kg/ha",
+                source=None,
+                status="UNAVAILABLE",
+            ),
+            phosphorus=ProvenanceField(
+                value=None,
+                unit="kg/ha",
+                source=None,
+                status="UNAVAILABLE",
+            ),
+            potassium=ProvenanceField(
+                value=None,
+                unit="kg/ha",
+                source=None,
+                status="UNAVAILABLE",
+            ),
+        )
+
+        warnings.append("N/P/K soil nutrients are unavailable without a laboratory Soil Health Card. Recommendations are based strictly on environmental suitability.")
+
+        # Client compatibility mapping
+        top_crops_compat = [
+            {
+                "crop_name": r.crop_name,
+                "hindi_name": r.hindi_name,
+                "rank": idx + 1,
+                "suitability_level": r.suitability_level,
+                "suitability_score": r.suitability_score,
+                "water_requirement": r.water_requirement,
+                "contributing_factors": r.contributing_factors,
+                "management_notes": r.management_notes,
+            }
+            for idx, r in enumerate(recommendations[:5])
+        ]
+
+        estimated_soil_compat = {
+            "soil_data_available": soil_available,
+            "ph": ph_val,
+            "ph_source": "SoilGrids (ISRIC)" if ph_val is not None else None,
+            "texture": texture_dict if texture_dict else None,
+            "texture_class": texture_class,
+            "depth_used": "0-5cm",
+            "farmer_selected_soil": soil_type,
+            "N": {"value": None, "source": None, "status": "UNAVAILABLE"},
+            "P": {"value": None, "source": None, "status": "UNAVAILABLE"},
+            "K": {"value": None, "source": None, "status": "UNAVAILABLE"},
         }
-        if soil.get("texture"):
-            estimated_soil["texture"] = soil["texture"]
-        if soil.get("texture_class"):
-            estimated_soil["texture_class"] = soil["texture_class"]
-        if soil.get("depth_used"):
-            estimated_soil["depth_used"] = soil["depth_used"]
 
         return NoSoilReportResponse(
             success=True,
-            location=NoSoilReportLocation(
-                latitude=lat,
-                longitude=lon,
-                state=state,
-                display_name=_display_name(lat, lon, state),
-            ),
+            recommendation_available=len(recommendations) > 0,
+            recommendation_mode="ENVIRONMENTAL_SUITABILITY",
+            reason=None if len(recommendations) > 0 else "INSUFFICIENT_ENVIRONMENTAL_DATA",
+            message="Environmental suitability assessed from real GPS, weather, and soil data." if len(recommendations) > 0 else "Insufficient environmental data to assess suitability.",
+            location=loc_prov,
+            weather=weather_prov,
+            rainfall=rainfall_prov,
+            soil=soil_prov,
+            nutrients=nutrients_prov,
+            recommendations=recommendations[:6],
+            top_crops=top_crops_compat,
+            estimated_soil=estimated_soil_compat,
             season=season,
             season_window=season_window,
-            estimated_soil=estimated_soil,
-            soil_source=soil["source"],
-            weather=weather,
-            top_crops=top_crops,
-            explanation=explanation,
+            soil_source="SoilGrids (ISRIC)" if soil_available else "Not Available",
+            explanation=f"Based on real location ({loc_display}), current season ({season}), Open-Meteo weather (Temp: {temp_val or '--'}°C, Humidity: {hum_val or '--'}%), and ERA5-Land annual rainfall ({annual_rain_val or '--'} mm), the above crops are environmentally well-suited. (Note: N/P/K are unavailable without a soil test report).",
             warnings=warnings,
         )
 
 
-# Module-level singleton.
+# Module-level singleton
 no_soil_crop_service = NoSoilCropService()
