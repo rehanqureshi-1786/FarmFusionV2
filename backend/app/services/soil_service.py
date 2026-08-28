@@ -34,14 +34,14 @@ logger = logging.getLogger(__name__)
 # nitrogen: total N in g/kg (cg/kg * 10)
 # phosphorus: Olsen P in mg/kg (mg/kg * 10)
 # potassium: exchangeable K in cmolc/kg (cmolc/kg * 10)
-SOILGRIDS_PROPERTIES = ["phh", "clay", "sand", "silt", "bdod"]
+SOILGRIDS_PROPERTIES = ["phh2o", "clay", "sand", "silt", "bdod"]
 SOILGRIDS_DEPTHS = ["0-5cm", "5-15cm", "15-30cm", "30-60cm", "60-100cm", "100-200cm"]
 
 
 class SoilService:
     def __init__(self) -> None:
         self.settings: Settings = get_settings()
-        self._base_url = "https://rest.soilgrids.org/query"
+        self._base_url = "https://rest.isric.org/soilgrids/v2.0/properties/query"
 
     @staticmethod
     def _to_float(value: Any) -> Optional[float]:
@@ -63,7 +63,7 @@ class SoilService:
                 if layer.get("name") == property_name:
                     depths = layer.get("depths", [])
                     for d in depths:
-                        if d.get("name") == depth:
+                        if d.get("label") == depth or d.get("name") == depth:
                             values = d.get("values", {})
                             mean_val = values.get("mean")
                             if mean_val is not None:
@@ -88,16 +88,19 @@ class SoilService:
             }
             or {"success": False, "source": "SoilGrids", "error": ...}
         """
-        params = {
-            "lon": longitude,
-            "lat": latitude,
-            "property": SOILGRIDS_PROPERTIES,
-            "depth": ["0-5cm"],
-            "value": "mean",
-        }
+        params = [
+            ("lon", longitude),
+            ("lat", latitude),
+            ("property", "phh2o"),
+            ("property", "clay"),
+            ("property", "sand"),
+            ("property", "silt"),
+            ("depth", "0-5cm"),
+            ("value", "mean"),
+        ]
 
         try:
-            timeout = httpx.Timeout(15.0)
+            timeout = httpx.Timeout(20.0)
             async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
                 response = await client.get(self._base_url, params=params)
                 response.raise_for_status()
@@ -134,8 +137,10 @@ class SoilService:
                 "error": "SoilGrids API returned an invalid (non-JSON) response.",
             }
 
-        # Extract pH (phh is in pH * 10 units in SoilGrids v2, so divide by 10)
-        ph_raw = self._extract_property(payload, "phh", "0-5cm")
+        # Extract pH (phh2o / phh is in pH * 10 units in SoilGrids v2, so divide by 10)
+        ph_raw = self._extract_property(payload, "phh2o", "0-5cm")
+        if ph_raw is None:
+            ph_raw = self._extract_property(payload, "phh", "0-5cm")
         if ph_raw is not None:
             ph = ph_raw / 10.0
         else:
