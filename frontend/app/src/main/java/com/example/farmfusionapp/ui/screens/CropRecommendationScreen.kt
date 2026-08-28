@@ -1044,8 +1044,10 @@ fun NoSoilReportResultStep(
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color(0xFFF5F5F5))
 
                 // SoilGrids pH & texture components
-                val phText = soil?.ph?.getDisplayString() ?: "Unavailable"
-                val texClass = soil?.texture_class?.replace('_', ' ')?.replaceFirstChar { it.uppercase() } ?: "SoilGrids Texture"
+                val isPhAvailable = soil?.ph?.value != null
+                val phText = if (isPhAvailable) soil?.ph?.getDisplayString() ?: "Unavailable" else "Unavailable"
+                val phSourceCaption = if (isPhAvailable) "Estimated from SoilGrids" else "SoilGrids unavailable"
+                val texClass = soil?.texture_class?.replace('_', ' ')?.split(' ')?.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } } ?: "SoilGrids Texture"
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1053,10 +1055,10 @@ fun NoSoilReportResultStep(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Soil pH", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
-                        Text(phText, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF9C27B0)))
-                        Text("SoilGrids (0-5cm)", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        Text(phText, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = if (isPhAvailable) Color(0xFF9C27B0) else Color.Gray))
+                        Text(phSourceCaption, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                     }
-                    Box(modifier = Modifier.height(36.dp).width(1.dp).background(Color(0xFFEEEEEE)))
+                    Box(modifier = Modifier.height(40.dp).width(1.dp).background(Color(0xFFEEEEEE)))
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("Texture Class", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
                         Text(texClass, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF795548)))
@@ -1064,7 +1066,7 @@ fun NoSoilReportResultStep(
                     }
                 }
 
-                if (soil?.sand != null || soil?.clay != null || soil?.silt != null) {
+                if (soil?.sand?.value != null || soil?.clay?.value != null || soil?.silt?.value != null) {
                     val sandStr = soil.sand?.getDisplayString() ?: "--"
                     val clayStr = soil.clay?.getDisplayString() ?: "--"
                     val siltStr = soil.silt?.getDisplayString() ?: "--"
@@ -1080,27 +1082,48 @@ fun NoSoilReportResultStep(
 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color(0xFFF5F5F5))
 
-                // Nutrients Status Card (N/P/K Unavailable without soil report)
-                Row(
+                // Detailed Nutrients Status (N, P, K Unavailable without soil report)
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFFFFF8E1), RoundedCornerShape(12.dp))
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(14.dp)
                 ) {
-                    Icon(Icons.Rounded.Cancel, null, tint = Color(0xFFE65100), modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Cancel, null, tint = Color(0xFFE65100), modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
-                            "N / P / K Nutrients: Unavailable",
+                            "Soil Nutrients (N / P / K): Unavailable",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE65100))
                         )
-                        Text(
-                            "Plant-available Nitrogen, Phosphorus, and Potassium require a laboratory Soil Health Card.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF5D4037)
-                        )
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Text("Nitrogen (N)", style = MaterialTheme.typography.labelSmall, color = Color(0xFF5D4037))
+                            Text("Unavailable", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE65100)))
+                            Text("Requires soil test", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Text("Phosphorus (P)", style = MaterialTheme.typography.labelSmall, color = Color(0xFF5D4037))
+                            Text("Unavailable", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE65100)))
+                            Text("Requires soil test", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                            Text("Potassium (K)", style = MaterialTheme.typography.labelSmall, color = Color(0xFF5D4037))
+                            Text("Unavailable", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFFE65100)))
+                            Text("Requires soil test", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Plant-available N, P, and K require a laboratory Soil Health Card. The recommendation engine evaluates environmental & agro-climatic suitability without fabricating nutrient values.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF5D4037)
+                    )
                 }
             }
         }

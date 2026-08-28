@@ -41,7 +41,10 @@ class ProvenanceField(BaseModel):
     value: Optional[Any] = None
     unit: Optional[str] = None
     source: Optional[str] = None
-    status: str = Field(default="REAL", description="REAL or UNAVAILABLE")
+    status: str = Field(default="REAL", description="REAL, ESTIMATED, or UNAVAILABLE")
+    estimated: bool = False
+    requires_soil_test: bool = False
+    note: Optional[str] = None
     period: Optional[str] = None
     depth: Optional[str] = None
 
@@ -109,6 +112,7 @@ class NoSoilReportResponse(BaseModel):
     rainfall: ProvenanceRainfall
     soil: ProvenanceSoil
     nutrients: ProvenanceNutrients
+    soil_parameters: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     recommendations: List[EnvironmentalCropRecommendation] = []
     # Retain top_crops / estimated_soil dictionary aliases for backward client resilience
     top_crops: List[Dict[str, Any]] = []

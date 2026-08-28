@@ -23,6 +23,9 @@ data class ProvenanceField(
     val unit: String? = null,
     val source: String? = null,
     val status: String = "REAL",
+    val estimated: Boolean = false,
+    val requires_soil_test: Boolean = false,
+    val note: String? = null,
     val period: String? = null,
     val depth: String? = null
 ) {
@@ -39,7 +42,7 @@ data class ProvenanceField(
         return when {
             d != null && unit != null -> "${String.format(java.util.Locale.US, "%.1f", d)} $unit"
             d != null -> String.format(java.util.Locale.US, "%.1f", d)
-            value != null -> value.toString()
+            value != null && value.toString().isNotBlank() && value.toString() != "None" && value.toString() != "null" -> value.toString()
             else -> "Unavailable"
         }
     }
@@ -106,6 +109,7 @@ data class NoSoilReportResponse(
     val rainfall: ProvenanceRainfall? = null,
     val soil: ProvenanceSoil? = null,
     val nutrients: ProvenanceNutrients? = null,
+    val soil_parameters: Map<String, Any>? = null,
     val recommendations: List<EnvironmentalCropRecommendation>? = null,
     val season: String? = null,
     val season_window: String? = null,

@@ -102,10 +102,25 @@ async def test_no_soil_report_environmental_suitability(monkeypatch):
     assert data["rainfall"]["annual_rainfall"]["period"] == "2025"
     assert data["soil"]["farmer_selected_type"] == "Sandy Soil"
     assert data["soil"]["ph"]["value"] == 6.5
+    assert data["soil"]["ph"]["status"] == "ESTIMATED"
+    assert data["soil"]["ph"]["estimated"] is True
+    assert data["soil"]["ph"]["source"] == "SoilGrids (ISRIC)"
     assert data["soil"]["depth_used"] == "0-5cm"
+    assert data["nutrients"]["nitrogen"]["value"] is None
     assert data["nutrients"]["nitrogen"]["status"] == "UNAVAILABLE"
+    assert data["nutrients"]["nitrogen"]["requires_soil_test"] is True
+    assert data["nutrients"]["phosphorus"]["value"] is None
     assert data["nutrients"]["phosphorus"]["status"] == "UNAVAILABLE"
+    assert data["nutrients"]["phosphorus"]["requires_soil_test"] is True
+    assert data["nutrients"]["potassium"]["value"] is None
     assert data["nutrients"]["potassium"]["status"] == "UNAVAILABLE"
+    assert data["nutrients"]["potassium"]["requires_soil_test"] is True
+    assert "soil_parameters" in data
+    assert data["soil_parameters"]["ph"]["value"] == 6.5
+    assert data["soil_parameters"]["ph"]["estimated"] is True
+    assert data["soil_parameters"]["ph"]["available"] is True
+    assert data["soil_parameters"]["nitrogen"]["value"] is None
+    assert data["soil_parameters"]["nitrogen"]["available"] is False
     assert len(data["recommendations"]) > 0
     top_rec = data["recommendations"][0]
     assert top_rec["suitability_level"] in ["Highly Suitable", "Suitable", "Moderately Suitable"]
@@ -158,6 +173,14 @@ async def test_no_soil_report_soil_failure_graceful_provenance(monkeypatch):
         )
     assert response.status_code == 200
     data = response.json()
+    assert data["soil"]["soil_data_available"] is False
+    assert data["soil"]["ph"]["value"] is None
+    assert data["soil"]["ph"]["status"] == "UNAVAILABLE"
+    assert data["soil_parameters"]["ph"]["value"] is None
+    assert data["soil_parameters"]["ph"]["available"] is False
+    assert data["soil_parameters"]["nitrogen"]["value"] is None
+    assert data["nutrients"]["nitrogen"]["value"] is None
+    assert data["nutrients"]["nitrogen"]["status"] == "UNAVAILABLE"
     assert data["soil"]["soil_data_available"] is False
     assert data["soil"]["ph"]["status"] == "UNAVAILABLE"
     assert data["soil"]["ph"]["value"] is None
