@@ -127,8 +127,14 @@ class EnvironmentalSuitabilityService:
                 if is_direct_match:
                     score_points += 25.0
                     contributing_factors.append(f"Selected {soil_type} is highly suitable for root growth and nutrient exchange.")
+                elif "sandy" in soil_type.lower() and crop_name in ["Rice (Paddy)", "Sugarcane", "Banana", "Jute"]:
+                    score_points += 0.0
+                    management_notes.append(f"Sandy soil is unsuitable for {crop_name} due to excessive water percolation and inability to retain moisture.")
+                elif "black" in soil_type.lower() and crop_name in ["Groundnut (Peanut)", "Potato"]:
+                    score_points += 8.0
+                    management_notes.append(f"Heavy black clay can hinder pegging/tuber expansion; requires aeration and drainage management.")
                 else:
-                    score_points += 12.0
+                    score_points += 10.0
                     management_notes.append(f"{soil_type} is manageable with tailored organic manure and irrigation management.")
             else:
                 score_points += 12.0
