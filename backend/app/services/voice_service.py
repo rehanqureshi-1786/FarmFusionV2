@@ -202,19 +202,30 @@ Rules:
         query: str,
         request: VoiceQueryRequest
     ) -> Dict[str, Any]:
-        crop = intent.crop or "general"
-        price_data = {
-            "crop": crop,
-            "market_name": "Nearby Mandi",
-            "price_per_quintal": self._get_mock_price(crop),
-            "price_trend": "stable",
-            "last_updated": datetime.now().isoformat()
-        }
-
+        from app.tools.registry import tool_registry
+        crop = intent.crop or "Wheat"
+        tool_res = await tool_registry.execute(
+            "market_price_tool",
+            {"commodity": crop, "state": request.location or "Rajasthan"}
+        )
+        if tool_res.data:
+            price_data = {
+                "crop": crop,
+                "market_name": tool_res.data.get("current_price", {}).get("market", "Local Mandi"),
+                "price_per_quintal": tool_res.data.get("current_price", {}).get("modal_price", 2400),
+                "price_trend": "stable",
+                "last_updated": datetime.now().isoformat(),
+                "forecast": tool_res.data.get("forecast")
+            }
+            return {
+                "action": ActionType.SHOW_RESULT,
+                "response": self._generate_price_response(intent.language, price_data),
+                "data": price_data
+            }
         return {
             "action": ActionType.SHOW_RESULT,
-            "response": self._generate_price_response(intent.language, price_data),
-            "data": price_data
+            "response": tool_res.message,
+            "data": {"crop": crop, "status": "unavailable"}
         }
 
     async def _handle_crop_prediction(
@@ -223,11 +234,23 @@ Rules:
         query: str,
         request: VoiceQueryRequest
     ) -> Dict[str, Any]:
+        from app.tools.registry import tool_registry
+        lat = request.latitude or 24.6178
+        lon = request.longitude or 73.9937
+        soil = intent.extracted_entities.get("soil_type") or "Sandy Soil"
+        tool_res = await tool_registry.execute(
+            "crop_recommendation_tool",
+            {"latitude": lat, "longitude": lon, "soil_type": soil, "has_soil_report": False}
+        )
+        recs = []
+        if tool_res.data and "recommendations" in tool_res.data:
+            recs = [r.get("crop_name") for r in tool_res.data["recommendations"][:3]]
         prediction_data = {
-            "recommended_crops": ["wheat", "chickpea", "mustard"],
-            "soil_type": intent.extracted_entities.get("soil_type"),
-            "confidence": 0.85,
-            "reasoning": "Based on current season and typical conditions"
+            "recommended_crops": recs or ["Groundnut (Peanut)", "Pearl Millet (Bajra)", "Green Gram (Moong)"],
+            "soil_type": soil,
+            "confidence": 0.90,
+            "reasoning": tool_res.message,
+            "provenance": tool_res.provenance.model_dump()
         }
         return {
             "action": ActionType.SHOW_RESULT,
