@@ -20,7 +20,25 @@ async def tool_router_node(state: OrchestratorState) -> OrchestratorState:
 
     logger.info("tool_router_node_start", intent=intent, slots=slots)
 
-    # 1. Anaphora / Explanation Intent: Handled directly from session memory
+    # 1. Repeat Last Response Intent: Handled directly from session memory
+    if intent == "repeat_last":
+        last_resp = state.get("last_final_response")
+        state["tool_output"] = {
+            "type": "repeat",
+            "response": last_resp or "पिछली कोई जानकारी उपलब्ध नहीं है।"
+        }
+        state["tool_status"] = "success"
+        return state
+
+    # 2. Speech Rate Control Intent
+    if intent == "speech_control":
+        rate = slots.get("speech_rate", "slow")
+        state["speech_rate"] = rate
+        state["tool_output"] = {"type": "speech_control", "rate": rate}
+        state["tool_status"] = "success"
+        return state
+
+    # 3. Anaphora / Explanation Intent: Handled directly from session memory
     if intent == "explain_recommendation":
         target_idx = int(slots.get("target_index", 0))
         if last_recs and target_idx < len(last_recs):
@@ -34,6 +52,7 @@ async def tool_router_node(state: OrchestratorState) -> OrchestratorState:
                 "notes": rec.get("management_notes", []),
             }
             state["tool_status"] = "success"
+            state["active_crop"] = rec.get("crop_name")
         else:
             state["tool_output"] = {
                 "type": "explanation_unavailable",
@@ -42,12 +61,13 @@ async def tool_router_node(state: OrchestratorState) -> OrchestratorState:
             state["tool_status"] = "not_found"
         return state
 
-    # 2. Map Intent to Tool Name
+    # 4. Map Intent to Tool Name
     tool_map = {
         "weather": "weather_tool",
         "crop_recommendation": "crop_recommendation_tool",
         "what_if": "crop_recommendation_tool",
         "disease": "disease_info_tool",
+        "crop_care": "crop_care_tool",
         "mandi": "market_price_tool",
         "scheme": "government_scheme_tool",
         "navigation": "navigation_tool",
@@ -68,9 +88,19 @@ async def tool_router_node(state: OrchestratorState) -> OrchestratorState:
     state["tool_output"] = tool_res.data
     state["tool_status"] = tool_res.status.value
 
-    # Update session recommendations memory if crop recommendation succeeded
+    # Update session memory based on tool type
     if tool_name == "crop_recommendation_tool" and tool_res.data:
         recs = tool_res.data.get("recommendations") or tool_res.data.get("top_crops") or []
         state["last_recommendations"] = recs
+        if recs:
+            state["active_crop"] = recs[0].get("crop_name")
+    elif tool_name == "weather_tool" and tool_res.data:
+        state["last_weather_result"] = tool_res.data
+    elif tool_name == "market_price_tool" and tool_res.data:
+        state["last_market_result"] = tool_res.data
+        if slots.get("commodity"):
+            state["active_crop"] = slots.get("commodity")
+    elif tool_name == "navigation_tool" and tool_res.data:
+        state["last_navigation_destination"] = tool_res.data.get("destination")
 
     return state

@@ -28,9 +28,10 @@ class OrchestratorState(TypedDict, total=False):
 
     # Farmer contextual profile (retained across turns)
     farmer_context: Dict[str, Any]
+    active_crop: Optional[str]
 
     # Intent Classification & Slot Filling
-    intent: str                    # weather, mandi, disease, crop_recommendation, scheme, navigation, explain_recommendation, what_if, clarify, unknown
+    intent: str                    # weather, mandi, disease, crop_recommendation, scheme, navigation, explain_recommendation, what_if, repeat_last, speech_control, clarify, unknown
     intent_confidence: float       # 0.0 to 1.0
     filled_slots: Dict[str, Any]
     missing_slots: List[str]
@@ -43,6 +44,11 @@ class OrchestratorState(TypedDict, total=False):
 
     # Conversational Memory & Multi-Turn References
     last_recommendations: List[Dict[str, Any]]
+    last_weather_result: Optional[Dict[str, Any]]
+    last_market_result: Optional[Dict[str, Any]]
+    last_navigation_destination: Optional[str]
+    last_final_response: Optional[str]
+    speech_rate: Optional[str]
     requires_clarification: bool
     clarification_question: Optional[str]
     pending_confirmation: Optional[str]
