@@ -75,9 +75,20 @@ app.include_router(weather_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(voice_router, prefix="/api/v1")
-app.include_router(diagnostics_router, prefix="/api/v1")
 app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(store_router, prefix="/api/v1")
+
+# IoT Animal Detection
+from app.animal_detection import animal_detection_router, ws_router
+app.include_router(animal_detection_router)
+app.include_router(ws_router)
+
+# Mount IoT Dashboard
+import os
+from fastapi.staticfiles import StaticFiles
+_dash_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "dashboard")
+if os.path.exists(_dash_path):
+    app.mount("/dashboard", StaticFiles(directory=_dash_path, html=True), name="dashboard")
 
 
 @app.get("/")

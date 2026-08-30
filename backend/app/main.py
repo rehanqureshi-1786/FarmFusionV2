@@ -32,6 +32,12 @@ from app.services.disease_ml_service import DiseaseMLService
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"Starting {settings.app_name}...")
+    # Initialize all SQLAlchemy tables
+    from app.core.database import engine, Base
+    import app.models
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     # Initialize Disease Detection ML Model singleton at startup
     DiseaseMLService.initialize()
     yield
@@ -101,4 +107,23 @@ app.include_router(knowledge_router, prefix=settings.api_v1_prefix)
 app.include_router(crop_recommendation_router, prefix=settings.api_v1_prefix)
 app.include_router(weather_router, prefix=settings.api_v1_prefix)
 app.include_router(legacy_crop_router)
+
+# IoT Animal Intrusion Detection Routers
+from app.animal_detection import animal_detection_router, ws_router
+app.include_router(animal_detection_router)
+app.include_router(ws_router)
+
+# Mount IoT Dashboard at /dashboard (without overwriting API root /)
+import os
+from fastapi.staticfiles import StaticFiles
+
+# Resolve dashboard path from repository root or backend root
+_repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_dashboard_dir = os.path.join(_repo_root, "dashboard")
+if not os.path.exists(_dashboard_dir):
+    _dashboard_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "dashboard")
+
+if os.path.exists(_dashboard_dir):
+    app.mount("/dashboard", StaticFiles(directory=_dashboard_dir, html=True), name="dashboard")
+
 

@@ -108,6 +108,20 @@ interface FarmFusionApi {
         @Body request: VoiceQueryRequest
     ): Response<VoiceQueryResponse>
 
+    // ============ IOT ANIMAL DETECTION ============
+
+    @GET("api/v1/animal-detection/latest")
+    suspend fun getAnimalDetectionLatest(
+        @Query("device_id") deviceId: String = "NODE_01"
+    ): Response<LatestStatusModel>
+
+    @GET("api/v1/animal-detection/history")
+    suspend fun getAnimalDetectionHistory(
+        @Query("device_id") deviceId: String = "NODE_01",
+        @Query("limit") limit: Int = 50,
+        @Query("offset") offset: Int = 0
+    ): Response<HistoryResponseModel>
+
     // ============ AUTHENTICATION ============
 
     @POST("api/v1/auth/verify")

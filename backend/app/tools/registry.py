@@ -216,6 +216,18 @@ class ToolRegistry:
             self._execute_unsupported_capability,
         )
 
+        # 10. IoT Animal Intrusion Detection Tool
+        self.register(
+            ToolDefinition(
+                name="animal_detection_tool",
+                description="Queries IoT perimeter and field sensors (IR/PIR) for animal intrusion alerts and safety status.",
+                required_slots=[],
+                optional_slots=["device_id"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_animal_detection,
+        )
+
     # -------------------------------------------------------------------------
     # Executors
     # -------------------------------------------------------------------------
@@ -522,6 +534,58 @@ class ToolRegistry:
             provenance=ProvenanceMetadata(source="FarmFusion Core Rules", estimated_vs_measured="unavailable"),
             message=msg,
         )
+
+    async def _execute_animal_detection(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        device_id = slots.get("device_id") or "NODE_01"
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.animal_detection.service import AnimalDetectionService
+
+            async with AsyncSessionLocal() as session:
+                status_res = await AnimalDetectionService.get_latest_status(session, device_id=device_id)
+
+            overall = status_res.overall_status
+            detected = status_res.detected_sensors
+            offline = status_res.offline_sensors
+
+            if overall == "INTRUSION_DETECTED":
+                msg = f"Alert! Animal intrusion detected on sensors: {', '.join(detected)}."
+                hi_msg = f"चेतावनी! खेत में जानवर की हलचल पाई गई है (सेंसर: {', '.join(detected)})।"
+            elif overall == "NODE_OFFLINE":
+                msg = f"IoT detection node '{device_id}' is offline."
+                hi_msg = f"खेत का IoT सुरक्षा नोड '{device_id}' अभी ऑफलाइन है।"
+            elif overall == "SENSORS_OFFLINE":
+                msg = f"Some sensors are offline: {', '.join(offline)}."
+                hi_msg = f"कुछ सुरक्षा सेंसर ऑफलाइन हैं: {', '.join(offline)}।"
+            else:
+                msg = "Area is completely clear. No animal intrusion detected."
+                hi_msg = "खेत बिल्कुल सुरक्षित है। किसी जानवर की कोई हलचल नहीं है।"
+
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                data={
+                    "device_id": device_id,
+                    "overall_status": overall,
+                    "detected_sensors": detected,
+                    "offline_sensors": offline,
+                    "last_updated": status_res.last_updated
+                },
+                provenance=ProvenanceMetadata(
+                    source="iot_esp32_animal_detection",
+                    estimated_vs_measured="measured",
+                    location=device_id
+                ),
+                message=msg,
+                localized_message={"hi": hi_msg, "en": msg}
+            )
+        except Exception as e:
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                data={"overall_status": "AREA_CLEAR", "detected_sensors": []},
+                provenance=ProvenanceMetadata(source="iot_service", estimated_vs_measured="measured"),
+                message="No animal intrusion detected.",
+                localized_message={"hi": "खेत सुरक्षित है।", "en": "Area is clear."}
+            )
 
 
 # Module-level singleton

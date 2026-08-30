@@ -98,6 +98,7 @@ async def tool_router_node(state: OrchestratorState) -> OrchestratorState:
         "crop_care": "crop_care_tool",
         "mandi": "market_price_tool",
         "scheme": "government_scheme_tool",
+        "animal_detection": "animal_detection_tool",
         "navigation": "navigation_tool",
         "unsupported_capability": "unsupported_capability_tool",
     }

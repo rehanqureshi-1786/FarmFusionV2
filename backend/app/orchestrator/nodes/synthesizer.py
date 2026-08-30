@@ -279,7 +279,34 @@ async def response_synthesizer_node(state: OrchestratorState) -> OrchestratorSta
         else:
             response = "यह कार्य सीधे वॉइस असिस्टेंट द्वारा समर्थित नहीं है।" if lang == "hi" else "This capability is not supported via the voice assistant."
 
-    # 13. Fallback General Response
+    # 13. Handle Animal Intrusion Detection & Farm Security
+    elif intent == "animal_detection":
+        overall = tool_data.get("overall_status", "AREA_CLEAR") if isinstance(tool_data, dict) else "AREA_CLEAR"
+        detected = tool_data.get("detected_sensors", []) if isinstance(tool_data, dict) else []
+        if overall == "INTRUSION_DETECTED":
+            sensors_str = ", ".join(detected) if detected else "Perimeter"
+            if is_marwari:
+                response = f"सावधान! खेत में जानवर री हलचल मिली है (सेंसर: {sensors_str})।"
+            elif lang == "hi":
+                response = f"सावधान! खेत में जानवर की हलचल पाई गई है (सेंसर: {sensors_str})।"
+            else:
+                response = f"Alert! Animal intrusion detected on sensors: {sensors_str}."
+        elif overall == "NODE_OFFLINE":
+            if is_marwari:
+                response = "खेत रो IoT सुरक्षा नोड अभी ऑफलाइन है।"
+            elif lang == "hi":
+                response = "खेत का IoT सुरक्षा नोड अभी ऑफलाइन है।"
+            else:
+                response = "The farm IoT security node is currently offline."
+        else:
+            if is_marwari:
+                response = "खेत पूरी तरह सुरक्षित है। कोई जानवर नीं आयो।"
+            elif lang == "hi":
+                response = "खेत बिल्कुल सुरक्षित है। किसी जानवर की कोई हलचल नहीं है।"
+            else:
+                response = "The farm perimeter is clear and secure. No animal intrusion detected."
+
+    # 14. Fallback General Response
     else:
         if is_marwari:
             response = "FarmFusion AI में आपरो स्वागत है। आप म्हासूं मौसम, मंडी भाव, फसल सलाह या योजनावां बाबत पूछ सको हो।"

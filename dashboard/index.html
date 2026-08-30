@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmFusion - Real-Time Animal Intrusion Detection</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Navigation Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-icon">🛡️</div>
+                <div class="brand-text">
+                    <h1>FarmFusion IoT</h1>
+                    <span class="sub-title">Animal Intrusion Detection System</span>
+                </div>
+            </div>
+            
+            <div class="server-config">
+                <label for="serverIpInput">Backend IP:</label>
+                <input type="text" id="serverIpInput" value="localhost:8000" placeholder="192.168.1.x:8000">
+                <button id="reconnectBtn" class="btn-connect">Connect</button>
+            </div>
+        </header>
+
+        <!-- Status Connection Bar -->
+        <section class="connection-bar">
+            <div class="status-chip" id="chipBackend">
+                <span class="dot dot-offline"></span> Backend API: <strong id="lblBackend">CHECKING...</strong>
+            </div>
+            <div class="status-chip" id="chipWebsocket">
+                <span class="dot dot-offline"></span> WebSocket: <strong id="lblWebsocket">DISCONNECTED</strong>
+            </div>
+            <div class="status-chip" id="chipDevice">
+                <span class="dot dot-offline"></span> Node (ESP32): <strong id="lblDevice">OFFLINE</strong>
+            </div>
+        </section>
+
+        <!-- Section 1: Overall Area Status -->
+        <section class="overall-status-card status-clear" id="overallStatusCard">
+            <div class="status-icon" id="overallStatusIcon">🟢</div>
+            <div class="status-info">
+                <h2 id="overallStatusText">ACTIVELY DETECTING</h2>
+                <p id="overallStatusDetail">All active sensors online and actively monitoring the area.</p>
+            </div>
+        </section>
+
+        <!-- Main Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Left Column: Sensors & Live Alert -->
+            <div class="left-column">
+                <!-- Section 2: Live Sensor Status Cards -->
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>📡 Live Sensor Matrix</h3>
+                        <span class="badge" id="sensorCountBadge">8 Active Sensors</span>
+                    </div>
+                    <div class="sensors-grid" id="sensorsContainer">
+                        <!-- 6x IR Sensor Cards -->
+                        <div class="sensor-card" id="card-IR_1">
+                            <div class="sensor-header">
+                                <span class="sensor-name">IR_1</span>
+                                <span class="sensor-type-badge">IR</span>
+                            </div>
+                            <div class="sensor-status status-text-detecting">🟢 DETECTING</div>
+                        </div>
+                        <div class="sensor-card" id="card-IR_2">
+                            <div class="sensor-header">
+                                <span class="sensor-name">IR_2</span>
+                                <span class="sensor-type-badge">IR</span>
+                            </div>
+                            <div class="sensor-status status-text-detecting">🟢 DETECTING</div>
+                        </div>
+                        <div class="sensor-card" id="card-IR_3">
+                            <div class="sensor-header">
+                                <span class="sensor-name">IR_3</span>
+                                <span class="sensor-type-badge">IR</span>
+                            </div>
+                            <div class="sensor-status status-text-detecting">🟢 DETECTING</div>
+                        </div>
+                        <div class="sensor-card" id="card-IR_4">
+                            <div class="sensor-header">
+                                <span class="sensor-name">IR_4</span>
+                                <span class="sensor-type-badge">IR</span>
+                            </div>
+                            <div class="sensor-status status-text-detecting">🟢 DETECTING</div>
+                        </div>
+                        <div class="sensor-card" id="card-IR_5">
+                            <div class="sensor-header">
+                                <span class="sensor-name">IR_5</span>
+                                <span class="sensor-type-badge">IR</span>
+                            </div>
+                            <div class="sensor-status status-text-detecting">🟢 DETECTING</div>
+                        </div>
+                        <div class="sensor-card" id="card-IR_6">
+                            <div class="sensor-header">
+                                <span class="sensor-name">IR_6</span>
+                                <span class="sensor-type-badge">IR</span>
+                            </div>
+                            <div class="sensor-status status-text-detecting">🟢 DETECTING</div>
+                        </div>
+                        <!-- 2x PIR Sensor Cards -->
+                        <div class="sensor-card" id="card-PIR_1">
+                            <div class="sensor-header">
+                                <span class="sensor-name">PIR_1</span>
+                                <span class="sensor-type-badge">PIR</span>
+                            </div>
+                            <div class="sensor-status status-text-detecting">🟢 DETECTING</div>
+                        </div>
+                        <div class="sensor-card" id="card-PIR_2">
+                            <div class="sensor-header">
+                                <span class="sensor-name">PIR_2</span>
+                                <span class="sensor-type-badge">PIR</span>
+                            </div>
+                            <div class="sensor-status status-text-detecting">🟢 DETECTING</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Section 3: Live Intrusion Alert Box -->
+                <div class="panel alert-panel" id="alertPanel">
+                    <div class="panel-header">
+                        <h3>🚨 Real-Time Detection Alert</h3>
+                        <span class="live-dot pulse-red"></span>
+                    </div>
+                    <div class="alert-content" id="alertContent">
+                        <div class="alert-idle">
+                            <span class="idle-icon">🛡️</span>
+                            <p>No active intrusion events detected.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Section 4 Detection History -->
+            <div class="right-column">
+                <div class="panel history-panel">
+                    <div class="panel-header">
+                        <h3>📜 Intrusion Event History</h3>
+                        <button id="refreshHistoryBtn" class="btn-refresh">↻ Refresh</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Device</th>
+                                    <th>Sensor</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <tr class="empty-row">
+                                    <td colspan="5">No events logged yet. Waiting for hardware events...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

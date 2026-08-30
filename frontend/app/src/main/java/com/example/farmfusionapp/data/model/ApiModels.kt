@@ -345,3 +345,38 @@ data class VoiceQueryResponse(
     val follow_up_suggestions: List<String>?,
     val timestamp: String
 )
+
+// ============ IOT ANIMAL DETECTION ============
+
+data class SensorDetailModel(
+    val status: String,
+    val health: String,
+    val sensor_type: String,
+    val last_seen: String? = null
+)
+
+data class LatestStatusModel(
+    val device_id: String,
+    val overall_status: String,
+    val sensors: Map<String, SensorDetailModel>,
+    val detected_sensors: List<String>,
+    val offline_sensors: List<String>,
+    val last_updated: String? = null
+)
+
+data class DetectionEventModel(
+    val id: Int,
+    val device_id: String,
+    val sensor: String,
+    val sensor_type: String,
+    val status: String,
+    val timestamp: String
+)
+
+data class HistoryResponseModel(
+    val total: Int,
+    val limit: Int,
+    val offset: Int,
+    val events: List<DetectionEventModel>
+)
+

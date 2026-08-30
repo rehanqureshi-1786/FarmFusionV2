@@ -249,7 +249,16 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         confidence = 0.94
         filled_slots["query"] = query
 
-    # 15. General Farming Query Fallback (Intelligent agricultural understanding rather than asking to repeat)
+    # 15. IoT Animal Intrusion Detection & Farm Security Intent
+    elif any(kw in query for kw in [
+        "जानवर", "पशु", "नीलगाय", "सूअर", "खेत सुरक्षित", "सुरक्षा", "घुसपैठ", "सेंसर", "अलर्ट",
+        "animal", "intrusion", "wild animal", "pig", "nilgai", "is farm safe", "security status", "sensor status"
+    ]):
+        intent = "animal_detection"
+        confidence = 0.95
+        filled_slots["device_id"] = "NODE_01"
+
+    # 16. General Farming Query Fallback (Intelligent agricultural understanding rather than asking to repeat)
     elif any(kw in query for kw in ["खेती", "फसल", "पौधा", "पेड़", "जमीन", "मिट्टी", "खाद", "पानी", "बीज", "कीटनाशक", "कृषि", "farming", "crop", "plant", "soil", "kisan"]):
         intent = "crop_care"
         confidence = 0.90
