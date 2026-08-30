@@ -16,13 +16,7 @@ data class CropRecommendRequest(
     val temperature_c: Double,
     val farm_size_acres: Double,
     val budget_usd: Double? = null,
-    val preferred_language: String = "en",
-    val latitude: Double? = null,
-    val longitude: Double? = null,
-    val nitrogen: Double? = null,
-    val phosphorus: Double? = null,
-    val potassium: Double? = null,
-    val ph: Double? = null
+    val preferred_language: String = "en"
 )
 
 /**

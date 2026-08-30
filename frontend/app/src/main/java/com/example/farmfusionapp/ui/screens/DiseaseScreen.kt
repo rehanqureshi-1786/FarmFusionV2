@@ -2,7 +2,6 @@ package com.example.farmfusionapp.ui.screens
 
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -645,7 +644,6 @@ fun DiseaseResultStep(
     onCallExpert: () -> Unit
 ) {
     val scrollState = rememberScrollState()
-    val context = LocalContext.current
 
     if (result == null) {
         return
@@ -780,78 +778,37 @@ fun DiseaseResultStep(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Confidence Tier Badge
-                val tier = result?.confidence_tier?.lowercase() ?: "unclear"
-                val tierColor = when (tier) {
-                    "high" -> FarmColors.Success
-                    "medium" -> FarmColors.Warning
-                    else -> FarmColors.Error
-                }
-                val tierLabel = when (tier) {
-                    "high" -> "CONFIDENT DIAGNOSIS (${((result?.confidence ?: 0.0) * 100).toInt()}%)"
-                    "medium" -> "POSSIBLE DIAGNOSIS (${((result?.confidence ?: 0.0) * 100).toInt()}%) — CONFIRM WITH EXPERT"
-                    "low" -> "LOW CONFIDENCE (${((result?.confidence ?: 0.0) * 100).toInt()}%)"
-                    else -> "UNCERTAIN IMAGE QUALITY"
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = tierColor
+                /* 
+                // Confidence score (Hidden as per request)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = tierLabel,
-                        style = MaterialTheme.typography.labelLarge.copy(
+                        text = "Confidence: ",
+                        style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        ),
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
-                    )
-                }
-
-                if (!result?.scientific_name.isNullOrBlank() && result?.scientific_name != "N/A" && result?.scientific_name != "NOT_AVAILABLE") {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = "Pathogen: ${result.scientific_name}",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f),
-                            fontWeight = FontWeight.Medium
+                            color = MaterialTheme.colorScheme.onErrorContainer
                         )
                     )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = FarmColors.Warning
+                    ) {
+                        Text(
+                            text = "${((result?.confidence ?: 0.0).times(100).toInt())}%",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            ),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
                 }
+                */
             }
         }
 
         Spacer(modifier = Modifier.height(20.dp))
-
-        // Symptoms Card
-        if (!result?.symptoms.isNullOrEmpty()) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp)
-                ) {
-                    Text(
-                        text = "Key Symptoms / लक्षण",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    result.symptoms.forEach { symptom ->
-                        Row(modifier = Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
-                            Text("• ", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text(text = symptom, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-        }
 
         // Description
         Card(
@@ -973,94 +930,6 @@ fun DiseaseResultStep(
                             "Follow recommended farming practices",
                         style = MaterialTheme.typography.bodyMedium
                     )
-                }
-            }
-        }
-
-        // Recommended Products Card (Amazon Affiliate)
-        if (!result.store_recommendations.isNullOrEmpty()) {
-            Spacer(modifier = Modifier.height(20.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
-                )
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Rounded.ShoppingCart,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(28.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = "Recommended Products / अनुशंसित उत्पाद",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
-                            )
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    result.store_recommendations.forEach { item ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = item.title,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                    if (item.subtitle.isNotBlank()) {
-                                        Text(
-                                            text = item.subtitle,
-                                            style = MaterialTheme.typography.bodySmall.copy(
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Button(
-                                    onClick = {
-                                        try {
-                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(item.shop_url))
-                                            context.startActivity(intent)
-                                        } catch (e: Exception) {
-                                            android.util.Log.e("DiseaseScreen", "Error opening shop URL: ${e.message}")
-                                        }
-                                    },
-                                    shape = RoundedCornerShape(12.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary
-                                    ),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text("Buy", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }

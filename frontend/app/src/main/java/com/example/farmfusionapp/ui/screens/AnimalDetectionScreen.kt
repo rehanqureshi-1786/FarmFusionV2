@@ -1,385 +1,431 @@
 package com.example.farmfusionapp.ui.screens
 
-import androidx.compose.animation.*
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.farmfusionapp.data.model.DetectionEventModel
-import com.example.farmfusionapp.data.model.LatestStatusModel
-import com.example.farmfusionapp.data.model.SensorDetailModel
-import com.example.farmfusionapp.network.RetrofitInstance
-import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import com.example.farmfusionapp.R
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnimalDetectionScreen(navController: NavController) {
-    val coroutineScope = rememberCoroutineScope()
-    var latestStatus by remember { mutableStateOf<LatestStatusModel?>(null) }
-    var historyEvents by remember { mutableStateOf<List<DetectionEventModel>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var isRefreshing by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val scrollState = rememberScrollState()
 
-    suspend fun fetchData() {
-        try {
-            val statusRes = RetrofitInstance.api.getAnimalDetectionLatest("NODE_01")
-            if (statusRes.isSuccessful) {
-                latestStatus = statusRes.body()
-                errorMessage = null
-            }
+    // Unifying background color acts as a fallback layer[cite: 7]
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF7FBF7))
+    ) {
+        // Background Illustration (PNG) - Now fills the entire screen edge-to-edge[cite: 7]
+        Image(
+            painter = painterResource(id = R.drawable.ill_animal_alert_top),
+            contentDescription = "Wild Animal Alert Background",
+            contentScale = ContentScale.Crop, // Crucial fix: Forces the image to cover max constraints without empty spaces[cite: 7]
+            modifier = Modifier.fillMaxSize(),
+        )
 
-            val histRes = RetrofitInstance.api.getAnimalDetectionHistory("NODE_01", limit = 20)
-            if (histRes.isSuccessful) {
-                historyEvents = histRes.body()?.events.orEmpty()
-            }
-        } catch (e: Exception) {
-            errorMessage = e.message ?: "Network error"
-        } finally {
-            isLoading = false
-            isRefreshing = false
-        }
-    }
-
-    // Initial fetch + periodic auto-refresh every 3 seconds
-    LaunchedEffect(Unit) {
-        fetchData()
-        while (true) {
-            delay(3000)
-            try {
-                val statusRes = RetrofitInstance.api.getAnimalDetectionLatest("NODE_01")
-                if (statusRes.isSuccessful) {
-                    latestStatus = statusRes.body()
-                }
-                val histRes = RetrofitInstance.api.getAnimalDetectionHistory("NODE_01", limit = 20)
-                if (histRes.isSuccessful) {
-                    historyEvents = histRes.body()?.events.orEmpty()
-                }
-            } catch (_: Exception) {}
-        }
-    }
-
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Rounded.Shield,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Text(
-                            "Farm Perimeter Security",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            isRefreshing = true
-                            coroutineScope.launch { fetchData() }
-                        }
-                    ) {
-                        Icon(
-                            Icons.Rounded.Refresh,
-                            contentDescription = "Refresh",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            )
-        }
-    ) { paddingValues ->
-        NeoScaffoldBackground(
+        // Gradient overlay blending into the screen background to anchor the bottom cards
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color(0xFFF7FBF7).copy(alpha = 0.9f), Color(0xFFF7FBF7)),
+                        startY = 400f,
+                        endY = 1200f
+                    )
+                )
+        )
+
+        // Main scrollable foreground container
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
         ) {
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+            TopHeaderSection(navController)
+            UnderConstructionBanner()
+            FeaturesCardSection()
+            HowItWorksSection()
+
+            // Buffer padding for Bottom Navigation Bar overlap
+            Spacer(modifier = Modifier.height(100.dp))
+        }
+    }
+}
+
+@Composable
+private fun TopHeaderSection(navController: NavController) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+    ) {
+        // Transparent Top Bar Overlay
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = { navController.popBackStack() }) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Back",
+                    tint = Color(0xFF1A1A1A)
+                )
+            }
+            Text(
+                text = "Animal Alert",
+                modifier = Modifier
+                    .weight(1f)
+                    .offset(x = (-24).dp), // Adjusting center offset for back button
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = Color(0xFF1A1A1A)
+            )
+        }
+
+        // Headline Content
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(top = 16.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.fillMaxWidth(0.8f)) {
+                Text(
+                    text = "Protect Your Farm,",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1A1A1A)
+                )
+                Text(
+                    text = "Stay One Step Ahead",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF2E7D32) // Deep green brand color
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Smart alerts for wild animals\nnear your crops and\nlivestock.",
+                    fontSize = 15.sp,
+                    color = Color.DarkGray,
+                    lineHeight = 22.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UnderConstructionBanner() {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .offset(y = (-5).dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF4E0)), // Light orange warning background
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+
+            // Replicating the diagonal stripes for the construction look using Canvas
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val stripeColor = Color(0xFFFFE0B2).copy(alpha = 0.6f)
+                val stripeWidth = 24f
+                val gap = 24f
+                var startX = size.width - 250f
+                while (startX < size.width + 150f) {
+                    drawLine(
+                        color = stripeColor,
+                        start = Offset(startX, 0f),
+                        end = Offset(startX - size.height, size.height),
+                        strokeWidth = stripeWidth
+                    )
+                    startX += stripeWidth + gap
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Barricade/Construction Icon
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(56.dp)
                 ) {
-                    // 1. Overall Status Card
-                    item {
-                        val status = latestStatus?.overall_status ?: "NODE_OFFLINE"
-                        val (bannerColor, icon, title, subtitle) = when (status) {
-                            "INTRUSION_DETECTED" -> Quad(
-                                Color(0xFFEF4444),
-                                Icons.Rounded.Warning,
-                                "ANIMAL INTRUSION DETECTED",
-                                "Active perimeter breach on: ${latestStatus?.detected_sensors?.joinToString(", ") ?: "Perimeter"}"
-                            )
-                            "AREA_CLEAR" -> Quad(
-                                Color(0xFF10B981),
-                                Icons.Rounded.CheckCircle,
-                                "AREA IS SECURE & CLEAR",
-                                "All 8 active sensors online and monitoring perimeter."
-                            )
-                            "SENSORS_OFFLINE" -> Quad(
-                                Color(0xFFF59E0B),
-                                Icons.Rounded.SensorsOff,
-                                "SENSORS OFFLINE",
-                                "Some sensors are not reporting: ${latestStatus?.offline_sensors?.joinToString(", ") ?: ""}"
-                            )
-                            else -> Quad(
-                                Color(0xFF6B7280),
-                                Icons.Rounded.WifiOff,
-                                "ESP32 NODE DISCONNECTED",
-                                "Hardware node 'NODE_01' is offline. Waiting for Wi-Fi keep-alive..."
-                            )
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = bannerColor.copy(alpha = 0.12f),
-                            border = BorderStroke(1.5.dp, bannerColor.copy(alpha = 0.4f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .shadow(4.dp, RoundedCornerShape(20.dp))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(18.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                Surface(
-                                    shape = CircleShape,
-                                    color = bannerColor,
-                                    modifier = Modifier.size(52.dp)
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
-                                    }
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        title,
-                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Black, color = bannerColor)
-                                    )
-                                    Text(
-                                        subtitle,
-                                        style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF374151))
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    // 2. Sensor Matrix Section
-                    item {
-                        Text(
-                            "Perimeter Sensors (6x IR + 2x PIR)",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onBackground
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.Construction,
+                            contentDescription = "Under Construction",
+                            tint = Color(0xFFF57C00),
+                            modifier = Modifier.size(28.dp)
                         )
                     }
+                }
 
-                    item {
-                        val defaultSensors = listOf(
-                            "IR_1" to "IR", "IR_2" to "IR", "IR_3" to "IR",
-                            "IR_4" to "IR", "IR_5" to "IR", "IR_6" to "IR",
-                            "PIR_1" to "PIR", "PIR_2" to "PIR"
-                        )
-                        val sensorsMap = latestStatus?.sensors ?: emptyMap()
+                Spacer(modifier = Modifier.width(16.dp))
 
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            // 2 rows of 4 sensors
-                            defaultSensors.chunked(4).forEach { rowSensors ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    rowSensors.forEach { (sName, sType) ->
-                                        val detail = sensorsMap[sName]
-                                        val isOnline = detail?.health == "online"
-                                        val isDetected = detail?.status == "detected"
-
-                                        val cardColor = when {
-                                            !isOnline -> Color(0xFFF3F4F6)
-                                            isDetected -> Color(0xFFFEE2E2)
-                                            else -> Color(0xFFECFDF5)
-                                        }
-                                        val borderColor = when {
-                                            !isOnline -> Color(0xFFD1D5DB)
-                                            isDetected -> Color(0xFFEF4444)
-                                            else -> Color(0xFF10B981)
-                                        }
-                                        val statusLabel = when {
-                                            !isOnline -> "OFFLINE"
-                                            isDetected -> "DETECTED"
-                                            else -> "CLEAR"
-                                        }
-
-                                        Surface(
-                                            shape = RoundedCornerShape(12.dp),
-                                            color = cardColor,
-                                            border = BorderStroke(1.dp, borderColor),
-                                            modifier = Modifier.weight(1f)
-                                        ) {
-                                            Column(
-                                                modifier = Modifier.padding(8.dp),
-                                                horizontalAlignment = Alignment.CenterHorizontally,
-                                                verticalArrangement = Arrangement.spacedBy(2.dp)
-                                            ) {
-                                                Text(
-                                                    sName,
-                                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                                                )
-                                                Text(
-                                                    sType,
-                                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, color = Color.Gray)
-                                                )
-                                                Text(
-                                                    statusLabel,
-                                                    style = MaterialTheme.typography.labelSmall.copy(
-                                                        fontWeight = FontWeight.Bold,
-                                                        fontSize = 10.sp,
-                                                        color = borderColor
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // 3. History Timeline Section
-                    item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Recent Intrusion Events",
-                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                            )
-                            Text(
-                                "${historyEvents.size} events",
-                                style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray)
-                            )
-                        }
-                    }
-
-                    if (historyEvents.isEmpty()) {
-                        item {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White.copy(alpha = 0.8f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Box(
-                                    modifier = Modifier.padding(24.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        "No animal intrusion events logged yet.",
-                                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
-                                    )
-                                }
-                            }
-                        }
-                    } else {
-                        items(historyEvents) { event ->
-                            val isDet = event.status.lowercase() == "detected"
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
-                                shadowElevation = 1.dp,
-                                border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Icon(
-                                            if (isDet) Icons.Rounded.NotificationsActive else Icons.Rounded.CheckCircleOutline,
-                                            contentDescription = null,
-                                            tint = if (isDet) Color(0xFFEF4444) else Color(0xFF10B981),
-                                            modifier = Modifier.size(22.dp)
-                                        )
-                                        Column {
-                                            Text(
-                                                "${event.sensor} (${event.sensor_type})",
-                                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
-                                            )
-                                            Text(
-                                                event.timestamp.take(19).replace("T", " "),
-                                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp, color = Color.Gray)
-                                            )
-                                        }
-                                    }
-
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = if (isDet) Color(0xFFFEE2E2) else Color(0xFFECFDF5)
-                                    ) {
-                                        Text(
-                                            if (isDet) "DETECTED" else "CLEARED",
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (isDet) Color(0xFFEF4444) else Color(0xFF10B981)
-                                            )
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Under Construction",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF1A1A1A)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "This feature is currently under development\nand will be available in a future update.\nStay tuned!",
+                        fontSize = 12.sp,
+                        color = Color.DarkGray,
+                        lineHeight = 16.sp
+                    )
                 }
             }
         }
     }
 }
 
-private data class Quad<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+@Composable
+private fun FeaturesCardSection() {
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 24.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            FeatureIconItem(
+                icon = Icons.Rounded.CenterFocusStrong,
+                title = "AI Detection",
+                desc = "Smart sensors\ndetect wild\nanimals"
+            )
+            FeatureIconItem(
+                icon = Icons.Rounded.NotificationsActive,
+                title = "Instant Alerts",
+                desc = "Get notified\nin real-time\n"
+            )
+            FeatureIconItem(
+                icon = Icons.Rounded.LocationOn,
+                title = "Location Based",
+                desc = "Alerts for your\nfarm area\n"
+            )
+            FeatureIconItem(
+                icon = Icons.Rounded.Security,
+                title = "Stay Protected",
+                desc = "Take action\nand protect\nyour farm"
+            )
+        }
+    }
+}
+
+@Composable
+private fun FeatureIconItem(icon: ImageVector, title: String, desc: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.width(78.dp)
+    ) {
+        Surface(
+            shape = CircleShape,
+            color = Color(0xFFE8F5E9), // Light green tint
+            modifier = Modifier.size(46.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    tint = Color(0xFF2E7D32),
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = title,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF2E7D32),
+            textAlign = TextAlign.Center,
+            lineHeight = 14.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = desc,
+            fontSize = 10.sp,
+            color = Color.Gray,
+            textAlign = TextAlign.Center,
+            lineHeight = 14.sp
+        )
+    }
+}
+
+@Composable
+private fun HowItWorksSection() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Text(
+            text = "How it works",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF2E7D32),
+            modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
+        )
+
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Timeline Steps (Left Side)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth(0.65f) // Restrict width so it doesn't overlap the sensor
+                        .padding(start = 20.dp, top = 20.dp, bottom = 20.dp, end = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
+                    StepItem(
+                        icon = Icons.Rounded.CenterFocusStrong,
+                        title = "Detect",
+                        desc = "Sensors detect wild animals\nnear your crops or livestock."
+                    )
+                    StepItem(
+                        icon = Icons.Rounded.NotificationsActive,
+                        title = "Alert",
+                        desc = "You receive an instant notification\nwith details and location."
+                    )
+                    StepItem(
+                        icon = Icons.Rounded.Security,
+                        title = "Act",
+                        desc = "Take necessary action and\nkeep your farm safe.",
+                        isLast = true
+                    )
+                }
+
+                // Sensor Illustration (Right Side)
+                Image(
+                    painter = painterResource(id = R.drawable.ill_animal_alert_sensor),
+                    contentDescription = "Sensor System Mounted",
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.BottomEnd,
+                    modifier = Modifier
+                        .matchParentSize()
+                        .padding(start = 20.dp)
+                        .offset(y = 15.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepItem(icon: ImageVector, title: String, desc: String, isLast: Boolean = false) {
+    Row(modifier = Modifier.height(IntrinsicSize.Min)) {
+        // Icon and Dashed Connector Column
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.width(36.dp)
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFE8F5E9),
+                modifier = Modifier.size(36.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = Color(0xFF2E7D32),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            if (!isLast) {
+                Canvas(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .weight(1f)
+                        .padding(vertical = 4.dp)
+                ) {
+                    drawLine(
+                        color = Color(0xFFC8E6C9),
+                        start = Offset(0f, 0f),
+                        end = Offset(0f, size.height),
+                        strokeWidth = 4f,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 12f), 0f)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        // Content Column
+        Column(
+            modifier = Modifier.padding(bottom = if (isLast) 0.dp else 24.dp)
+        ) {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1A1A1A)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = desc,
+                fontSize = 12.sp,
+                color = Color.Gray,
+                lineHeight = 16.sp
+            )
+        }
+    }
+}
