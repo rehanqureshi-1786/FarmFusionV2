@@ -22,6 +22,7 @@ async def run_orchestrator_pipeline(
     farmer_context: Optional[Dict[str, Any]] = None,
     last_recommendations: Optional[List[Dict[str, Any]]] = None,
     filled_slots: Optional[Dict[str, Any]] = None,
+    last_final_response: Optional[str] = None,
 ) -> OrchestratorState:
     """
     Execute the full orchestrator graph turn:
@@ -47,6 +48,7 @@ async def run_orchestrator_pipeline(
         "tool_output": None,
         "tool_status": None,
         "last_recommendations": last_recommendations or [],
+        "last_final_response": last_final_response,
         "messages": [],
         "final_response": "",
         "requires_clarification": False,

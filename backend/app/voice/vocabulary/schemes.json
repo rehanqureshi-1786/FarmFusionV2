@@ -1,0 +1,17 @@
+[
+  {"surface_form": "पीएम किसान", "canonical_id": "pm_kisan", "canonical_name": "PM Kisan Samman Nidhi Yojana", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "pm kisan", "canonical_id": "pm_kisan", "canonical_name": "PM Kisan Samman Nidhi Yojana", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "किसान सम्मान निधि", "canonical_id": "pm_kisan", "canonical_name": "PM Kisan Samman Nidhi Yojana", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "फसल बीमा", "canonical_id": "pmfby", "canonical_name": "Pradhan Mantri Fasal Bima Yojana (PMFBY)", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "pmfby", "canonical_id": "pmfby", "canonical_name": "Pradhan Mantri Fasal Bima Yojana (PMFBY)", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "केसीसी", "canonical_id": "kcc", "canonical_name": "Kisan Credit Card (KCC)", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "kcc", "canonical_id": "kcc", "canonical_name": "Kisan Credit Card (KCC)", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "मृदा स्वास्थ्य कार्ड", "canonical_id": "soil_health_card", "canonical_name": "Soil Health Card Scheme", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "तारबंदी योजना", "canonical_id": "tarbandi_subsidy", "canonical_name": "Tarbandi (Fencing) Subsidy Yojana", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "सौर पंप", "canonical_id": "kusum_solar", "canonical_name": "PM-KUSUM Solar Pump Scheme", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "योजना", "canonical_id": "govt_scheme", "canonical_name": "Government Scheme", "category": "scheme", "confidence": 0.98},
+  {"surface_form": "ಯೋಜನೆ", "canonical_id": "govt_scheme", "canonical_name": "Government Scheme", "category": "scheme", "language": "kn", "confidence": 0.98},
+  {"surface_form": "திட்டம்", "canonical_id": "govt_scheme", "canonical_name": "Government Scheme", "category": "scheme", "language": "ta", "confidence": 0.98},
+  {"surface_form": "పథకం", "canonical_id": "govt_scheme", "canonical_name": "Government Scheme", "category": "scheme", "language": "te", "confidence": 0.98},
+  {"surface_form": "প্রকল্প", "canonical_id": "govt_scheme", "canonical_name": "Government Scheme", "category": "scheme", "language": "bn", "confidence": 0.98}
+]

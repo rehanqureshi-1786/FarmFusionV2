@@ -1,0 +1,897 @@
+[
+  {
+    "id": "w_hi_01",
+    "text": "आज मौसम कैसा रहेगा",
+    "language": "hi",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_hi_02",
+    "text": "कल बारिश होगी क्या",
+    "language": "hi",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_hi_03",
+    "text": "जयपुर में आज का तापमान बताओ",
+    "language": "hi",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {
+      "location": "Jaipur"
+    }
+  },
+  {
+    "id": "w_hi_04",
+    "text": "उदयपुर में मौसम का क्या हाल है",
+    "language": "hi",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {
+      "location": "Udaipur"
+    }
+  },
+  {
+    "id": "w_hi_05",
+    "text": "आज बारिश के आसार हैं क्या",
+    "language": "hi",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_rwr_01",
+    "text": "जोधपुर में मौसम कैसो रैवेला",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "weather",
+    "entities": {
+      "location": "Jodhpur"
+    }
+  },
+  {
+    "id": "w_rwr_02",
+    "text": "आज बरसात हुसी के कोनी",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_mew_01",
+    "text": "उदयपुर में आज मौसम कैसो छै",
+    "language": "hi",
+    "dialect": "mew",
+    "region": "Mewar",
+    "intent": "weather",
+    "entities": {
+      "location": "Udaipur"
+    }
+  },
+  {
+    "id": "w_bho_01",
+    "text": "आज मौसम कइसन रही",
+    "language": "hi",
+    "dialect": "bho",
+    "region": "Purvanchal/Bihar",
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_bho_02",
+    "text": "आज बरखा होई की ना",
+    "language": "hi",
+    "dialect": "bho",
+    "region": "Purvanchal/Bihar",
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_bgc_01",
+    "text": "आज मौसम क्युंकर रहवैगा",
+    "language": "hi",
+    "dialect": "bgc",
+    "region": "Haryana",
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_gu_01",
+    "text": "આજે હવામાન કેવું રહેશે",
+    "language": "gu",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_gu_02",
+    "text": "આજે વરસાદ પડશે કે નહીં",
+    "language": "gu",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_mr_01",
+    "text": "आजचे हवामान कसे आहे",
+    "language": "mr",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_mr_02",
+    "text": "आज पाऊस पडेल का",
+    "language": "mr",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_pa_01",
+    "text": "ਅੱਜ ਮੌਸਮ ਕਿਹੋ ਜਿਹਾ ਰਹੇਗਾ",
+    "language": "pa",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_pa_02",
+    "text": "ਅੱਜ ਮੀਂਹ ਪਵੇਗਾ ਕਿ ਨਹੀਂ",
+    "language": "pa",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_bn_01",
+    "text": "আজ আবহাওয়া কেমন থাকবে",
+    "language": "bn",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_bn_02",
+    "text": "আজ বৃষ্টি হবে কি",
+    "language": "bn",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_te_01",
+    "text": "ఈరోజు వాతావరణం ఎలా ఉంటుంది",
+    "language": "te",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_ta_01",
+    "text": "இன்று வானிலை எப்படி இருக்கும்",
+    "language": "ta",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_kn_01",
+    "text": "ಇಂದು ಹವಾಮಾನ ಹೇಗಿದೆ",
+    "language": "kn",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_ml_01",
+    "text": "ഇന്നത്തെ കാലാവസ്ഥ എങ്ങനെയുണ്ട്",
+    "language": "ml",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_or_01",
+    "text": "ଆଜି ପାଣିପାଗ କିପରି ରହିବ",
+    "language": "or",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_as_01",
+    "text": "আজি বতৰ কেনেকুৱা থাকিব",
+    "language": "as",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_mai_01",
+    "text": "आई मौसम कोना रहत",
+    "language": "mai",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_en_01",
+    "text": "What is the weather forecast for today",
+    "language": "en",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "w_cs_01",
+    "text": "today weather forecast kaisa rahega",
+    "language": "hi",
+    "dialect": null,
+    "intent": "weather",
+    "entities": {}
+  },
+  {
+    "id": "m_hi_01",
+    "text": "गेहूं का मंडी भाव क्या है",
+    "language": "hi",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "WHEAT"
+    }
+  },
+  {
+    "id": "m_hi_02",
+    "text": "सरसों का ताजा भाव बताओ",
+    "language": "hi",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "MUSTARD"
+    }
+  },
+  {
+    "id": "m_hi_03",
+    "text": "कपास का मंडी भाव कितना है",
+    "language": "hi",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "COTTON"
+    }
+  },
+  {
+    "id": "m_hi_04",
+    "text": "सोयाबीन का दाम कितना चल रहा है",
+    "language": "hi",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "SOYBEAN"
+    }
+  },
+  {
+    "id": "m_hi_05",
+    "text": "आज चने का भाव बताओ",
+    "language": "hi",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "GRAM"
+    }
+  },
+  {
+    "id": "m_rwr_01",
+    "text": "म्हाने बाजरी रो भाव बताओ",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "mandi",
+    "entities": {
+      "crop": "PEARL_MILLET"
+    }
+  },
+  {
+    "id": "m_rwr_02",
+    "text": "मंडी में मूंगफली रो भाव कांई है",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "mandi",
+    "entities": {
+      "crop": "GROUNDNUT"
+    }
+  },
+  {
+    "id": "m_mew_01",
+    "text": "मक्की रो भाव काईं छै",
+    "language": "hi",
+    "dialect": "mew",
+    "region": "Mewar",
+    "intent": "mandi",
+    "entities": {
+      "crop": "MAIZE"
+    }
+  },
+  {
+    "id": "m_bho_01",
+    "text": "गेहूं के भाव का बा",
+    "language": "hi",
+    "dialect": "bho",
+    "region": "Purvanchal/Bihar",
+    "intent": "mandi",
+    "entities": {
+      "crop": "WHEAT"
+    }
+  },
+  {
+    "id": "m_bgc_01",
+    "text": "सरसों का भाव के चाल रह्या सै",
+    "language": "hi",
+    "dialect": "bgc",
+    "region": "Haryana",
+    "intent": "mandi",
+    "entities": {
+      "crop": "MUSTARD"
+    }
+  },
+  {
+    "id": "m_gu_01",
+    "text": "રાજકોટમાં કપાસનો ભાવ શું છે",
+    "language": "gu",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "location": "Rajkot",
+      "crop": "COTTON"
+    }
+  },
+  {
+    "id": "m_gu_02",
+    "text": "આજે મગફળીનો બજાર ભાવ કેટલો છે",
+    "language": "gu",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "GROUNDNUT"
+    }
+  },
+  {
+    "id": "m_mr_01",
+    "text": "सोयाबीनचा आजचा बाजारभाव काय आहे",
+    "language": "mr",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "SOYBEAN"
+    }
+  },
+  {
+    "id": "m_mr_02",
+    "text": "कापसाचा दर किती आहे",
+    "language": "mr",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "COTTON"
+    }
+  },
+  {
+    "id": "m_pa_01",
+    "text": "ਮੰਡੀ ਵਿੱਚ ਕਣਕ ਦਾ ਕੀ ਭਾਅ ਹੈ",
+    "language": "pa",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "WHEAT"
+    }
+  },
+  {
+    "id": "m_bn_01",
+    "text": "আজ ধানের বাজার দর কত",
+    "language": "bn",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "PADDY"
+    }
+  },
+  {
+    "id": "m_te_01",
+    "text": "మార్కెట్లో పత్తి ధర ఎంత ఉంది",
+    "language": "te",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "COTTON"
+    }
+  },
+  {
+    "id": "m_ta_01",
+    "text": "சந்தையில் நெல் விலை என்ன",
+    "language": "ta",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "PADDY"
+    }
+  },
+  {
+    "id": "m_kn_01",
+    "text": "ಮಾರುಕಟ್ಟೆಯಲ್ಲಿ ಹತ್ತಿ ಬೆಲೆ ಎಷ್ಟು",
+    "language": "kn",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "COTTON"
+    }
+  },
+  {
+    "id": "m_ur_01",
+    "text": "آج منڈی میں گندم کی کیا قیمت ہے",
+    "language": "ur",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "WHEAT"
+    }
+  },
+  {
+    "id": "m_cs_01",
+    "text": "aaj market me gehu ka bhav kya hai",
+    "language": "hi",
+    "dialect": null,
+    "intent": "mandi",
+    "entities": {
+      "crop": "WHEAT"
+    }
+  },
+  {
+    "id": "cr_hi_01",
+    "text": "काली मिट्टी में कौन सी फसल लगाएं",
+    "language": "hi",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {
+      "soil_type": "BLACK_SOIL"
+    }
+  },
+  {
+    "id": "cr_hi_02",
+    "text": "खेत में क्या बोएं सलाह दो",
+    "language": "hi",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {}
+  },
+  {
+    "id": "cr_hi_03",
+    "text": "कम पानी में कौन सी फसल सबसे अच्छी है",
+    "language": "hi",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {
+      "water_availability": "LOW"
+    }
+  },
+  {
+    "id": "cr_hi_04",
+    "text": "रेतीली मिट्टी के लिए उपयुक्त फसल बताएं",
+    "language": "hi",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {
+      "soil_type": "SANDY_SOIL"
+    }
+  },
+  {
+    "id": "cr_hi_05",
+    "text": "रबी सीजन में क्या बोना फायदेमंद रहेगा",
+    "language": "hi",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {
+      "season": "RABI"
+    }
+  },
+  {
+    "id": "cr_rwr_01",
+    "text": "थांके खेत खातर चोखी फसल बताओ",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "crop_recommendation",
+    "entities": {}
+  },
+  {
+    "id": "cr_rwr_02",
+    "text": "म्हाने बाजरो बोवणो है पानी कम है",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "crop_recommendation",
+    "entities": {
+      "crop": "PEARL_MILLET",
+      "water_availability": "LOW"
+    }
+  },
+  {
+    "id": "cr_rwr_03",
+    "text": "रेतीली जमीन में कांई बोवणो ठीक रैवेला",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "crop_recommendation",
+    "entities": {
+      "soil_type": "SANDY_SOIL"
+    }
+  },
+  {
+    "id": "cr_mew_01",
+    "text": "म्हारी जमीन में मक्की बोवणी छै",
+    "language": "hi",
+    "dialect": "mew",
+    "region": "Mewar",
+    "intent": "crop_recommendation",
+    "entities": {
+      "crop": "MAIZE"
+    }
+  },
+  {
+    "id": "cr_bho_01",
+    "text": "खेते में धान बोईब कवन बीया ठीक होई",
+    "language": "hi",
+    "dialect": "bho",
+    "region": "Purvanchal/Bihar",
+    "intent": "crop_recommendation",
+    "entities": {
+      "crop": "PADDY"
+    }
+  },
+  {
+    "id": "cr_bgc_01",
+    "text": "म्हारे खेत खातर चोखी फसल बता दे",
+    "language": "hi",
+    "dialect": "bgc",
+    "region": "Haryana",
+    "intent": "crop_recommendation",
+    "entities": {}
+  },
+  {
+    "id": "cr_gu_01",
+    "text": "કાળી જમીનમાં કયો પાક વાવવો સારો",
+    "language": "gu",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {
+      "soil_type": "BLACK_SOIL"
+    }
+  },
+  {
+    "id": "cr_mr_01",
+    "text": "माझ्या शेतात कोणते पीक लावावे",
+    "language": "mr",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {}
+  },
+  {
+    "id": "cr_pa_01",
+    "text": "ਖੇਤ ਵਿੱਚ ਕਿਹੜੀ ਫਸਲ ਬੀਜਣੀ ਚਾਹੀਦੀ ਹੈ",
+    "language": "pa",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {}
+  },
+  {
+    "id": "cr_bn_01",
+    "text": "জমিতে কি ফসল লাগালে ভালো ফলন হবে",
+    "language": "bn",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {}
+  },
+  {
+    "id": "cr_te_01",
+    "text": "మా పొలంలో ఏ పంట వేయాలి",
+    "language": "te",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {}
+  },
+  {
+    "id": "cr_ta_01",
+    "text": "என் நிலத்திற்கு ஏற்ற பயிர் எது",
+    "language": "ta",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {}
+  },
+  {
+    "id": "cr_cs_01",
+    "text": "khet me kya lagaye crop recommendation do",
+    "language": "hi",
+    "dialect": null,
+    "intent": "crop_recommendation",
+    "entities": {}
+  },
+  {
+    "id": "d_hi_01",
+    "text": "पत्ती में पीला रतुआ लग गया है दवा बताओ",
+    "language": "hi",
+    "dialect": null,
+    "intent": "disease",
+    "entities": {
+      "disease": "RUST"
+    }
+  },
+  {
+    "id": "d_hi_02",
+    "text": "टमाटर में झुलसा रोग के लक्षण और इलाज",
+    "language": "hi",
+    "dialect": null,
+    "intent": "disease",
+    "entities": {
+      "crop": "TOMATO",
+      "disease": "BLIGHT"
+    }
+  },
+  {
+    "id": "d_hi_03",
+    "text": "चना में इल्ली लगी है क्या करें",
+    "language": "hi",
+    "dialect": null,
+    "intent": "disease",
+    "entities": {
+      "crop": "GRAM",
+      "disease": "CATERPILLAR"
+    }
+  },
+  {
+    "id": "d_hi_04",
+    "text": "कपास में सफेद मक्खी का प्रकोप कैसे रोकें",
+    "language": "hi",
+    "dialect": null,
+    "intent": "disease",
+    "entities": {
+      "crop": "COTTON",
+      "disease": "WHITEFLY"
+    }
+  },
+  {
+    "id": "d_rwr_01",
+    "text": "मूंगफली में कीड़ा लाग ग्या कांई करां",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "disease",
+    "entities": {
+      "crop": "GROUNDNUT",
+      "disease": "PEST"
+    }
+  },
+  {
+    "id": "d_mew_01",
+    "text": "म्हारा खेत में इल्ली घणी लागगी",
+    "language": "hi",
+    "dialect": "mew",
+    "region": "Mewar",
+    "intent": "disease",
+    "entities": {
+      "disease": "CATERPILLAR"
+    }
+  },
+  {
+    "id": "d_bho_01",
+    "text": "पौधा में झुलसा लाग गइल बा",
+    "language": "hi",
+    "dialect": "bho",
+    "region": "Purvanchal/Bihar",
+    "intent": "disease",
+    "entities": {
+      "disease": "BLIGHT"
+    }
+  },
+  {
+    "id": "d_gu_01",
+    "text": "મગફળીમાં રોગ આવ્યો છે દવા જણાવો",
+    "language": "gu",
+    "dialect": null,
+    "intent": "disease",
+    "entities": {
+      "crop": "GROUNDNUT"
+    }
+  },
+  {
+    "id": "d_mr_01",
+    "text": "कपाशीवर कीड पडली आहे उपाय सांगा",
+    "language": "mr",
+    "dialect": null,
+    "intent": "disease",
+    "entities": {
+      "crop": "COTTON"
+    }
+  },
+  {
+    "id": "cc_hi_01",
+    "text": "गेहूं में पहली सिंचाई कब करें",
+    "language": "hi",
+    "dialect": null,
+    "intent": "crop_care",
+    "entities": {
+      "crop": "WHEAT",
+      "operation": "IRRIGATION"
+    }
+  },
+  {
+    "id": "cc_hi_02",
+    "text": "यूरिया और डीएपी खाद कब डालनी चाहिए",
+    "language": "hi",
+    "dialect": null,
+    "intent": "crop_care",
+    "entities": {
+      "fertilizer": "UREA_DAP"
+    }
+  },
+  {
+    "id": "cc_hi_03",
+    "text": "सरसों की फसल की देखभाल कैसे करें",
+    "language": "hi",
+    "dialect": null,
+    "intent": "crop_care",
+    "entities": {
+      "crop": "MUSTARD"
+    }
+  },
+  {
+    "id": "cc_rwr_01",
+    "text": "बाजरी री सार-संभाल कीकर करणी",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "crop_care",
+    "entities": {
+      "crop": "PEARL_MILLET"
+    }
+  },
+  {
+    "id": "cc_pa_01",
+    "text": "ਝੋਨੇ ਦੀ ਸੰਭਾਲ ਕਿਵੇਂ ਕਰੀਏ",
+    "language": "pa",
+    "dialect": null,
+    "intent": "crop_care",
+    "entities": {
+      "crop": "PADDY"
+    }
+  },
+  {
+    "id": "cc_bn_01",
+    "text": "ধানের জমিতে সার প্রয়োগ ও পরিচর্যা",
+    "language": "bn",
+    "dialect": null,
+    "intent": "crop_care",
+    "entities": {
+      "crop": "PADDY"
+    }
+  },
+  {
+    "id": "cc_ml_01",
+    "text": "നെൽകൃഷിയുടെ പരിചരണവും വളപ്രയോഗവും",
+    "language": "ml",
+    "dialect": null,
+    "intent": "crop_care",
+    "entities": {
+      "crop": "PADDY"
+    }
+  },
+  {
+    "id": "cc_or_01",
+    "text": "ଧାନ ଫସଲ ପାଇଁ କେଉଁ ସାର ଭଲ",
+    "language": "or",
+    "dialect": null,
+    "intent": "crop_care",
+    "entities": {
+      "crop": "PADDY"
+    }
+  },
+  {
+    "id": "sc_hi_01",
+    "text": "पीएम किसान सम्मान निधि योजना की जानकारी",
+    "language": "hi",
+    "dialect": null,
+    "intent": "scheme",
+    "entities": {
+      "scheme": "PM_KISAN"
+    }
+  },
+  {
+    "id": "sc_hi_02",
+    "text": "फसल बीमा योजना का फॉर्म कैसे भरें",
+    "language": "hi",
+    "dialect": null,
+    "intent": "scheme",
+    "entities": {
+      "scheme": "PMFBY"
+    }
+  },
+  {
+    "id": "sc_kn_01",
+    "text": "ಸರ್ಕಾರಿ ಕೃಷಿ ಯೋಜನೆಗಳ ವಿವರ ಕೊಡಿ",
+    "language": "kn",
+    "dialect": null,
+    "intent": "scheme",
+    "entities": {}
+  },
+  {
+    "id": "nav_hi_01",
+    "text": "मंडी भाव स्क्रीन खोलो",
+    "language": "hi",
+    "dialect": null,
+    "intent": "navigation",
+    "entities": {
+      "destination": "market_prices"
+    }
+  },
+  {
+    "id": "nav_hi_02",
+    "text": "मौसम की स्क्रीन पर जाओ",
+    "language": "hi",
+    "dialect": null,
+    "intent": "navigation",
+    "entities": {
+      "destination": "weather"
+    }
+  },
+  {
+    "id": "rep_hi_01",
+    "text": "पिछली बात दोबारा बताओ",
+    "language": "hi",
+    "dialect": null,
+    "intent": "repeat_last",
+    "entities": {}
+  },
+  {
+    "id": "sp_hi_01",
+    "text": "थोड़ा धीरे बोलो आराम से",
+    "language": "hi",
+    "dialect": null,
+    "intent": "speech_control",
+    "entities": {
+      "speed": "slow"
+    }
+  },
+  {
+    "id": "gr_hi_01",
+    "text": "नमस्ते आप कौन हो",
+    "language": "hi",
+    "dialect": null,
+    "intent": "greeting_help",
+    "entities": {}
+  },
+  {
+    "id": "gr_rwr_01",
+    "text": "खम्मा घणी म्हारो नाम बताओ",
+    "language": "hi",
+    "dialect": "rwr",
+    "region": "Marwar",
+    "intent": "greeting_help",
+    "entities": {}
+  },
+  {
+    "id": "wi_hi_01",
+    "text": "अगर बारिश कम हो तो क्या लगाएं",
+    "language": "hi",
+    "dialect": null,
+    "intent": "what_if",
+    "entities": {
+      "rainfall_modifier": "low"
+    }
+  }
+]

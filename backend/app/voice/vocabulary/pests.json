@@ -1,0 +1,10 @@
+[
+  {"surface_form": "सफेद मक्खी", "canonical_id": "whitefly", "canonical_name": "Whitefly (Bemisia tabaci)", "category": "pest", "confidence": 0.98},
+  {"surface_form": "गुलाबी सुंडी", "canonical_id": "pink_bollworm", "canonical_name": "Pink Bollworm (Cotton)", "category": "pest", "confidence": 0.98},
+  {"surface_form": "माहू", "canonical_id": "aphid", "canonical_name": "Aphids (Mahoo)", "category": "pest", "confidence": 0.98},
+  {"surface_form": "मोयला", "canonical_id": "aphid", "canonical_name": "Aphids (Moyla)", "category": "pest", "dialect": "mew", "confidence": 0.98},
+  {"surface_form": "इल्ली", "canonical_id": "caterpillar", "canonical_name": "Caterpillar / Armyworm", "category": "pest", "confidence": 0.98},
+  {"surface_form": "टिड्डी", "canonical_id": "locust", "canonical_name": "Locust", "category": "pest", "confidence": 0.98},
+  {"surface_form": "कीड़ा", "canonical_id": "pest", "canonical_name": "Insect Pest", "category": "pest", "confidence": 0.98},
+  {"surface_form": "ಕೀಟ", "canonical_id": "pest", "canonical_name": "Insect Pest", "category": "pest", "language": "kn", "confidence": 0.98}
+]

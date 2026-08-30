@@ -23,18 +23,24 @@ class OrchestratorState(TypedDict, total=False):
 
     # Multilingual & Voice state fields
     detected_language: str          # BCP-47 code e.g. "hi", "en", "gu"
-    detected_dialect: Optional[str]    # e.g. "mewari", "marwari", None
+    detected_dialect: Optional[str]    # e.g. "mew", "rwr", None
     language_confidence: float      # 0.0 to 1.0
+    farmer_preferred_language: Optional[str]
+    farmer_preferred_dialect: Optional[str]
+    response_language: Optional[str]
+    response_dialect: Optional[str]
 
     # Farmer contextual profile (retained across turns)
     farmer_context: Dict[str, Any]
     active_crop: Optional[str]
 
-    # Intent Classification & Slot Filling
-    intent: str                    # weather, mandi, disease, crop_recommendation, scheme, navigation, explain_recommendation, what_if, repeat_last, speech_control, clarify, unknown
+    # Intent Classification, Slot Filling & Safety Classification
+    intent: str                    # weather, mandi, disease, crop_recommendation, scheme, navigation, explain_recommendation, what_if, repeat_last, speech_control, language_preference, dialect_preference, consequential_action, clarify, unknown
     intent_confidence: float       # 0.0 to 1.0
     filled_slots: Dict[str, Any]
     missing_slots: List[str]
+    safety_classification: Optional[str] # READ_ONLY, NAVIGATION, REVERSIBLE, CONSEQUENTIAL
+    requires_consequential_confirmation: bool
 
     # Tool Execution & Provenance
     last_tool: Optional[str]

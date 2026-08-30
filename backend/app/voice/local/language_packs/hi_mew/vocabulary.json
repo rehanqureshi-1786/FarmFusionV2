@@ -1,0 +1,663 @@
+{
+  "बाजरा": {
+    "canonical_id": "pearl_millet",
+    "canonical_name": "Pearl Millet (Bajra)",
+    "category": "crop"
+  },
+  "बाजरो": {
+    "canonical_id": "pearl_millet",
+    "canonical_name": "Pearl Millet (Bajra)",
+    "category": "crop",
+    "dialect": "mew"
+  },
+  "बाजरी": {
+    "canonical_id": "pearl_millet",
+    "canonical_name": "Pearl Millet (Bajra)",
+    "category": "crop",
+    "dialect": "rwr"
+  },
+  "bajra": {
+    "canonical_id": "pearl_millet",
+    "canonical_name": "Pearl Millet (Bajra)",
+    "category": "crop"
+  },
+  "bajro": {
+    "canonical_id": "pearl_millet",
+    "canonical_name": "Pearl Millet (Bajra)",
+    "category": "crop",
+    "dialect": "mew"
+  },
+  "गेहूं": {
+    "canonical_id": "wheat",
+    "canonical_name": "Wheat",
+    "category": "crop"
+  },
+  "gehun": {
+    "canonical_id": "wheat",
+    "canonical_name": "Wheat",
+    "category": "crop"
+  },
+  "धान": {
+    "canonical_id": "rice_paddy",
+    "canonical_name": "Rice (Paddy)",
+    "category": "crop"
+  },
+  "चावल": {
+    "canonical_id": "rice_paddy",
+    "canonical_name": "Rice (Paddy)",
+    "category": "crop"
+  },
+  "dhan": {
+    "canonical_id": "rice_paddy",
+    "canonical_name": "Rice (Paddy)",
+    "category": "crop"
+  },
+  "chawal": {
+    "canonical_id": "rice_paddy",
+    "canonical_name": "Rice (Paddy)",
+    "category": "crop"
+  },
+  "bhat": {
+    "canonical_id": "rice_paddy",
+    "canonical_name": "Rice (Paddy)",
+    "category": "crop",
+    "dialect": "bho"
+  },
+  "मूंगफली": {
+    "canonical_id": "groundnut",
+    "canonical_name": "Groundnut (Peanut)",
+    "category": "crop"
+  },
+  "सींगदाना": {
+    "canonical_id": "groundnut",
+    "canonical_name": "Groundnut (Peanut)",
+    "category": "crop",
+    "dialect": "mew"
+  },
+  "singdana": {
+    "canonical_id": "groundnut",
+    "canonical_name": "Groundnut (Peanut)",
+    "category": "crop",
+    "dialect": "mew"
+  },
+  "भूंगफली": {
+    "canonical_id": "groundnut",
+    "canonical_name": "Groundnut (Peanut)",
+    "category": "crop",
+    "dialect": "rwr"
+  },
+  "bhungfali": {
+    "canonical_id": "groundnut",
+    "canonical_name": "Groundnut (Peanut)",
+    "category": "crop"
+  },
+  "peanut": {
+    "canonical_id": "groundnut",
+    "canonical_name": "Groundnut (Peanut)",
+    "category": "crop"
+  },
+  "groundnut": {
+    "canonical_id": "groundnut",
+    "canonical_name": "Groundnut (Peanut)",
+    "category": "crop"
+  },
+  "कपास": {
+    "canonical_id": "cotton",
+    "canonical_name": "Cotton",
+    "category": "crop"
+  },
+  "narma": {
+    "canonical_id": "cotton",
+    "canonical_name": "Cotton",
+    "category": "crop"
+  },
+  "kapus": {
+    "canonical_id": "cotton",
+    "canonical_name": "Cotton",
+    "category": "crop"
+  },
+  "kapas": {
+    "canonical_id": "cotton",
+    "canonical_name": "Cotton",
+    "category": "crop"
+  },
+  "cotton": {
+    "canonical_id": "cotton",
+    "canonical_name": "Cotton",
+    "category": "crop"
+  },
+  "सरसों": {
+    "canonical_id": "mustard",
+    "canonical_name": "Mustard (Sarson)",
+    "category": "crop"
+  },
+  "sarson": {
+    "canonical_id": "mustard",
+    "canonical_name": "Mustard (Sarson)",
+    "category": "crop"
+  },
+  "राई": {
+    "canonical_id": "mustard",
+    "canonical_name": "Mustard (Sarson)",
+    "category": "crop"
+  },
+  "rai": {
+    "canonical_id": "mustard",
+    "canonical_name": "Mustard (Sarson)",
+    "category": "crop"
+  },
+  "चना": {
+    "canonical_id": "chickpea",
+    "canonical_name": "Chickpea (Gram / Chana)",
+    "category": "crop"
+  },
+  "छोला": {
+    "canonical_id": "chickpea",
+    "canonical_name": "Chickpea (Gram / Chana)",
+    "category": "crop",
+    "dialect": "bho"
+  },
+  "chhola": {
+    "canonical_id": "chickpea",
+    "canonical_name": "Chickpea (Gram / Chana)",
+    "category": "crop"
+  },
+  "harbara": {
+    "canonical_id": "chickpea",
+    "canonical_name": "Chickpea (Gram / Chana)",
+    "category": "crop"
+  },
+  "boot": {
+    "canonical_id": "chickpea",
+    "canonical_name": "Chickpea (Gram / Chana)",
+    "category": "crop",
+    "dialect": "mag"
+  },
+  "chana": {
+    "canonical_id": "chickpea",
+    "canonical_name": "Chickpea (Gram / Chana)",
+    "category": "crop"
+  },
+  "gram": {
+    "canonical_id": "chickpea",
+    "canonical_name": "Chickpea (Gram / Chana)",
+    "category": "crop"
+  },
+  "गन्ना": {
+    "canonical_id": "sugarcane",
+    "canonical_name": "Sugarcane",
+    "category": "crop"
+  },
+  "ईख": {
+    "canonical_id": "sugarcane",
+    "canonical_name": "Sugarcane",
+    "category": "crop",
+    "dialect": "bho"
+  },
+  "eekh": {
+    "canonical_id": "sugarcane",
+    "canonical_name": "Sugarcane",
+    "category": "crop"
+  },
+  "oos": {
+    "canonical_id": "sugarcane",
+    "canonical_name": "Sugarcane",
+    "category": "crop"
+  },
+  "sherdi": {
+    "canonical_id": "sugarcane",
+    "canonical_name": "Sugarcane",
+    "category": "crop"
+  },
+  "सोयाबीन": {
+    "canonical_id": "soybean",
+    "canonical_name": "Soybean",
+    "category": "crop"
+  },
+  "soyabean": {
+    "canonical_id": "soybean",
+    "canonical_name": "Soybean",
+    "category": "crop"
+  },
+  "soybean": {
+    "canonical_id": "soybean",
+    "canonical_name": "Soybean",
+    "category": "crop"
+  },
+  "मक्का": {
+    "canonical_id": "maize",
+    "canonical_name": "Maize (Corn)",
+    "category": "crop"
+  },
+  "भुट्टा": {
+    "canonical_id": "maize",
+    "canonical_name": "Maize (Corn)",
+    "category": "crop"
+  },
+  "corn": {
+    "canonical_id": "maize",
+    "canonical_name": "Maize (Corn)",
+    "category": "crop"
+  },
+  "ज्वार": {
+    "canonical_id": "sorghum",
+    "canonical_name": "Sorghum (Jowar)",
+    "category": "crop"
+  },
+  "jowar": {
+    "canonical_id": "sorghum",
+    "canonical_name": "Sorghum (Jowar)",
+    "category": "crop"
+  },
+  "jawar": {
+    "canonical_id": "sorghum",
+    "canonical_name": "Sorghum (Jowar)",
+    "category": "crop"
+  },
+  "प्याज": {
+    "canonical_id": "onion",
+    "canonical_name": "Onion",
+    "category": "crop"
+  },
+  "kanda": {
+    "canonical_id": "onion",
+    "canonical_name": "Onion",
+    "category": "crop"
+  },
+  "dungri": {
+    "canonical_id": "onion",
+    "canonical_name": "Onion",
+    "category": "crop"
+  },
+  "आलू": {
+    "canonical_id": "potato",
+    "canonical_name": "Potato",
+    "category": "crop"
+  },
+  "batata": {
+    "canonical_id": "potato",
+    "canonical_name": "Potato",
+    "category": "crop"
+  },
+  "potato": {
+    "canonical_id": "potato",
+    "canonical_name": "Potato",
+    "category": "crop"
+  },
+  "लहसुन": {
+    "canonical_id": "garlic",
+    "canonical_name": "Garlic",
+    "category": "crop"
+  },
+  "लसन": {
+    "canonical_id": "garlic",
+    "canonical_name": "Garlic",
+    "category": "crop",
+    "dialect": "mew"
+  },
+  "lasun": {
+    "canonical_id": "garlic",
+    "canonical_name": "Garlic",
+    "category": "crop"
+  },
+  "रेतीली": {
+    "canonical_id": "sandy_soil",
+    "canonical_name": "Sandy Soil",
+    "category": "soil"
+  },
+  "रेत": {
+    "canonical_id": "sandy_soil",
+    "canonical_name": "Sandy Soil",
+    "category": "soil"
+  },
+  "बलुई": {
+    "canonical_id": "sandy_soil",
+    "canonical_name": "Sandy Soil",
+    "category": "soil",
+    "dialect": "bho"
+  },
+  "बलुआ": {
+    "canonical_id": "sandy_soil",
+    "canonical_name": "Sandy Soil",
+    "category": "soil"
+  },
+  "sandy": {
+    "canonical_id": "sandy_soil",
+    "canonical_name": "Sandy Soil",
+    "category": "soil"
+  },
+  "retili": {
+    "canonical_id": "sandy_soil",
+    "canonical_name": "Sandy Soil",
+    "category": "soil"
+  },
+  "काली": {
+    "canonical_id": "black_soil",
+    "canonical_name": "Black Soil",
+    "category": "soil"
+  },
+  "काली मिट्टी": {
+    "canonical_id": "black_soil",
+    "canonical_name": "Black Soil",
+    "category": "soil"
+  },
+  "रेगुर": {
+    "canonical_id": "black_soil",
+    "canonical_name": "Black Soil",
+    "category": "soil"
+  },
+  "regur": {
+    "canonical_id": "black_soil",
+    "canonical_name": "Black Soil",
+    "category": "soil"
+  },
+  "black": {
+    "canonical_id": "black_soil",
+    "canonical_name": "Black Soil",
+    "category": "soil"
+  },
+  "kali": {
+    "canonical_id": "black_soil",
+    "canonical_name": "Black Soil",
+    "category": "soil"
+  },
+  "दोमट": {
+    "canonical_id": "alluvial_soil",
+    "canonical_name": "Alluvial Soil",
+    "category": "soil"
+  },
+  "जलोढ़": {
+    "canonical_id": "alluvial_soil",
+    "canonical_name": "Alluvial Soil",
+    "category": "soil"
+  },
+  "alluvial": {
+    "canonical_id": "alluvial_soil",
+    "canonical_name": "Alluvial Soil",
+    "category": "soil"
+  },
+  "loam": {
+    "canonical_id": "alluvial_soil",
+    "canonical_name": "Alluvial Soil",
+    "category": "soil"
+  },
+  "लाल": {
+    "canonical_id": "red_soil",
+    "canonical_name": "Red Soil",
+    "category": "soil"
+  },
+  "लाल मिट्टी": {
+    "canonical_id": "red_soil",
+    "canonical_name": "Red Soil",
+    "category": "soil"
+  },
+  "red": {
+    "canonical_id": "red_soil",
+    "canonical_name": "Red Soil",
+    "category": "soil"
+  },
+  "चिकनी": {
+    "canonical_id": "clay_soil",
+    "canonical_name": "Clay Soil",
+    "category": "soil"
+  },
+  "मटियार": {
+    "canonical_id": "clay_soil",
+    "canonical_name": "Clay Soil",
+    "category": "soil",
+    "dialect": "bho"
+  },
+  "clay": {
+    "canonical_id": "clay_soil",
+    "canonical_name": "Clay Soil",
+    "category": "soil"
+  },
+  "यूरिया": {
+    "canonical_id": "urea",
+    "canonical_name": "Urea",
+    "category": "fertilizer"
+  },
+  "urea": {
+    "canonical_id": "urea",
+    "canonical_name": "Urea",
+    "category": "fertilizer"
+  },
+  "डीएपी": {
+    "canonical_id": "dap",
+    "canonical_name": "DAP (Diammonium Phosphate)",
+    "category": "fertilizer"
+  },
+  "dap": {
+    "canonical_id": "dap",
+    "canonical_name": "DAP (Diammonium Phosphate)",
+    "category": "fertilizer"
+  },
+  "पोटाश": {
+    "canonical_id": "mop_potash",
+    "canonical_name": "MOP Potash",
+    "category": "fertilizer"
+  },
+  "potash": {
+    "canonical_id": "mop_potash",
+    "canonical_name": "MOP Potash",
+    "category": "fertilizer"
+  },
+  "जिंक": {
+    "canonical_id": "zinc_sulfate",
+    "canonical_name": "Zinc Sulfate",
+    "category": "fertilizer"
+  },
+  "गोबर की खाद": {
+    "canonical_id": "fym_manure",
+    "canonical_name": "Farmyard Manure (FYM)",
+    "category": "fertilizer"
+  },
+  "manure": {
+    "canonical_id": "fym_manure",
+    "canonical_name": "Farmyard Manure (FYM)",
+    "category": "fertilizer"
+  },
+  "झुलसा": {
+    "canonical_id": "blight",
+    "canonical_name": "Blight Disease",
+    "category": "disease"
+  },
+  "blight": {
+    "canonical_id": "blight",
+    "canonical_name": "Blight Disease",
+    "category": "disease"
+  },
+  "टिक्का": {
+    "canonical_id": "tikka_leaf_spot",
+    "canonical_name": "Tikka Leaf Spot",
+    "category": "disease"
+  },
+  "tikka": {
+    "canonical_id": "tikka_leaf_spot",
+    "canonical_name": "Tikka Leaf Spot",
+    "category": "disease"
+  },
+  "सफेद मक्खी": {
+    "canonical_id": "whitefly",
+    "canonical_name": "Whitefly Pest",
+    "category": "disease"
+  },
+  "whitefly": {
+    "canonical_id": "whitefly",
+    "canonical_name": "Whitefly Pest",
+    "category": "disease"
+  },
+  "इल्ली": {
+    "canonical_id": "caterpillar_pod_borer",
+    "canonical_name": "Pod Borer / Caterpillar",
+    "category": "disease"
+  },
+  "बोवणो": {
+    "canonical_id": "sowing",
+    "canonical_name": "Sowing",
+    "category": "operation",
+    "dialect": "mew"
+  },
+  "बुवाई": {
+    "canonical_id": "sowing",
+    "canonical_name": "Sowing",
+    "category": "operation"
+  },
+  "sowing": {
+    "canonical_id": "sowing",
+    "canonical_name": "Sowing",
+    "category": "operation"
+  },
+  "बोईब": {
+    "canonical_id": "sowing",
+    "canonical_name": "Sowing",
+    "category": "operation",
+    "dialect": "bho"
+  },
+  "कटाई": {
+    "canonical_id": "harvesting",
+    "canonical_name": "Harvesting",
+    "category": "operation"
+  },
+  "लूणी": {
+    "canonical_id": "harvesting",
+    "canonical_name": "Harvesting",
+    "category": "operation",
+    "dialect": "mew"
+  },
+  "harvesting": {
+    "canonical_id": "harvesting",
+    "canonical_name": "Harvesting",
+    "category": "operation"
+  },
+  "सिंचाई": {
+    "canonical_id": "irrigation",
+    "canonical_name": "Irrigation",
+    "category": "irrigation"
+  },
+  "पानी देना": {
+    "canonical_id": "irrigation",
+    "canonical_name": "Irrigation",
+    "category": "irrigation"
+  },
+  "ड्रिप": {
+    "canonical_id": "drip_irrigation",
+    "canonical_name": "Drip Irrigation",
+    "category": "irrigation"
+  },
+  "फुहारा": {
+    "canonical_id": "sprinkler_irrigation",
+    "canonical_name": "Sprinkler Irrigation",
+    "category": "irrigation"
+  },
+  "भाव": {
+    "canonical_id": "mandi_price",
+    "canonical_name": "Market Price",
+    "category": "mandi"
+  },
+  "दाम": {
+    "canonical_id": "mandi_price",
+    "canonical_name": "Market Price",
+    "category": "mandi"
+  },
+  "कीमत": {
+    "canonical_id": "mandi_price",
+    "canonical_name": "Market Price",
+    "category": "mandi"
+  },
+  "rate": {
+    "canonical_id": "mandi_price",
+    "canonical_name": "Market Price",
+    "category": "mandi"
+  },
+  "मौसम": {
+    "canonical_id": "weather",
+    "canonical_name": "Weather",
+    "category": "weather"
+  },
+  "weather": {
+    "canonical_id": "weather",
+    "canonical_name": "Weather",
+    "category": "weather"
+  },
+  "rain": {
+    "canonical_id": "rainfall",
+    "canonical_name": "Rainfall",
+    "category": "weather"
+  },
+  "बारिश": {
+    "canonical_id": "rainfall",
+    "canonical_name": "Rainfall",
+    "category": "weather"
+  },
+  "बरसात": {
+    "canonical_id": "rainfall",
+    "canonical_name": "Rainfall",
+    "category": "weather"
+  },
+  "सूखा": {
+    "canonical_id": "drought",
+    "canonical_name": "Drought",
+    "category": "weather"
+  },
+  "ट्रैक्टर": {
+    "canonical_id": "tractor",
+    "canonical_name": "Tractor",
+    "category": "equipment"
+  },
+  "रोटावेटर": {
+    "canonical_id": "rotavator",
+    "canonical_name": "Rotavator",
+    "category": "equipment"
+  },
+  "थ्रेशर": {
+    "canonical_id": "thresher",
+    "canonical_name": "Thresher",
+    "category": "equipment"
+  },
+  "सीड ड्रिल": {
+    "canonical_id": "seed_drill",
+    "canonical_name": "Seed Drill",
+    "category": "equipment"
+  },
+  "पीएम किसान": {
+    "canonical_id": "pm_kisan",
+    "canonical_name": "PM-Kisan Samman Nidhi",
+    "category": "scheme"
+  },
+  "pm kisan": {
+    "canonical_id": "pm_kisan",
+    "canonical_name": "PM-Kisan Samman Nidhi",
+    "category": "scheme"
+  },
+  "फसल बीमा": {
+    "canonical_id": "pmfby",
+    "canonical_name": "Pradhan Mantri Fasal Bima Yojana",
+    "category": "scheme"
+  },
+  "pmfby": {
+    "canonical_id": "pmfby",
+    "canonical_name": "Pradhan Mantri Fasal Bima Yojana",
+    "category": "scheme"
+  },
+  "केसीसी": {
+    "canonical_id": "kcc",
+    "canonical_name": "Kisan Credit Card",
+    "category": "scheme"
+  },
+  "kcc": {
+    "canonical_id": "kcc",
+    "canonical_name": "Kisan Credit Card",
+    "category": "scheme"
+  },
+  "तारबंदी": {
+    "canonical_id": "tarbandi_subsidy",
+    "canonical_name": "Farm Fencing Subsidy (Tarbandi)",
+    "category": "scheme"
+  },
+  "सौर पंप": {
+    "canonical_id": "kusum_solar",
+    "canonical_name": "PM KUSUM Solar Pump",
+    "category": "scheme"
+  }
+}

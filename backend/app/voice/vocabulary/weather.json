@@ -1,0 +1,21 @@
+[
+  {"surface_form": "मौसम", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "confidence": 0.98},
+  {"surface_form": "हवामान", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "language": "mr", "confidence": 0.98},
+  {"surface_form": "વાતાવરણ", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "language": "gu", "confidence": 0.98},
+  {"surface_form": "ਮੌਸਮ", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "language": "pa", "confidence": 0.98},
+  {"surface_form": "আবহাওয়া", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "language": "bn", "confidence": 0.98},
+  {"surface_form": "వాతావరణం", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "language": "te", "confidence": 0.98},
+  {"surface_form": "வானிலை", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "language": "ta", "confidence": 0.98},
+  {"surface_form": "ಹವಾಮಾನ", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "language": "kn", "confidence": 0.98},
+  {"surface_form": "കാലാവസ്ഥ", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "language": "ml", "confidence": 0.98},
+  {"surface_form": "weather", "canonical_id": "weather", "canonical_name": "Weather", "category": "weather", "confidence": 0.98},
+
+  {"surface_form": "बारिश", "canonical_id": "rainfall", "canonical_name": "Rainfall", "category": "weather", "confidence": 0.98},
+  {"surface_form": "बरसात", "canonical_id": "rainfall", "canonical_name": "Rainfall", "category": "weather", "confidence": 0.98},
+  {"surface_form": "पाऊस", "canonical_id": "rainfall", "canonical_name": "Rainfall", "category": "weather", "language": "mr", "confidence": 0.98},
+  {"surface_form": "વરસાદ", "canonical_id": "rainfall", "canonical_name": "Rainfall", "category": "weather", "language": "gu", "confidence": 0.98},
+  {"surface_form": "ਮੀਂਹ", "canonical_id": "rainfall", "canonical_name": "Rainfall", "category": "weather", "language": "pa", "confidence": 0.98},
+  {"surface_form": "వర్షం", "canonical_id": "rainfall", "canonical_name": "Rainfall", "category": "weather", "language": "te", "confidence": 0.98},
+  {"surface_form": "மழை", "canonical_id": "rainfall", "canonical_name": "Rainfall", "category": "weather", "language": "ta", "confidence": 0.98},
+  {"surface_form": "rain", "canonical_id": "rainfall", "canonical_name": "Rainfall", "category": "weather", "confidence": 0.98}
+]

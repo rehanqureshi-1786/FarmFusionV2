@@ -61,6 +61,34 @@ async def tool_router_node(state: OrchestratorState) -> OrchestratorState:
             state["tool_status"] = "not_found"
         return state
 
+    # 4. Consequential Action Confirmation Gate
+    if intent == "consequential_action":
+        action = slots.get("action", "delete_data")
+        state["tool_output"] = {
+            "type": "consequential_action_confirmation_required",
+            "action": action,
+            "confirmation_message": "क्या आप वाकई अपनी फसल का डेटा हटाना चाहते हैं? कृपया पुष्टि करें।"
+        }
+        state["tool_status"] = "requires_confirmation"
+        return state
+
+    # 5. Language / Dialect Switching Intent
+    if intent == "language_preference":
+        target_lang = slots.get("target_language", "hi")
+        state["farmer_preferred_language"] = target_lang
+        state["response_language"] = target_lang
+        state["tool_output"] = {"type": "language_preference", "target_language": target_lang}
+        state["tool_status"] = "success"
+        return state
+
+    if intent == "dialect_preference":
+        target_dialect = slots.get("target_dialect", "rwr")
+        state["farmer_preferred_dialect"] = target_dialect
+        state["response_dialect"] = target_dialect
+        state["tool_output"] = {"type": "dialect_preference", "target_dialect": target_dialect}
+        state["tool_status"] = "success"
+        return state
+
     # 4. Map Intent to Tool Name
     tool_map = {
         "weather": "weather_tool",

@@ -1,0 +1,10 @@
+[
+  {"surface_form": "ट्रैक्टर", "canonical_id": "tractor", "canonical_name": "Tractor", "category": "equipment", "confidence": 0.98},
+  {"surface_form": "tractor", "canonical_id": "tractor", "canonical_name": "Tractor", "category": "equipment", "confidence": 0.98},
+  {"surface_form": "रोटावेटर", "canonical_id": "rotavator", "canonical_name": "Rotavator (Rotary Tiller)", "category": "equipment", "confidence": 0.98},
+  {"surface_form": "सीड ड्रिल", "canonical_id": "seed_drill", "canonical_name": "Seed Drill Sowing Machine", "category": "equipment", "confidence": 0.98},
+  {"surface_form": "स्प्रेयर", "canonical_id": "sprayer", "canonical_name": "Knapsack / Power Sprayer", "category": "equipment", "confidence": 0.98},
+  {"surface_form": "कंबाइन", "canonical_id": "harvester", "canonical_name": "Combine Harvester", "category": "equipment", "confidence": 0.98},
+  {"surface_form": "पंप", "canonical_id": "water_pump", "canonical_name": "Irrigation Water Pump", "category": "equipment", "confidence": 0.98},
+  {"surface_form": "थ्रेशर", "canonical_id": "thresher", "canonical_name": "Thresher Machine", "category": "equipment", "confidence": 0.98}
+]

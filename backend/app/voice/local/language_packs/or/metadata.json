@@ -1,0 +1,18 @@
+{
+  "pack_id": "pack_or",
+  "language": "or",
+  "dialect": null,
+  "name": "Odia",
+  "native_name": "ଓଡ଼ିଆ",
+  "script": "Odia",
+  "version": "1.0.0",
+  "support_tier": 2,
+  "status": "PARTIAL",
+  "size_kb": 14,
+  "has_vocabulary": true,
+  "has_normalization": true,
+  "has_prompts": true,
+  "asr_model_id": null,
+  "tts_model_id": null,
+  "sha256_checksum": null
+}

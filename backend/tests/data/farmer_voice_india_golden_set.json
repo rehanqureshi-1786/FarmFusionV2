@@ -1,0 +1,224 @@
+[
+  {
+    "id": "india_01_hindi_weather",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "आज जयपुर में मौसम कैसा रहेगा?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_02_english_weather",
+    "language": "en",
+    "dialect": null,
+    "utterance": "What is the weather forecast for today in Delhi?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_03_gujarati_crop",
+    "language": "gu",
+    "dialect": null,
+    "utterance": "અમદાવાદમાં કયો પાક સારો થશે?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_04_marathi_crop",
+    "language": "mr",
+    "dialect": null,
+    "utterance": "माझ्या शेतात कोणतं पीक चांगलं येईल?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_05_punjabi_mandi",
+    "language": "pa",
+    "dialect": null,
+    "utterance": "ਕਣਕ ਦੀ ਕੀਮਤ ਕੀ ਹੈ?",
+    "expected_intent": "mandi",
+    "expected_tool": "market_price_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_06_bengali_crop_care",
+    "language": "bn",
+    "dialect": null,
+    "utterance": "ধান ফসলে সার কখন দিতে হবে?",
+    "expected_intent": "crop_care",
+    "expected_tool": "crop_care_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_07_telugu_weather",
+    "language": "te",
+    "dialect": null,
+    "utterance": "హైదరాబాద్‌లో వాతావరణం ఎలా ఉంది?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_08_tamil_crop",
+    "language": "ta",
+    "dialect": null,
+    "utterance": "எந்த பயிர் சாகுபடி செய்யலாம்?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_09_kannada_scheme",
+    "language": "kn",
+    "dialect": null,
+    "utterance": "ರೈತರಿಗೆ ಸರಕಾರಿ ಯೋಜನೆ ಯಾವುದು?",
+    "expected_intent": "scheme",
+    "expected_tool": "government_scheme_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_10_malayalam_crop_care",
+    "language": "ml",
+    "dialect": null,
+    "utterance": "വിള പരിപാലനം എങ്ങനെ ചെയ്യാം?",
+    "expected_intent": "crop_care",
+    "expected_tool": "crop_care_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_11_odia_crop",
+    "language": "or",
+    "dialect": null,
+    "utterance": "କେଉଁ ଫସଲ ଚାଷ କରିବି?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_12_assamese_weather",
+    "language": "as",
+    "dialect": null,
+    "utterance": "আজিৰ বতৰ কেনেকুৱা?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_13_urdu_mandi",
+    "language": "ur",
+    "dialect": null,
+    "utterance": "گندم کی قیمت کیا ہے؟",
+    "expected_intent": "mandi",
+    "expected_tool": "market_price_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_14_maithili_weather",
+    "language": "mai",
+    "dialect": null,
+    "utterance": "आई मौसम कतेक अछि?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_15_mewari_crop",
+    "language": "hi",
+    "dialect": "mew",
+    "utterance": "म्हारे खेत में रेतीली मिट्टी है, कौन सी फसल सही रहेगी?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "capability_status": "UNDERSTAND_PARENT_RESPONSE"
+  },
+  {
+    "id": "india_16_marwari_weather",
+    "language": "hi",
+    "dialect": "rwr",
+    "utterance": "म्हाने जोधपुर रो मौसम बताओ",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "capability_status": "UNDERSTAND_PARENT_RESPONSE"
+  },
+  {
+    "id": "india_17_bhojpuri_crop",
+    "language": "hi",
+    "dialect": "bho",
+    "utterance": "खेते में का बोईब रउआ बताईं",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "capability_status": "UNDERSTAND_PARENT_RESPONSE"
+  },
+  {
+    "id": "india_18_haryanvi_weather",
+    "language": "hi",
+    "dialect": "bgc",
+    "utterance": "तन्नै के लाग्ग्या मौसम कै सा सै?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "capability_status": "UNDERSTAND_PARENT_RESPONSE"
+  },
+  {
+    "id": "india_19_chhattisgarhi_crop",
+    "language": "hi",
+    "dialect": "hne",
+    "utterance": "काबर गा खेती-खार म का बोवई हावय?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "capability_status": "UNDERSTAND_PARENT_RESPONSE"
+  },
+  {
+    "id": "india_20_code_switch_mandi",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "गेहूं का market rate कितना है?",
+    "expected_intent": "mandi",
+    "expected_tool": "market_price_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_21_code_switch_crop",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "मेरे खेत की soil sandy है, क्या बोऊं?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_22_switch_language_to_hindi",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "अब हिंदी में बताओ",
+    "expected_intent": "language_preference",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_23_switch_dialect_to_marwari",
+    "language": "hi",
+    "dialect": "rwr",
+    "utterance": "मरवाड़ी में बोलो",
+    "expected_intent": "dialect_preference",
+    "capability_status": "UNDERSTAND_PARENT_RESPONSE"
+  },
+  {
+    "id": "india_24_consequential_data_deletion",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "मेरी फसल का डेटा डिलीट कर दो",
+    "expected_intent": "consequential_action",
+    "capability_status": "NATIVE_VOICE"
+  },
+  {
+    "id": "india_25_unsupported_purchase",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "मेरे लिए 2 बोरी यूरिया खरीद दो",
+    "expected_intent": "unsupported_capability",
+    "expected_tool": "unsupported_capability_tool",
+    "capability_status": "UNSUPPORTED"
+  }
+]

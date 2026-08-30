@@ -1,0 +1,16 @@
+[
+  {"surface_form": "ड्रिप", "canonical_id": "drip_irrigation", "canonical_name": "Drip Irrigation", "category": "irrigation", "confidence": 0.98},
+  {"surface_form": "drip", "canonical_id": "drip_irrigation", "canonical_name": "Drip Irrigation", "category": "irrigation", "confidence": 0.98},
+  {"surface_form": "टपक सिंचाई", "canonical_id": "drip_irrigation", "canonical_name": "Drip Irrigation", "category": "irrigation", "confidence": 0.98},
+  {"surface_form": "फुहारा", "canonical_id": "sprinkler_irrigation", "canonical_name": "Sprinkler Irrigation", "category": "irrigation", "confidence": 0.98},
+  {"surface_form": "sprinkler", "canonical_id": "sprinkler_irrigation", "canonical_name": "Sprinkler Irrigation", "category": "irrigation", "confidence": 0.98},
+  {"surface_form": "फव्वारा", "canonical_id": "sprinkler_irrigation", "canonical_name": "Sprinkler Irrigation", "category": "irrigation", "confidence": 0.98},
+  {"surface_form": "नहर", "canonical_id": "canal_irrigation", "canonical_name": "Canal Irrigation", "category": "irrigation", "confidence": 0.98},
+  {"surface_form": "नलकूप", "canonical_id": "tubewell_irrigation", "canonical_name": "Tubewell Irrigation", "category": "irrigation", "confidence": 0.98},
+  {"surface_form": "सिंचाई", "canonical_id": "irrigation", "canonical_name": "Irrigation", "category": "irrigation", "confidence": 0.98},
+  {"surface_form": "पाणी देणे", "canonical_id": "irrigation", "canonical_name": "Irrigation", "category": "irrigation", "language": "mr", "confidence": 0.98},
+  {"surface_form": "પાણી પાવું", "canonical_id": "irrigation", "canonical_name": "Irrigation", "category": "irrigation", "language": "gu", "confidence": 0.98},
+  {"surface_form": "నీటిపారుదల", "canonical_id": "irrigation", "canonical_name": "Irrigation", "category": "irrigation", "language": "te", "confidence": 0.98},
+  {"surface_form": "நீர்ப்பாசனம்", "canonical_id": "irrigation", "canonical_name": "Irrigation", "category": "irrigation", "language": "ta", "confidence": 0.98},
+  {"surface_form": "ನೀSequencing ನೀರಾವರಿ", "canonical_id": "irrigation", "canonical_name": "Irrigation", "category": "irrigation", "language": "kn", "confidence": 0.98}
+]

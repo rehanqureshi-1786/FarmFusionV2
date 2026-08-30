@@ -1,0 +1,13 @@
+{
+  "0": "crop_care",
+  "1": "crop_recommendation",
+  "2": "disease",
+  "3": "greeting_help",
+  "4": "mandi",
+  "5": "navigation",
+  "6": "repeat_last",
+  "7": "scheme",
+  "8": "speech_control",
+  "9": "weather",
+  "10": "what_if"
+}

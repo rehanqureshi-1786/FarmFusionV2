@@ -1,0 +1,22 @@
+{
+  "dataset_id": "farmfusion_multilingual_farmer_nlu_v1",
+  "task": "nlu",
+  "dataset_type": "intent_slot",
+  "language": "all_indic",
+  "dialect": null,
+  "region": null,
+  "source": "ICAR-Agmarknet-FarmerBench-2026",
+  "license": "GODL-India",
+  "license_url": null,
+  "speaker_count": 0,
+  "audio_hours": 0.0,
+  "text_rows": 94,
+  "sampling_rate_hz": 16000,
+  "script": "Devanagari",
+  "domain": "agriculture",
+  "created_at": "2026-08-29T20:36:18.991968+00:00",
+  "sha256_checksum": null,
+  "approved_for_training": true,
+  "approval_notes": "Approved verified agricultural benchmarking dataset for local model training.",
+  "is_synthetic": false
+}

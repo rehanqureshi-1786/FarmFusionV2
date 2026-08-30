@@ -42,3 +42,11 @@ frontend/.env
 backend/venv/
 backend/ai-venv/
 backend/credentials/
+
+# Large Model Weights (>100MB)
+*.safetensors
+*.bin
+*.onnx
+backend/models/voice/tts/
+backend/app/voice/local/models/tts/
+

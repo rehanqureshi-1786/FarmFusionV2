@@ -1,0 +1,18 @@
+{
+  "pack_id": "pack_te",
+  "language": "te",
+  "dialect": null,
+  "name": "Telugu",
+  "native_name": "తెలుగు",
+  "script": "Telugu",
+  "version": "1.0.0",
+  "support_tier": 1,
+  "status": "NATIVE",
+  "size_kb": 18,
+  "has_vocabulary": true,
+  "has_normalization": true,
+  "has_prompts": true,
+  "asr_model_id": null,
+  "tts_model_id": null,
+  "sha256_checksum": null
+}

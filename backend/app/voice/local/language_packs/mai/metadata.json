@@ -1,0 +1,18 @@
+{
+  "pack_id": "pack_mai",
+  "language": "mai",
+  "dialect": null,
+  "name": "Maithili",
+  "native_name": "मैथिली",
+  "script": "Devanagari",
+  "version": "1.0.0",
+  "support_tier": 2,
+  "status": "PARTIAL",
+  "size_kb": 14,
+  "has_vocabulary": true,
+  "has_normalization": true,
+  "has_prompts": true,
+  "asr_model_id": null,
+  "tts_model_id": null,
+  "sha256_checksum": null
+}

@@ -1,0 +1,13 @@
+[
+  {"surface_form": "भाव", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "confidence": 0.98},
+  {"surface_form": "मंडी भाव", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "confidence": 0.98},
+  {"surface_form": "દર", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "language": "gu", "confidence": 0.98},
+  {"surface_form": "ભાવ", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "language": "gu", "confidence": 0.98},
+  {"surface_form": "दर", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "language": "mr", "confidence": 0.98},
+  {"surface_form": "ਕੀਮਤ", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "language": "pa", "confidence": 0.98},
+  {"surface_form": "ధర", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "language": "te", "confidence": 0.98},
+  {"surface_form": "விலை", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "language": "ta", "confidence": 0.98},
+  {"surface_form": "ಬೆಲೆ", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "language": "kn", "confidence": 0.98},
+  {"surface_form": "mandi price", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "confidence": 0.98},
+  {"surface_form": "market rate", "canonical_id": "market_price", "canonical_name": "Market Price", "category": "mandi", "confidence": 0.98}
+]

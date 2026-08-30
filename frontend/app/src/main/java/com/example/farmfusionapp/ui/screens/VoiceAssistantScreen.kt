@@ -1,7 +1,10 @@
 package com.example.farmfusionapp.ui.screens
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.MediaPlayer
 import android.os.Handler
 import android.os.Looper
 import android.speech.RecognitionListener
@@ -9,6 +12,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.util.Base64
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +20,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -51,16 +56,24 @@ import com.example.farmfusionapp.ui.components.PremiumButton
 import com.example.farmfusionapp.utils.AuthStore
 import com.example.farmfusionapp.utils.LocationSnapshotStore
 import com.example.farmfusionapp.viewmodel.VoiceViewModel
+import java.io.File
+import java.io.FileOutputStream
 import java.util.Locale
 
 private data class ChatMessage(
     val text: String,
-    val isUser: Boolean
+    val isUser: Boolean,
+    val audioBase64: String? = null,
+    val languageCode: String? = null,
+    val ttsBadge: String? = null,
+    val isNativeTts: Boolean? = null,
+    val fallbackUsed: Boolean? = null
 )
 
 private data class VoiceLanguage(
     val code: String,
     val label: String,
+    val nativeLabel: String,
     val locale: Locale
 )
 
@@ -74,28 +87,50 @@ fun VoiceAssistantScreen(navController: NavController) {
     val context = LocalContext.current
     val viewModel: VoiceViewModel = viewModel()
     val voiceState by viewModel.voiceState
-    val savedLanguage = remember { AuthStore.getLanguage(context) ?: "en" }
     val listState = rememberLazyListState()
 
+    // 20+ Verified Indian Languages & Agrarian Regional Varieties
     val availableLanguages = remember {
         listOf(
-            VoiceLanguage("en", "English", Locale("en", "IN")),
-            VoiceLanguage("hi", "हिन्दी", Locale("hi", "IN")),
-            VoiceLanguage("mr", "मराठी", Locale("mr", "IN")),
-            VoiceLanguage("pa", "ਪੰਜਾਬੀ", Locale("pa", "IN")),
-            VoiceLanguage("te", "తెలుగు", Locale("te", "IN"))
+            VoiceLanguage("hi", "Hindi", "हिन्दी (Hindi)", Locale("hi", "IN")),
+            VoiceLanguage("mr", "Marathi", "मराठी (Marathi)", Locale("mr", "IN")),
+            VoiceLanguage("gu", "Gujarati", "ગુજરાતી (Gujarati)", Locale("gu", "IN")),
+            VoiceLanguage("pa", "Punjabi", "ਪੰਜਾਬੀ (Punjabi)", Locale("pa", "IN")),
+            VoiceLanguage("te", "Telugu", "తెలుగు (Telugu)", Locale("te", "IN")),
+            VoiceLanguage("bn", "Bengali", "বাংলা (Bengali)", Locale("bn", "IN")),
+            VoiceLanguage("ta", "Tamil", "தமிழ் (Tamil)", Locale("ta", "IN")),
+            VoiceLanguage("kn", "Kannada", "ಕನ್ನಡ (Kannada)", Locale("kn", "IN")),
+            VoiceLanguage("ml", "Malayalam", "മലയാളം (Malayalam)", Locale("ml", "IN")),
+            VoiceLanguage("or", "Odia", "ଓଡ଼ିଆ (Odia)", Locale("or", "IN")),
+            VoiceLanguage("as", "Assamese", "অসমীয়া (Assamese)", Locale("as", "IN")),
+            VoiceLanguage("mai", "Maithili", "मैथिली (Maithili)", Locale("mai", "IN")),
+            VoiceLanguage("bgc", "Haryanvi", "हरियाणवी (Haryanvi)", Locale("hi", "IN")),
+            VoiceLanguage("hne", "Chhattisgarhi", "छत्तीसगढ़ी (Chhattisgarhi)", Locale("hi", "IN")),
+            VoiceLanguage("awa", "Awadhi", "अवधी (Awadhi)", Locale("hi", "IN")),
+            VoiceLanguage("mag", "Magahi", "मगही (Magahi)", Locale("hi", "IN")),
+            VoiceLanguage("gbm", "Garhwali", "गढ़वाली (Garhwali)", Locale("hi", "IN")),
+            VoiceLanguage("dgo", "Dogri", "डोगरी (Dogri)", Locale("hi", "IN")),
+            VoiceLanguage("ur", "Urdu", "اردو (Urdu)", Locale("ur", "IN")),
+            VoiceLanguage("en", "English", "English (India)", Locale("en", "IN"))
         )
     }
 
     var selectedLanguage by remember {
-        mutableStateOf(availableLanguages.firstOrNull { it.code == savedLanguage } ?: availableLanguages.first())
+        val preferred = AuthStore.getLanguage(context) ?: "hi"
+        mutableStateOf(availableLanguages.firstOrNull { it.code == preferred } ?: availableLanguages.first())
     }
+    var languageDropdownExpanded by remember { mutableStateOf(false) }
+
     var query by remember { mutableStateOf("") }
     var assistantState by remember { mutableStateOf(VoiceAssistantState.IDLE) }
-    var pendingRoute by remember { mutableStateOf<(() -> Unit)?>(null) }
     var ttsReady by remember { mutableStateOf(false) }
     var suggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var debugMode by remember { mutableStateOf(false) }
+    var lastDebugResponse by remember { mutableStateOf<VoiceQueryResponse?>(null) }
     val chatMessages = remember { mutableStateListOf<ChatMessage>() }
+
+    // Native Android MediaPlayer for 16 kHz 16-bit PCM WAV playback
+    var activeMediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
 
     // Auto-scroll to bottom
     LaunchedEffect(chatMessages.size) {
@@ -112,8 +147,77 @@ fun VoiceAssistantScreen(navController: NavController) {
         }
     }
 
-    val tts = remember {
+    val androidTts = remember {
         TextToSpeech(context) { status -> ttsReady = status == TextToSpeech.SUCCESS }
+    }
+
+    fun stopAudioPlayback() {
+        try {
+            activeMediaPlayer?.let {
+                if (it.isPlaying) it.stop()
+                it.reset()
+                it.release()
+            }
+        } catch (_: Exception) {}
+        activeMediaPlayer = null
+        try {
+            if (ttsReady) androidTts.stop()
+        } catch (_: Exception) {}
+        assistantState = VoiceAssistantState.IDLE
+    }
+
+    fun playAudioFromBase64(base64Data: String, onFinished: () -> Unit) {
+        stopAudioPlayback()
+        try {
+            val audioBytes = Base64.decode(base64Data, Base64.DEFAULT)
+            val tempFile = File(context.cacheDir, "farmfusion_audio_response.wav")
+            FileOutputStream(tempFile).use { it.write(audioBytes) }
+
+            val player = MediaPlayer().apply {
+                setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                        .build()
+                )
+                setDataSource(tempFile.absolutePath)
+                setOnPreparedListener {
+                    assistantState = VoiceAssistantState.SPEAKING
+                    start()
+                }
+                setOnCompletionListener {
+                    stopAudioPlayback()
+                    onFinished()
+                }
+                setOnErrorListener { _, _, _ ->
+                    stopAudioPlayback()
+                    onFinished()
+                    true
+                }
+                prepareAsync()
+            }
+            activeMediaPlayer = player
+        } catch (e: Exception) {
+            stopAudioPlayback()
+            onFinished()
+        }
+    }
+
+    fun speakResponse(response: VoiceQueryResponse) {
+        val audioB64 = response.audio_base64
+        if (!audioB64.isNullOrBlank()) {
+            // Play genuine Local Neural VITS Audio
+            playAudioFromBase64(audioB64) {
+                assistantState = VoiceAssistantState.IDLE
+            }
+        } else if (ttsReady) {
+            // Fallback to Android Device TTS
+            assistantState = VoiceAssistantState.SPEAKING
+            val targetLocale = availableLanguages.firstOrNull { it.code == response.detected_language }?.locale
+                ?: selectedLanguage.locale
+            androidTts.language = targetLocale
+            androidTts.speak(response.response, TextToSpeech.QUEUE_FLUSH, null, "farmfusion_voice")
+        }
     }
 
     fun currentSpeechIntent(): Intent {
@@ -122,6 +226,15 @@ fun VoiceAssistantScreen(navController: NavController) {
             "mr" -> "mr-IN"
             "pa" -> "pa-IN"
             "te" -> "te-IN"
+            "gu" -> "gu-IN"
+            "bn" -> "bn-IN"
+            "ta" -> "ta-IN"
+            "kn" -> "kn-IN"
+            "ml" -> "ml-IN"
+            "or" -> "or-IN"
+            "as" -> "as-IN"
+            "ur" -> "ur-IN"
+            "mai" -> "mai-IN"
             else -> "en-IN"
         }
         return Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
@@ -133,21 +246,10 @@ fun VoiceAssistantScreen(navController: NavController) {
         }
     }
 
-    fun resolvedSpeakLocale(code: String): Locale {
-        return availableLanguages.firstOrNull { it.code == code }?.locale ?: selectedLanguage.locale
-    }
-
-    fun speak(text: String, languageCode: String) {
-        if (!ttsReady) return
-
-        assistantState = VoiceAssistantState.SPEAKING
-        tts.language = resolvedSpeakLocale(languageCode)
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "farmfusion_voice")
-    }
-
     fun submitQuery(text: String) {
         val cleaned = text.trim()
         if (cleaned.isBlank()) return
+        stopAudioPlayback()
         chatMessages.add(ChatMessage(cleaned, isUser = true))
         assistantState = VoiceAssistantState.PROCESSING
         viewModel.processVoiceQuery(
@@ -165,6 +267,7 @@ fun VoiceAssistantScreen(navController: NavController) {
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
+            stopAudioPlayback()
             assistantState = VoiceAssistantState.LISTENING
             speechRecognizer?.startListening(currentSpeechIntent())
         } else {
@@ -173,12 +276,11 @@ fun VoiceAssistantScreen(navController: NavController) {
     }
 
     DisposableEffect(speechRecognizer) {
-        tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+        androidTts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) = Unit
             override fun onDone(utteranceId: String?) {
                 assistantState = VoiceAssistantState.IDLE
             }
-
             override fun onError(utteranceId: String?) {
                 assistantState = VoiceAssistantState.IDLE
             }
@@ -186,11 +288,15 @@ fun VoiceAssistantScreen(navController: NavController) {
 
         val listener = object : RecognitionListener {
             override fun onReadyForSpeech(params: android.os.Bundle?) {
-                assistantState = VoiceAssistantState.LISTENING
+                if (assistantState != VoiceAssistantState.SPEAKING) {
+                    assistantState = VoiceAssistantState.LISTENING
+                }
             }
 
             override fun onBeginningOfSpeech() {
-                assistantState = VoiceAssistantState.LISTENING
+                if (assistantState != VoiceAssistantState.SPEAKING) {
+                    assistantState = VoiceAssistantState.LISTENING
+                }
             }
 
             override fun onRmsChanged(rmsdB: Float) = Unit
@@ -201,8 +307,10 @@ fun VoiceAssistantScreen(navController: NavController) {
             }
 
             override fun onError(error: Int) {
-                assistantState = VoiceAssistantState.IDLE
-                Toast.makeText(context, "Mic could not hear clearly. Try again.", Toast.LENGTH_SHORT).show()
+                if (assistantState != VoiceAssistantState.SPEAKING) {
+                    assistantState = VoiceAssistantState.IDLE
+                    Toast.makeText(context, "Mic could not hear clearly. Please tap and try again.", Toast.LENGTH_SHORT).show()
+                }
             }
 
             override fun onResults(results: android.os.Bundle?) {
@@ -225,8 +333,8 @@ fun VoiceAssistantScreen(navController: NavController) {
         speechRecognizer?.setRecognitionListener(listener)
         onDispose {
             speechRecognizer?.destroy()
-            tts.stop()
-            tts.shutdown()
+            stopAudioPlayback()
+            androidTts.shutdown()
         }
     }
 
@@ -234,17 +342,62 @@ fun VoiceAssistantScreen(navController: NavController) {
         when (val state = voiceState) {
             is VoiceViewModel.VoiceState.Success -> {
                 val responseText = state.response.response.trim()
-                chatMessages.add(ChatMessage(responseText, isUser = false))
+                lastDebugResponse = state.response
+
+                // Compute farmer-friendly badge
+                val badge = when {
+                    state.response.fallback_used == true && !state.response.response_dialect.isNullOrBlank() -> {
+                        "${state.response.response_dialect?.uppercase()} उत्तर • हिन्दी आवाज"
+                    }
+                    state.response.local_tts == true && state.response.native_tts == true -> {
+                        "${selectedLanguage.label} आवाज • ऑन-डिवाइस"
+                    }
+                    else -> "${selectedLanguage.label} आवाज"
+                }
+
+                chatMessages.add(
+                    ChatMessage(
+                        text = responseText,
+                        isUser = false,
+                        audioBase64 = state.response.audio_base64,
+                        languageCode = state.response.detected_language,
+                        ttsBadge = badge,
+                        isNativeTts = state.response.native_tts,
+                        fallbackUsed = state.response.fallback_used
+                    )
+                )
+
                 suggestions = state.response.follow_up_suggestions?.filter { it.isNotBlank() }.orEmpty()
-                speak(responseText, state.response.detected_language)
+                speakResponse(state.response)
+
+                // Handle In-App Voice Navigation Actions
+                if (state.response.action == "navigate") {
+                    val dest = state.response.data?.get("destination") as? String
+                    when (dest) {
+                        "market_prices", "mandi" -> navController.navigate(NavRoutes.MandiPrices)
+                        "weather" -> navController.navigate(NavRoutes.Weather)
+                        "crop_recommendation" -> navController.navigate(NavRoutes.CropRecommendation)
+                        "disease_detection", "crop_disease" -> navController.navigate(NavRoutes.CropDisease)
+                        "government_schemes", "financial_services" -> navController.navigate(NavRoutes.FinancialServices)
+                        "home", "dashboard" -> navController.navigate(NavRoutes.Dashboard)
+                        "back" -> navController.popBackStack()
+                    }
+                } else if (state.response.action == "open_camera") {
+                    navController.navigate(NavRoutes.CropDisease)
+                }
+
                 viewModel.resetState()
             }
 
             is VoiceViewModel.VoiceState.Error -> {
-                val errorText = "Error: ${state.message}"
+                val errorText = "त्रुटि: ${state.message}"
                 chatMessages.add(ChatMessage(errorText, isUser = false))
                 suggestions = emptyList()
-                speak(errorText, selectedLanguage.code)
+                if (ttsReady) {
+                    assistantState = VoiceAssistantState.SPEAKING
+                    androidTts.language = selectedLanguage.locale
+                    androidTts.speak(errorText, TextToSpeech.QUEUE_FLUSH, null, "farmfusion_err")
+                }
                 viewModel.resetState()
             }
 
@@ -256,14 +409,67 @@ fun VoiceAssistantScreen(navController: NavController) {
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Text(
-                        "Farm Assistant",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.clickable { languageDropdownExpanded = true }
+                    ) {
+                        Text(
+                            "Farm Assistant",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.padding(start = 4.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    selectedLanguage.label,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                                )
+                                Icon(
+                                    Icons.Rounded.ArrowDropDown,
+                                    contentDescription = "Select Language",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = languageDropdownExpanded,
+                            onDismissRequest = { languageDropdownExpanded = false }
+                        ) {
+                            availableLanguages.forEach { lang ->
+                                DropdownMenuItem(
+                                    text = { Text(lang.nativeLabel, fontWeight = if (lang.code == selectedLanguage.code) FontWeight.Bold else FontWeight.Normal) },
+                                    onClick = {
+                                        selectedLanguage = lang
+                                        AuthStore.saveLanguage(context, lang.code)
+                                        languageDropdownExpanded = false
+                                        Toast.makeText(context, "Language set to ${lang.label}", Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+                        }
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { debugMode = !debugMode }) {
+                        Icon(
+                            Icons.Rounded.BugReport,
+                            contentDescription = "Debug Mode",
+                            tint = if (debugMode) MaterialTheme.colorScheme.primary else Color.Gray
+                        )
                     }
                 }
             )
@@ -277,10 +483,10 @@ fun VoiceAssistantScreen(navController: NavController) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(20.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Only show Hero if no messages yet
+                // Hero Area (Shown when empty chat)
                 AnimatedVisibility(
                     visible = chatMessages.isEmpty(),
                     enter = expandVertically() + fadeIn(),
@@ -288,12 +494,12 @@ fun VoiceAssistantScreen(navController: NavController) {
                 ) {
                     VoiceHero(
                         state = assistantState,
-                        selectedLanguage = selectedLanguage.label,
+                        selectedLanguage = selectedLanguage.nativeLabel,
                         onMicClick = {
-                            if (speechRecognizer == null) {
-                                Toast.makeText(context, "Speech recognition not available", Toast.LENGTH_SHORT).show()
+                            if (assistantState == VoiceAssistantState.SPEAKING) {
+                                stopAudioPlayback()
                             } else if (assistantState == VoiceAssistantState.LISTENING) {
-                                speechRecognizer.stopListening()
+                                speechRecognizer?.stopListening()
                                 assistantState = VoiceAssistantState.IDLE
                             } else {
                                 permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -302,14 +508,47 @@ fun VoiceAssistantScreen(navController: NavController) {
                     )
                 }
 
+                // Debug Metadata Panel
+                if (debugMode && lastDebugResponse != null) {
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFF1E293B),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("🔧 VOICE DEBUG METADATA", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8)))
+                            Text("INTENT: ${lastDebugResponse?.intent} (conf: ${lastDebugResponse?.confidence})", style = MaterialTheme.typography.bodySmall, color = Color.White)
+                            Text("ACTION: ${lastDebugResponse?.action}", style = MaterialTheme.typography.bodySmall, color = Color.White)
+                            Text("LANG DETECTED: ${lastDebugResponse?.detected_language} | DIALECT: ${lastDebugResponse?.detected_dialect}", style = MaterialTheme.typography.bodySmall, color = Color.White)
+                            Text("TTS PROVIDER: ${lastDebugResponse?.tts_provider} | MODEL: ${lastDebugResponse?.tts_model}", style = MaterialTheme.typography.bodySmall, color = Color(0xFF4ADE80))
+                            Text("NATIVE TTS: ${lastDebugResponse?.native_tts} | LOCAL: ${lastDebugResponse?.local_tts} | HAS AUDIO: ${!lastDebugResponse?.audio_base64.isNullOrBlank()}", style = MaterialTheme.typography.bodySmall, color = Color(0xFFFDE047))
+                            if (lastDebugResponse?.fallback_used == true) {
+                                Text("FALLBACK: ${lastDebugResponse?.fallback_reason}", style = MaterialTheme.typography.bodySmall, color = Color(0xFFF87171))
+                            }
+                        }
+                    }
+                }
+
+                // Chat Timeline
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.weight(1f),
-                    contentPadding = PaddingValues(vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    contentPadding = PaddingValues(vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(chatMessages) { message ->
-                        VoiceBubble(message)
+                        VoiceBubble(
+                            message = message,
+                            onReplayClick = {
+                                if (!message.audioBase64.isNullOrBlank()) {
+                                    playAudioFromBase64(message.audioBase64) {}
+                                } else if (ttsReady) {
+                                    assistantState = VoiceAssistantState.SPEAKING
+                                    androidTts.language = selectedLanguage.locale
+                                    androidTts.speak(message.text, TextToSpeech.QUEUE_FLUSH, null, "replay")
+                                }
+                            }
+                        )
                     }
 
                     if (assistantState == VoiceAssistantState.PROCESSING) {
@@ -320,17 +559,55 @@ fun VoiceAssistantScreen(navController: NavController) {
                                     .padding(8.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                    Text("समझ रहा हूँ… (Analyzing)", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                }
                             }
                         }
                     }
                 }
 
-                if (suggestions.isNotEmpty()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Assistant Speaking / Stop Banner
+                if (assistantState == VoiceAssistantState.SPEAKING) {
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.AutoMirrored.Rounded.VolumeUp, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                Text("बता रहा हूँ… (Speaking)", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary))
+                            }
+                            Button(
+                                onClick = { stopAudioPlayback() },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("रोकें (Stop)", style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                }
+
+                // Follow-up Suggestions
+                if (suggestions.isNotEmpty() && assistantState != VoiceAssistantState.SPEAKING) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            "Suggested for you:",
-                            style = MaterialTheme.typography.labelMedium,
+                            "सुझाव (Suggested):",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(start = 8.dp)
                         )
@@ -342,13 +619,13 @@ fun VoiceAssistantScreen(navController: NavController) {
                                 Surface(
                                     onClick = { submitQuery(suggestion) },
                                     shape = RoundedCornerShape(16.dp),
-                                    color = Color.White.copy(alpha = 0.8f),
+                                    color = Color.White.copy(alpha = 0.9f),
                                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
                                     modifier = Modifier.weight(1f)
                                 ) {
                                     Text(
                                         suggestion,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
                                         style = MaterialTheme.typography.bodySmall,
                                         textAlign = TextAlign.Center,
                                         maxLines = 2
@@ -359,30 +636,24 @@ fun VoiceAssistantScreen(navController: NavController) {
                     }
                 }
 
-                // Premium Search Bar UI
+                // Input Bar UI
                 Surface(
                     shape = RoundedCornerShape(32.dp),
-                    color = Color.White.copy(alpha = 0.95f),
+                    color = Color.White.copy(alpha = 0.98f),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .shadow(10.dp, RoundedCornerShape(32.dp)),
-                    border = BorderStroke(1.dp, Color(0xFFF0F0F0))
+                        .shadow(8.dp, RoundedCornerShape(32.dp)),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Search,
-                            contentDescription = null,
-                            tint = Color.Gray,
-                            modifier = Modifier.size(20.dp)
-                        )
                         TextField(
                             value = query,
                             onValueChange = { query = it },
                             modifier = Modifier.weight(1f),
-                            placeholder = { Text("Ask your farming question...", color = Color.Gray) },
+                            placeholder = { Text("सवाल पूछें... (Ask question)", color = Color.Gray, fontSize = 14.sp) },
                             singleLine = true,
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
@@ -396,10 +667,14 @@ fun VoiceAssistantScreen(navController: NavController) {
                             keyboardActions = KeyboardActions(onSend = { submitQuery(query) })
                         )
 
+                        // Mic Toggle Button
                         IconButton(
                             onClick = {
-                                if (assistantState == VoiceAssistantState.LISTENING) {
+                                if (assistantState == VoiceAssistantState.SPEAKING) {
+                                    stopAudioPlayback()
+                                } else if (assistantState == VoiceAssistantState.LISTENING) {
                                     speechRecognizer?.stopListening()
+                                    assistantState = VoiceAssistantState.IDLE
                                 } else {
                                     permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                 }
@@ -447,29 +722,30 @@ private fun VoiceHero(
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        color = Color.White.copy(alpha = 0.6f),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White.copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.5f)),
+        shadowElevation = 2.dp
     ) {
         Column(
-            modifier = Modifier.padding(24.dp),
+            modifier = Modifier.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Box(
                     modifier = Modifier
-                        .size(100.dp)
+                        .size(90.dp)
                         .scale(scale)
                         .background(
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                             CircleShape
                         )
                 )
 
                 Surface(
                     onClick = onMicClick,
-                    modifier = Modifier.size(80.dp),
+                    modifier = Modifier.size(72.dp),
                     shape = CircleShape,
                     color = if (state == VoiceAssistantState.LISTENING) Color(0xFFD32F2F) else MaterialTheme.colorScheme.primaryContainer,
                     shadowElevation = 4.dp
@@ -479,24 +755,24 @@ private fun VoiceHero(
                             imageVector = if (state == VoiceAssistantState.LISTENING) Icons.Rounded.GraphicEq else Icons.Rounded.Mic,
                             contentDescription = null,
                             tint = if (state == VoiceAssistantState.LISTENING) Color.White else MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(32.dp)
                         )
                     }
                 }
             }
 
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
                     text = when (state) {
-                        VoiceAssistantState.LISTENING -> "Listening..."
-                        VoiceAssistantState.PROCESSING -> "Analyzing..."
-                        VoiceAssistantState.SPEAKING -> "FarmFusion is speaking"
-                        else -> "Ask anything about farming"
+                        VoiceAssistantState.LISTENING -> "सुन रहा हूँ… (Listening)"
+                        VoiceAssistantState.PROCESSING -> "समझ रहा हूँ… (Analyzing)"
+                        VoiceAssistantState.SPEAKING -> "बता रहा हूँ… (Speaking)"
+                        else -> "बोलकर पूछें (Tap mic to speak)"
                     },
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
-                    text = "Current language: $selectedLanguage",
+                    text = "चुनी गई भाषा: $selectedLanguage",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Gray
                 )
@@ -506,7 +782,10 @@ private fun VoiceHero(
 }
 
 @Composable
-private fun VoiceBubble(message: ChatMessage) {
+private fun VoiceBubble(
+    message: ChatMessage,
+    onReplayClick: () -> Unit
+) {
     val alignment = if (message.isUser) Alignment.End else Alignment.Start
     val background = if (message.isUser) MaterialTheme.colorScheme.primary else Color.White
     val contentColor = if (message.isUser) MaterialTheme.colorScheme.onPrimary else Color(0xFF1B1B1B)
@@ -521,13 +800,48 @@ private fun VoiceBubble(message: ChatMessage) {
             shape = shape,
             color = background,
             shadowElevation = 2.dp,
-            modifier = Modifier.widthIn(max = 280.dp)
+            modifier = Modifier.widthIn(max = 300.dp)
         ) {
-            Text(
-                text = message.text,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                style = MaterialTheme.typography.bodyMedium.copy(color = contentColor, lineHeight = 20.sp)
-            )
+            Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(
+                    text = message.text,
+                    style = MaterialTheme.typography.bodyMedium.copy(color = contentColor, lineHeight = 20.sp)
+                )
+
+                if (!message.isUser) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (!message.ttsBadge.isNullOrBlank()) {
+                            Text(
+                                text = message.ttsBadge,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 10.sp,
+                                    color = if (message.fallbackUsed == true) Color(0xFFD97706) else Color(0xFF16A34A),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        } else {
+                            Spacer(modifier = Modifier.width(1.dp))
+                        }
+
+                        IconButton(
+                            onClick = onReplayClick,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                                contentDescription = "Replay Speech",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

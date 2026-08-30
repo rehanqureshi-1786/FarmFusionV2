@@ -1,0 +1,14 @@
+[
+  {"surface_form": "बोवणो", "canonical_id": "sowing", "canonical_name": "Sowing", "category": "operation", "dialect": "mew", "confidence": 0.98},
+  {"surface_form": "बुवाई", "canonical_id": "sowing", "canonical_name": "Sowing", "category": "operation", "confidence": 0.98},
+  {"surface_form": "बोना", "canonical_id": "sowing", "canonical_name": "Sowing", "category": "operation", "confidence": 0.98},
+  {"surface_form": "बोवई", "canonical_id": "sowing", "canonical_name": "Sowing", "category": "operation", "dialect": "hne", "confidence": 0.98},
+  {"surface_form": "વાવણી", "canonical_id": "sowing", "canonical_name": "Sowing", "category": "operation", "language": "gu", "confidence": 0.98},
+  {"surface_form": "पेरणी", "canonical_id": "sowing", "canonical_name": "Sowing", "category": "operation", "language": "mr", "confidence": 0.98},
+  {"surface_form": "sowing", "canonical_id": "sowing", "canonical_name": "Sowing", "category": "operation", "confidence": 0.98},
+
+  {"surface_form": "कटाई", "canonical_id": "harvesting", "canonical_name": "Harvesting", "category": "operation", "confidence": 0.98},
+  {"surface_form": "कापणी", "canonical_id": "harvesting", "canonical_name": "Harvesting", "category": "operation", "language": "mr", "confidence": 0.98},
+  {"surface_form": "लूणी", "canonical_id": "harvesting", "canonical_name": "Harvesting", "category": "operation", "dialect": "mew", "confidence": 0.98},
+  {"surface_form": "harvesting", "canonical_id": "harvesting", "canonical_name": "Harvesting", "category": "operation", "confidence": 0.98}
+]

@@ -1,0 +1,19 @@
+[
+  {"surface_form": "यूरिया", "canonical_id": "urea", "canonical_name": "Urea (Nitrogen 46%)", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "urea", "canonical_id": "urea", "canonical_name": "Urea (Nitrogen 46%)", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "डीएपी", "canonical_id": "dap", "canonical_name": "Di-Ammonium Phosphate (DAP)", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "dap", "canonical_id": "dap", "canonical_name": "Di-Ammonium Phosphate (DAP)", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "पोटाश", "canonical_id": "potash", "canonical_name": "Muriate of Potash (MOP)", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "potash", "canonical_id": "potash", "canonical_name": "Muriate of Potash (MOP)", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "जिंक", "canonical_id": "zinc", "canonical_name": "Zinc Sulphate", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "zinc", "canonical_id": "zinc", "canonical_name": "Zinc Sulphate", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "जिप्सम", "canonical_id": "gypsum", "canonical_name": "Gypsum", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "gypsum", "canonical_id": "gypsum", "canonical_name": "Gypsum", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "गोबर की खाद", "canonical_id": "fym", "canonical_name": "Farmyard Manure (FYM)", "category": "fertilizer", "confidence": 0.98},
+  {"surface_form": "खत", "canonical_id": "fym", "canonical_name": "Farmyard Manure (FYM)", "category": "fertilizer", "language": "mr", "confidence": 0.98},
+  {"surface_form": "ખાતર", "canonical_id": "fym", "canonical_name": "Farmyard Manure (FYM)", "category": "fertilizer", "language": "gu", "confidence": 0.98},
+  {"surface_form": "সার", "canonical_id": "fym", "canonical_name": "Farmyard Manure (FYM)", "category": "fertilizer", "language": "bn", "confidence": 0.98},
+  {"surface_form": "ఎరువులు", "canonical_id": "fym", "canonical_name": "Farmyard Manure (FYM)", "category": "fertilizer", "language": "te", "confidence": 0.98},
+  {"surface_form": "உரம்", "canonical_id": "fym", "canonical_name": "Farmyard Manure (FYM)", "category": "fertilizer", "language": "ta", "confidence": 0.98},
+  {"surface_form": "ಗೊಬ್ಬರ", "canonical_id": "fym", "canonical_name": "Farmyard Manure (FYM)", "category": "fertilizer", "language": "kn", "confidence": 0.98}
+]

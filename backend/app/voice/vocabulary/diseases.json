@@ -1,0 +1,14 @@
+[
+  {"surface_form": "झुलसा", "canonical_id": "blight", "canonical_name": "Blight Disease", "category": "disease", "confidence": 0.98},
+  {"surface_form": "टिक्का", "canonical_id": "tikka_leaf_spot", "canonical_name": "Tikka Leaf Spot (Groundnut)", "category": "disease", "confidence": 0.98},
+  {"surface_form": "उकठा", "canonical_id": "wilt", "canonical_name": "Wilt Disease (Fusarium)", "category": "disease", "confidence": 0.98},
+  {"surface_form": "पीला मोजेक", "canonical_id": "yellow_mosaic", "canonical_name": "Yellow Mosaic Virus", "category": "disease", "confidence": 0.98},
+  {"surface_form": "सफेद चूर्ण", "canonical_id": "powdery_mildew", "canonical_name": "Powdery Mildew", "category": "disease", "confidence": 0.98},
+  {"surface_form": "छाछिया", "canonical_id": "powdery_mildew", "canonical_name": "Powdery Mildew", "category": "disease", "dialect": "mew", "confidence": 0.98},
+  {"surface_form": "रोग", "canonical_id": "crop_disease", "canonical_name": "Crop Disease", "category": "disease", "confidence": 0.98},
+  {"surface_form": "बीमारी", "canonical_id": "crop_disease", "canonical_name": "Crop Disease", "category": "disease", "confidence": 0.98},
+  {"surface_form": "रोग", "canonical_id": "crop_disease", "canonical_name": "Crop Disease", "category": "disease", "language": "mr", "confidence": 0.98},
+  {"surface_form": "രോഗം", "canonical_id": "crop_disease", "canonical_name": "Crop Disease", "category": "disease", "language": "ml", "confidence": 0.98},
+  {"surface_form": "நோய்", "canonical_id": "crop_disease", "canonical_name": "Crop Disease", "category": "disease", "language": "ta", "confidence": 0.98},
+  {"surface_form": "ರೋಗ", "canonical_id": "crop_disease", "canonical_name": "Crop Disease", "category": "disease", "language": "kn", "confidence": 0.98}
+]

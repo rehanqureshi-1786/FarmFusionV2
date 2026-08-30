@@ -1,0 +1,182 @@
+[
+  {
+    "id": "golden_hi_01",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "आज जयपुर में मौसम कैसा रहेगा?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "expected_slots": {"location_name": "Jaipur"}
+  },
+  {
+    "id": "golden_en_02",
+    "language": "en",
+    "dialect": null,
+    "utterance": "What is the weather forecast for today?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_gu_03",
+    "language": "gu",
+    "dialect": null,
+    "utterance": "અમદાવાદમાં વાતાવરણ કેવું છે?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "expected_slots": {"location_name": "Ahmedabad"}
+  },
+  {
+    "id": "golden_mr_04",
+    "language": "mr",
+    "dialect": null,
+    "utterance": "माझ्या शेतात कोणतं पीक चांगलं येईल?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_pa_05",
+    "language": "pa",
+    "dialect": null,
+    "utterance": "ਕਣਕ ਦੀ ਕੀਮਤ ਕੀ ਹੈ?",
+    "expected_intent": "mandi",
+    "expected_tool": "market_price_tool",
+    "expected_slots": {"commodity": "Wheat"}
+  },
+  {
+    "id": "golden_ta_06",
+    "language": "ta",
+    "dialect": null,
+    "utterance": "எந்த பயிர் சாகுபடி செய்யலாம்?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_te_07",
+    "language": "te",
+    "dialect": null,
+    "utterance": "హైదరాబాద్‌లో వాతావరణం ఎలా ఉంది?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "expected_slots": {"location_name": "Hyderabad"}
+  },
+  {
+    "id": "golden_bn_08",
+    "language": "bn",
+    "dialect": null,
+    "utterance": "ধান ফসলে সার কখন দিতে হবে?",
+    "expected_intent": "crop_care",
+    "expected_tool": "crop_care_tool",
+    "expected_slots": {"crop_name": "Rice (Paddy)"}
+  },
+  {
+    "id": "golden_kn_09",
+    "language": "kn",
+    "dialect": null,
+    "utterance": "ರೈತರಿಗೆ ಸರಕಾರಿ ಯೋಜನೆ ಯಾವುದು?",
+    "expected_intent": "scheme",
+    "expected_tool": "government_scheme_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_ml_10",
+    "language": "ml",
+    "dialect": null,
+    "utterance": "വിള പരിപാലനം എങ്ങനെ ചെയ്യാം?",
+    "expected_intent": "crop_care",
+    "expected_tool": "crop_care_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_or_11",
+    "language": "or",
+    "dialect": null,
+    "utterance": "କେଉଁ ଫସଲ ଚାଷ କରିବି?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_as_12",
+    "language": "as",
+    "dialect": null,
+    "utterance": "আজিৰ বতৰ কেনেকুৱা?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_mew_13",
+    "language": "hi",
+    "dialect": "mew",
+    "utterance": "म्हारे खेत में रेतीली मिट्टी है, कौन सी फसल सही रहेगी?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "expected_slots": {"soil_type": "Sandy Soil"}
+  },
+  {
+    "id": "golden_rwr_14",
+    "language": "hi",
+    "dialect": "rwr",
+    "utterance": "म्हाने जोधपुर रो मौसम बताओ",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "expected_slots": {"location_name": "Jodhpur"}
+  },
+  {
+    "id": "golden_bho_15",
+    "language": "hi",
+    "dialect": "bho",
+    "utterance": "खेते में का बोईब रउआ बताईं",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_bgc_16",
+    "language": "hi",
+    "dialect": "bgc",
+    "utterance": "तन्नै के लाग्ग्या मौसम कै सा सै?",
+    "expected_intent": "weather",
+    "expected_tool": "weather_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_hne_17",
+    "language": "hi",
+    "dialect": "hne",
+    "utterance": "काबर गा खेती-खार म का बोवई हावय?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "expected_slots": {}
+  },
+  {
+    "id": "golden_code_switch_18",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "गेहूं का market rate कितना है?",
+    "expected_intent": "mandi",
+    "expected_tool": "market_price_tool",
+    "expected_slots": {"commodity": "Wheat"}
+  },
+  {
+    "id": "golden_code_switch_19",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "मेरे खेत की soil sandy है, क्या बोऊं?",
+    "expected_intent": "crop_recommendation",
+    "expected_tool": "crop_recommendation_tool",
+    "expected_slots": {"soil_type": "Sandy Soil"}
+  },
+  {
+    "id": "golden_unsupported_20",
+    "language": "hi",
+    "dialect": null,
+    "utterance": "मेरे लिए 2 बोरी यूरिया खरीद दो",
+    "expected_intent": "unsupported_capability",
+    "expected_tool": "unsupported_capability_tool",
+    "expected_slots": {}
+  }
+]

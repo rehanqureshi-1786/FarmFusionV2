@@ -1,0 +1,18 @@
+{
+  "pack_id": "pack_hi_rwr",
+  "language": "hi",
+  "dialect": "rwr",
+  "name": "Marwari",
+  "native_name": "मारवाड़ी",
+  "script": "Devanagari",
+  "version": "1.0.0",
+  "support_tier": 2,
+  "status": "VOCABULARY_ONLY",
+  "size_kb": 12,
+  "has_vocabulary": true,
+  "has_normalization": true,
+  "has_prompts": true,
+  "asr_model_id": "farmfusion_asr_marwari_conformer_int8",
+  "tts_model_id": null,
+  "sha256_checksum": null
+}

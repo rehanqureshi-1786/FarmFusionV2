@@ -1,0 +1,17 @@
+{
+  "experiment_name": "farmfusion_asr_indic_rural_v1",
+  "task": "asr",
+  "base_model": "ai4bharat/indicwhisper-hindi",
+  "target_language": "hi",
+  "target_dialect": "rwr",
+  "audio_sampling_rate": 16000,
+  "max_duration_seconds": 20.0,
+  "min_duration_seconds": 0.5,
+  "use_lora": true,
+  "lora_r": 16,
+  "lora_alpha": 32,
+  "batch_size": 16,
+  "learning_rate": 0.0001,
+  "agri_entity_weight": 2.0,
+  "target_export_format": "onnx_int8"
+}

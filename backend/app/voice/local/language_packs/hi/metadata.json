@@ -1,0 +1,18 @@
+{
+  "pack_id": "pack_hi",
+  "language": "hi",
+  "dialect": null,
+  "name": "Hindi",
+  "native_name": "हिन्दी",
+  "script": "Devanagari",
+  "version": "1.0.0",
+  "support_tier": 1,
+  "status": "NATIVE",
+  "size_kb": 24,
+  "has_vocabulary": true,
+  "has_normalization": true,
+  "has_prompts": true,
+  "asr_model_id": "farmfusion_asr_hindi_whisper_tiny_int8",
+  "tts_model_id": "farmfusion_tts_hindi_piper_int8",
+  "sha256_checksum": null
+}

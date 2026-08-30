@@ -1,0 +1,105 @@
+{
+  "model_id": "farmfusion_agri_nlu_multilingual_v1",
+  "task": "agricultural_nlu_and_language_intelligence",
+  "version": "1.0.0",
+  "format": "joblib_scikit_learn",
+  "runtime": "onnx_compatible_linear",
+  "size_kb": 350.34,
+  "sha256_checksum": "bb6893aed698735a1545c8879e08eea95500d1f5e36f3536e967a5f983709d77",
+  "supported_languages": [
+    "hi",
+    "gu",
+    "mr",
+    "pa",
+    "bn",
+    "te",
+    "ta",
+    "kn",
+    "ml",
+    "or",
+    "as",
+    "ur",
+    "mai",
+    "en"
+  ],
+  "supported_dialects": [
+    "rwr",
+    "mew",
+    "bho",
+    "bgc",
+    "awa",
+    "dhu",
+    "hne"
+  ],
+  "intents": [
+    "crop_care",
+    "crop_recommendation",
+    "disease",
+    "greeting_help",
+    "mandi",
+    "navigation",
+    "repeat_last",
+    "scheme",
+    "speech_control",
+    "weather",
+    "what_if"
+  ],
+  "validation_metrics": {
+    "val_accuracy": 0.4,
+    "val_f1": 0.3333333333333333,
+    "candidate": "B"
+  },
+  "held_out_test_metrics": {
+    "held_out_test_samples": 21,
+    "intent_accuracy": 0.619,
+    "macro_f1": 0.5284,
+    "weighted_f1": 0.6434,
+    "dialect_accuracy": 0.4,
+    "entity_f1": 0.8667,
+    "average_confidence": 0.5577,
+    "language_breakdown": {
+      "hi": {
+        "test_count": 15,
+        "accuracy": 0.7333
+      },
+      "gu": {
+        "test_count": 2,
+        "accuracy": 0.0
+      },
+      "mr": {
+        "test_count": 2,
+        "accuracy": 0.5
+      },
+      "pa": {
+        "test_count": 1,
+        "accuracy": 0.0
+      },
+      "bn": {
+        "test_count": 1,
+        "accuracy": 1.0
+      },
+      "te": "INSUFFICIENT_DATA_FOR_HELD_OUT_TEST",
+      "ta": "INSUFFICIENT_DATA_FOR_HELD_OUT_TEST",
+      "kn": "INSUFFICIENT_DATA_FOR_HELD_OUT_TEST",
+      "ml": "INSUFFICIENT_DATA_FOR_HELD_OUT_TEST",
+      "or": "INSUFFICIENT_DATA_FOR_HELD_OUT_TEST",
+      "as": "INSUFFICIENT_DATA_FOR_HELD_OUT_TEST",
+      "ur": "INSUFFICIENT_DATA_FOR_HELD_OUT_TEST",
+      "mai": "INSUFFICIENT_DATA_FOR_HELD_OUT_TEST"
+    },
+    "classes": [
+      "crop_care",
+      "crop_recommendation",
+      "disease",
+      "greeting_help",
+      "mandi",
+      "navigation",
+      "repeat_last",
+      "scheme",
+      "speech_control",
+      "weather",
+      "what_if"
+    ]
+  },
+  "created_at": "2026-08-29T20:36:21.947613+00:00"
+}

@@ -1,0 +1,10 @@
+[
+  {"surface_form": "कीटनाशक", "canonical_id": "insecticide", "canonical_name": "Insecticide", "category": "pesticide", "confidence": 0.98},
+  {"surface_form": "कीटनाशक दवाई", "canonical_id": "insecticide", "canonical_name": "Insecticide", "category": "pesticide", "confidence": 0.98},
+  {"surface_form": "कीड़ा मार दवा", "canonical_id": "insecticide", "canonical_name": "Insecticide", "category": "pesticide", "confidence": 0.98},
+  {"surface_form": "फफूंदनाशक", "canonical_id": "fungicide", "canonical_name": "Fungicide", "category": "pesticide", "confidence": 0.98},
+  {"surface_form": "खरपतवारनाशक", "canonical_id": "herbicide", "canonical_name": "Herbicide", "category": "pesticide", "confidence": 0.98},
+  {"surface_form": "नीम का तेल", "canonical_id": "neem_oil", "canonical_name": "Neem Oil Bio-pesticide", "category": "pesticide", "confidence": 0.98},
+  {"surface_form": "इमिडाक्लोप्रिड", "canonical_id": "imidacloprid", "canonical_name": "Imidacloprid", "category": "pesticide", "confidence": 0.98},
+  {"surface_form": "pesticide", "canonical_id": "insecticide", "canonical_name": "Insecticide", "category": "pesticide", "confidence": 0.98}
+]

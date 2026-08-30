@@ -1,0 +1,41 @@
+[
+  {"surface_form": "रेतीली", "canonical_id": "sandy_soil", "canonical_name": "Sandy Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "रेत", "canonical_id": "sandy_soil", "canonical_name": "Sandy Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "रेतड़ी", "canonical_id": "sandy_soil", "canonical_name": "Sandy Soil", "category": "soil", "dialect": "mew", "confidence": 0.98},
+  {"surface_form": "बलुई", "canonical_id": "sandy_soil", "canonical_name": "Sandy Soil", "category": "soil", "dialect": "bho", "confidence": 0.98},
+  {"surface_form": "बलुवा", "canonical_id": "sandy_soil", "canonical_name": "Sandy Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "sandy", "canonical_id": "sandy_soil", "canonical_name": "Sandy Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "sandy soil", "canonical_id": "sandy_soil", "canonical_name": "Sandy Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "manal", "canonical_id": "sandy_soil", "canonical_name": "Sandy Soil", "category": "soil", "language": "ta", "confidence": 0.98},
+  {"surface_form": "isuka", "canonical_id": "sandy_soil", "canonical_name": "Sandy Soil", "category": "soil", "language": "te", "confidence": 0.98},
+
+  {"surface_form": "काली", "canonical_id": "black_soil", "canonical_name": "Black Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "काली मिट्टी", "canonical_id": "black_soil", "canonical_name": "Black Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "रेगुर", "canonical_id": "black_soil", "canonical_name": "Black Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "regur", "canonical_id": "black_soil", "canonical_name": "Black Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "काळी माती", "canonical_id": "black_soil", "canonical_name": "Black Soil", "category": "soil", "language": "mr", "confidence": 0.98},
+  {"surface_form": "black", "canonical_id": "black_soil", "canonical_name": "Black Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "black soil", "canonical_id": "black_soil", "canonical_name": "Black Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "karisal", "canonical_id": "black_soil", "canonical_name": "Black Soil", "category": "soil", "language": "ta", "confidence": 0.98},
+  {"surface_form": "nalla regadi", "canonical_id": "black_soil", "canonical_name": "Black Soil", "category": "soil", "language": "te", "confidence": 0.98},
+
+  {"surface_form": "लाल", "canonical_id": "red_soil", "canonical_name": "Red Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "लाल मिट्टी", "canonical_id": "red_soil", "canonical_name": "Red Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "राता", "canonical_id": "red_soil", "canonical_name": "Red Soil", "category": "soil", "dialect": "mew", "confidence": 0.98},
+  {"surface_form": "red", "canonical_id": "red_soil", "canonical_name": "Red Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "red soil", "canonical_id": "red_soil", "canonical_name": "Red Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "semman", "canonical_id": "red_soil", "canonical_name": "Red Soil", "category": "soil", "language": "ta", "confidence": 0.98},
+  {"surface_form": "erra matti", "canonical_id": "red_soil", "canonical_name": "Red Soil", "category": "soil", "language": "te", "confidence": 0.98},
+
+  {"surface_form": "दोमट", "canonical_id": "alluvial_soil", "canonical_name": "Alluvial Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "जलोढ़", "canonical_id": "alluvial_soil", "canonical_name": "Alluvial Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "alluvial", "canonical_id": "alluvial_soil", "canonical_name": "Alluvial Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "alluvial soil", "canonical_id": "alluvial_soil", "canonical_name": "Alluvial Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "loamy", "canonical_id": "alluvial_soil", "canonical_name": "Alluvial Soil", "category": "soil", "confidence": 0.98},
+
+  {"surface_form": "चिकनी", "canonical_id": "clayey_soil", "canonical_name": "Clay Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "मटियार", "canonical_id": "clayey_soil", "canonical_name": "Clay Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "clay", "canonical_id": "clayey_soil", "canonical_name": "Clay Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "clayey", "canonical_id": "clayey_soil", "canonical_name": "Clay Soil", "category": "soil", "confidence": 0.98},
+  {"surface_form": "kazhiman", "canonical_id": "clayey_soil", "canonical_name": "Clay Soil", "category": "soil", "language": "ta", "confidence": 0.98}
+]

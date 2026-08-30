@@ -11,6 +11,7 @@ Endpoints:
 - GET /voice/intents - Get supported intents
 """
 from fastapi import APIRouter, HTTPException, status, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel, Field
 from app.orchestrator.graph import run_orchestrator_pipeline
 from app.voice.bhashini import BhashiniClient
 from app.models.voice import (
@@ -23,7 +24,7 @@ from app.models.voice import (
     DetectedIntent
 )
 from app.services.voice_service import voice_service
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import logging
 
 # Set up logging
@@ -170,6 +171,7 @@ async def process_voice_query(request: VoiceQueryRequest) -> VoiceQueryResponse:
     - 20 requests/minute (Groq API free tier)
     """
     try:
+        from datetime import datetime
         logger.info(f"Processing voice query: {request.query[:50]}...")
 
         # Validate input
@@ -179,10 +181,109 @@ async def process_voice_query(request: VoiceQueryRequest) -> VoiceQueryResponse:
                 detail="Query cannot be empty"
             )
 
-        # Process the query using the voice service
-        response = await voice_service.process_query(request)
+        # Execute LangGraph Multilingual Orchestrator Pipeline
+        farmer_context = {
+            "latitude": request.latitude,
+            "longitude": request.longitude,
+            "location_name": request.location
+        }
+        turn_result = await run_orchestrator_pipeline(
+            user_input=request.query,
+            detected_language=request.language_hint or "hi",
+            farmer_context=farmer_context
+        )
 
-        logger.info(f"Query processed successfully. Intent: {response.intent}")
+        intent = turn_result.get("intent", "unknown")
+
+        # Determine client ActionType
+        if intent == "navigation":
+            action = ActionType.NAVIGATE.value
+        elif intent == "disease":
+            action = ActionType.OPEN_CAMERA.value
+        elif turn_result.get("requires_consequential_confirmation") or intent == "consequential_action":
+            action = ActionType.CONFIRM_ACTION.value
+        elif turn_result.get("requires_clarification") or intent == "clarify":
+            action = ActionType.ASK_CLARIFICATION.value
+        else:
+            action = ActionType.SHOW_RESULT.value
+
+        # Build follow-up suggestions based on intent and turn
+        if intent == "weather":
+            suggestions = ["कल बारिश होगी क्या?", "फसल की सलाह दो"]
+        elif intent == "crop_recommendation":
+            suggestions = ["पहली वाली क्यों?", "गेहूं का मंडी भाव क्या है?"]
+        elif intent == "mandi":
+            suggestions = ["इस फसल की देखभाल कैसे करें?", "मौसम कैसा रहेगा?"]
+        elif intent == "explain_recommendation":
+            suggestions = ["अगर बारिश कम हो जाए तो?", "मंडी भाव बताओ"]
+        else:
+            suggestions = ["आज मौसम कैसा है?", "खेत में क्या बोएं?", "मंडी भाव बताओ"]
+
+        # Real Local Neural TTS Synthesis for Android Farm Assistant
+        from app.voice.local.tts.local_tts import local_tts_engine
+        from app.voice.provider_router import universal_voice_router
+        import base64
+
+        final_text = turn_result.get("final_response", "")
+        resp_lang = turn_result.get("response_language") or turn_result.get("detected_language") or request.language_hint or "hi"
+        resp_dialect = turn_result.get("response_dialect") or turn_result.get("detected_dialect")
+
+        tts_decision = universal_voice_router.route_tts(resp_lang, dialect=resp_dialect)
+        audio_b64 = None
+        tts_provider_name = tts_decision.selected_provider
+        tts_model_name = getattr(tts_decision, "selected_model", None) or getattr(tts_decision, "model_id", None)
+        is_native_tts = tts_decision.is_native
+        is_local_tts = tts_decision.is_local
+        fallback_used = tts_decision.fallback_used
+        fallback_reason = tts_decision.fallback_reason
+        tts_lang = tts_decision.actual_tts_language
+        tts_dial = tts_decision.actual_tts_dialect
+
+        if final_text and local_tts_engine.supports_language(tts_lang):
+            try:
+                synth_res = await local_tts_engine.synthesize(
+                    final_text,
+                    language=tts_lang,
+                    dialect=tts_dial
+                )
+                if synth_res and synth_res.audio_bytes:
+                    audio_b64 = base64.b64encode(synth_res.audio_bytes).decode("utf-8")
+                    tts_provider_name = synth_res.provider
+                    tts_model_name = synth_res.model_id
+                    is_native_tts = synth_res.is_native
+                    is_local_tts = True
+                    fallback_used = synth_res.fallback_used
+                    fallback_reason = synth_res.fallback_reason
+            except Exception as e:
+                logger.warning(f"Local TTS synthesis failed: {e}")
+
+        response = VoiceQueryResponse(
+            intent=intent,
+            action=action,
+            response=final_text,
+            data=turn_result.get("tool_output"),
+            detected_language=turn_result.get("detected_language", request.language_hint or "hi"),
+            detected_dialect=turn_result.get("detected_dialect"),
+            confidence=float(turn_result.get("intent_confidence", 0.9)),
+            input_language=turn_result.get("detected_language", "hi"),
+            input_dialect=turn_result.get("detected_dialect"),
+            response_language=resp_lang,
+            response_dialect=resp_dialect,
+            tts_language=tts_lang,
+            tts_dialect=tts_dial,
+            tts_provider=tts_provider_name,
+            tts_model=tts_model_name,
+            native_tts=is_native_tts,
+            local_tts=is_local_tts,
+            fallback_used=fallback_used,
+            fallback_reason=fallback_reason,
+            audio_base64=audio_b64,
+            audio_format="audio/wav" if audio_b64 else None,
+            follow_up_suggestions=suggestions,
+            timestamp=datetime.now().isoformat()
+        )
+
+        logger.info(f"Query processed successfully. Intent: {response.intent}, Dialect: {response.detected_dialect}, Native TTS: {response.native_tts}, Has Audio: {bool(response.audio_base64)}")
         return response
 
     except HTTPException:
@@ -244,25 +345,103 @@ async def get_supported_languages():
     }
     ```
     """
-    languages = [
-        {"code": "hi", "name": "Hindi", "name_native": "हिन्दी", "script": "Devanagari"},
-        {"code": "hi-en", "name": "Hinglish", "name_native": "हिंग्लिश", "script": "Roman"},
-        {"code": "en", "name": "English", "name_native": "English", "script": "Latin"},
-        {"code": "mr", "name": "Marathi", "name_native": "मराठी", "script": "Devanagari"},
-        {"code": "gu", "name": "Gujarati", "name_native": "ગુજરાતી", "script": "Gujarati"},
-        {"code": "pa", "name": "Punjabi", "name_native": "ਪੰਜਾਬੀ", "script": "Gurmukhi"},
-        {"code": "ta", "name": "Tamil", "name_native": "தமிழ்", "script": "Tamil"},
-        {"code": "te", "name": "Telugu", "name_native": "తెలుగు", "script": "Telugu"},
-        {"code": "kn", "name": "Kannada", "name_native": "ಕನ್ನಡ", "script": "Kannada"},
-        {"code": "ml", "name": "Malayalam", "name_native": "മലയാളം", "script": "Malayalam"},
-        {"code": "bn", "name": "Bengali", "name_native": "বাংলা", "script": "Bengali"},
-    ]
+    from app.voice.languages import LANGUAGE_REGISTRY
+    from app.voice.providers import voice_provider_manager
+
+    languages_list = []
+    for code, prof in LANGUAGE_REGISTRY.items():
+        caps = voice_provider_manager.get_capabilities(code)
+        languages_list.append({
+            "code": prof.canonical_code,
+            "name": prof.name,
+            "name_native": prof.native_name,
+            "script": prof.script,
+            "is_dialect": prof.is_dialect,
+            "parent_language": prof.parent_language,
+            "support_tier": prof.support_tier,
+            "status": caps["status"],
+            "asr": {
+                "native": prof.asr.native_supported,
+                "fallback": prof.asr.fallback_code is not None,
+                "fallback_code": prof.asr.fallback_code,
+            },
+            "tts": {
+                "native": prof.tts.native_supported,
+                "fallback": prof.tts.fallback_code is not None,
+                "fallback_code": prof.tts.fallback_code,
+            },
+            "vocabulary_normalization": prof.supports_agricultural_vocabulary,
+            "code_switching": True,
+        })
 
     return {
-        "languages": languages,
+        "languages": languages_list,
+        "total_languages": len(languages_list),
         "auto_detect": True,
         "recommended": ["hi", "hi-en", "en"],
-        "message": "Language is automatically detected from the input. No need to specify manually."
+        "message": "Language and regional dialects are automatically detected from input. Non-native TTS gracefully falls back to verified parent languages."
+    }
+
+
+@router.get("/capabilities", summary="Get overall voice platform capabilities")
+async def get_all_voice_capabilities():
+    """Returns platform capability summary across all supported languages and providers."""
+    from app.voice.languages import LANGUAGE_REGISTRY
+    from app.voice.providers import get_language_capability
+    caps = {code: get_language_capability(code) for code in LANGUAGE_REGISTRY.keys()}
+    return {
+        "platform": "FarmFusion Voice Platform",
+        "total_languages": len(caps),
+        "native_voice_languages": sum(1 for c in caps.values() if c["status"] == "NATIVE"),
+        "parent_fallback_varieties": sum(1 for c in caps.values() if c["status"] == "PARENT_FALLBACK"),
+        "capabilities": caps,
+    }
+
+
+@router.get("/languages/{language_code}", summary="Get capability for a specific language or dialect")
+async def get_single_language_capability(language_code: str):
+    """Returns detailed machine-readable capability for a specific language or dialect code."""
+    from app.voice.providers import get_language_capability
+    return get_language_capability(language_code)
+
+
+@router.get("/dialects", summary="Get supported regional dialects and varieties")
+async def get_supported_dialects():
+    """Returns list of audited regional dialects with parent fallback mapping."""
+    from app.voice.languages import LANGUAGE_REGISTRY
+    dialects = [
+        {
+            "code": p.canonical_code,
+            "name": p.name,
+            "native_name": p.native_name,
+            "parent_language": p.parent_language,
+            "support_tier": p.support_tier,
+            "fallback_tts": p.fallback_language,
+        }
+        for p in LANGUAGE_REGISTRY.values() if p.is_dialect
+    ]
+    return {"total_dialects": len(dialects), "dialects": dialects}
+
+
+@router.get("/providers", summary="Get active voice ASR and TTS providers")
+async def get_voice_providers():
+    """Returns active speech and translation provider metadata with Truthful Model Status."""
+    from app.voice.local.tts.local_tts import local_tts_engine
+    return {
+        "asr": {
+            "primary": "MeitY Bhashini ASR (ULCA pipeline)",
+            "local_fallback": "Local Conformer Int8 / IndicWhisper (When binary installed)",
+            "streaming_supported": True,
+        },
+        "tts": {
+            "primary": "MeitY Bhashini TTS API (Verified Cloud Native TTS)",
+            "local_engine": "FarmFusion Local Neural TTS Engine (ONNX / VITS / Indic-TTS)",
+            "local_weights_installed": local_tts_engine.is_available(),
+            "parent_fallback": "Bhashini Hindi TTS for regional dialects",
+            "caching": "Redis (tts:{lang}:{hash})",
+            "streaming_supported": True,
+        },
+        "nlu_normalization": "FarmFusion Local Multilingual NLU + 19-Category Agricultural Catalog",
     }
 
 
@@ -472,8 +651,146 @@ async def voice_health_check():
         "features": {
             "intent_detection": True,
             "multilingual": True,
-            "languages": 11,
-            "actions": ["show_result", "open_camera", "fetch_data", "ask_clarification", "error"],
-            "intents": 5
+            "languages": 14,
+            "dialects": 7,
+            "actions": ["show_result", "open_camera", "fetch_data", "ask_clarification", "navigate", "error"],
+            "intents": 18
         }
     }
+
+
+# ============ LOCAL VOICE AGENT ENDPOINTS ============
+
+from app.voice.local.runtime import voice_runtime_router, RuntimeMode
+from app.voice.local.model_registry import local_model_registry
+from app.voice.local.package_manager import language_package_manager
+from app.voice.local.capabilities import detect_device_capabilities
+
+
+@router.get(
+    "/local/status",
+    summary="Get Local Voice Agent status and capabilities"
+)
+async def get_local_voice_status():
+    """
+    Returns current local voice agent status, device capability tier,
+    active runtime mode, and available local models.
+    """
+    device_info = detect_device_capabilities()
+    manifests = local_model_registry.list_manifests()
+    return {
+        "runtime_mode": voice_runtime_router.mode.value,
+        "device_tier": device_info.tier.value,
+        "device_capabilities": {
+            "total_ram_mb": device_info.total_ram_mb,
+            "cpu_count": device_info.cpu_count,
+            "cpu_arch": device_info.cpu_arch,
+            "supported_runtimes": device_info.supported_runtimes,
+        },
+        "engines": {
+            "asr": voice_runtime_router.asr_engine.capabilities(),
+            "nlu": voice_runtime_router.nlu_engine.capabilities(),
+            "dialect": voice_runtime_router.dialect_engine.capabilities(),
+            "tts": voice_runtime_router.tts_engine.capabilities(),
+            "language_detector": voice_runtime_router.lid_engine.capabilities(),
+        },
+        "registered_models": [
+            {
+                "model_id": m.model_id,
+                "task": m.task.value,
+                "language": m.language,
+                "dialect": m.dialect,
+                "version": m.version,
+                "status": local_model_registry.get_model_status(m.model_id).value,
+                "size_mb": m.size_mb,
+            }
+            for m in manifests
+        ]
+    }
+
+
+@router.get(
+    "/local/language-packs",
+    summary="List available and installed language packs"
+)
+async def list_local_language_packs():
+    """
+    Returns metadata for all installed modular language packs.
+    """
+    packs = language_package_manager.list_installed_packs()
+    return {
+        "total_packs": len(packs),
+        "packs": [
+            {
+                "pack_id": p.pack_id,
+                "language": p.language,
+                "dialect": p.dialect,
+                "name": p.name,
+                "native_name": p.native_name,
+                "version": p.version,
+                "support_tier": p.support_tier,
+                "status": p.status,
+                "size_kb": p.size_kb,
+            }
+            for p in packs
+        ]
+    }
+
+
+class SetRuntimeModeRequest(BaseModel):
+    mode: str = Field(..., description="Runtime mode: offline, hybrid, or online")
+
+
+@router.post(
+    "/local/mode",
+    summary="Set Voice Runtime Mode (offline, hybrid, online)"
+)
+async def set_voice_runtime_mode(req: SetRuntimeModeRequest):
+    """
+    Switch active voice runtime mode between offline, hybrid, and online.
+    """
+    mode_str = req.mode.lower()
+    if mode_str not in [m.value for m in RuntimeMode]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid mode '{req.mode}'. Must be one of: offline, hybrid, online"
+        )
+    voice_runtime_router.set_mode(RuntimeMode(mode_str))
+    return {
+        "status": "success",
+        "current_mode": voice_runtime_router.mode.value
+    }
+
+
+class LocalVoiceQueryRequest(BaseModel):
+    query: str = Field(..., description="Farmer text query")
+    language_hint: Optional[str] = Field("hi", description="BCP-47 language code hint")
+    dialect_hint: Optional[str] = Field(None, description="Optional dialect code e.g. rwr, mew")
+
+
+@router.post(
+    "/local/query",
+    summary="Execute query using Local Voice Agent"
+)
+async def process_local_voice_query(req: LocalVoiceQueryRequest):
+    """
+    Processes farmer query through the local voice runtime router.
+    Enforces zero fabrication and returns structured response.
+    """
+    res = await voice_runtime_router.process_voice_query(
+        text_query=req.query,
+        language_hint=req.language_hint,
+    )
+    return {
+        "response_text": res.response_text,
+        "runtime_mode": res.runtime_mode.value,
+        "detected_language": res.detected_language,
+        "detected_dialect": res.detected_dialect,
+        "intent": res.intent,
+        "action": res.action,
+        "native_tts": res.native_tts,
+        "fallback_used": res.fallback_used,
+        "fallback_reason": res.fallback_reason,
+        "tool_output": res.tool_output,
+    }
+
