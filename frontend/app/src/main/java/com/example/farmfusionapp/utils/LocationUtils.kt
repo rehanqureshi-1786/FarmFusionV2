@@ -112,56 +112,6 @@ suspend fun getDeviceLocation(context: Context): Pair<Double, Double>? {
     }
 }
 
-data class DetailedLocation(
-    val cityOrVillage: String? = null,
-    val district: String? = null,
-    val state: String? = null,
-    val country: String? = null,
-    val fullDisplayName: String = ""
-)
-
-/**
- * Reverse geocode latitude/longitude into structured location details:
- * village/city, district, state, country.
- */
-suspend fun getDetailedAddressFromLocation(
-    context: Context,
-    latitude: Double,
-    longitude: Double,
-    languageCode: String? = null
-): DetailedLocation? {
-    return try {
-        withContext(Dispatchers.IO) {
-            val locale = if (languageCode != null) Locale.forLanguageTag(languageCode) else Locale.getDefault()
-            val geocoder = Geocoder(context, locale)
-            @Suppress("DEPRECATION")
-            val addresses = geocoder.getFromLocation(latitude, longitude, 1)
-            val addr = addresses?.firstOrNull() ?: return@withContext null
-
-            val cityOrVillage = addr.locality ?: addr.subLocality ?: addr.featureName
-            val district = addr.subAdminArea
-            val state = addr.adminArea
-            val country = addr.countryName ?: "India"
-
-            val parts = listOfNotNull(cityOrVillage, district, state, country)
-                .filter { it.isNotBlank() }
-                .distinct()
-            val displayName = if (parts.isNotEmpty()) parts.joinToString(", ") else "lat ${String.format(Locale.US, "%.4f", latitude)}, lon ${String.format(Locale.US, "%.4f", longitude)}"
-
-            DetailedLocation(
-                cityOrVillage = cityOrVillage,
-                district = district,
-                state = state,
-                country = country,
-                fullDisplayName = displayName
-            )
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
-    }
-}
-
 /**
  * Convert latitude/longitude to a city-like place name using device geocoder only.
  */

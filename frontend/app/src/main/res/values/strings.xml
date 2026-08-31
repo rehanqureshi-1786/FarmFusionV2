@@ -83,29 +83,6 @@
     <string name="profile_lang_display_pa">Punjabi</string>
     <string name="profile_lang_display_te">Telugu</string>
 
-    <!-- Soil Report OCR / Verification flow -->
-    <string name="cancel">Cancel</string>
-    <string name="scan_again">Scan Again</string>
-    <string name="confirm_soil_values">Confirm Soil Values</string>
-    <string name="verify_soil_report_title">Verify Soil Values</string>
-    <string name="verify_soil_report_subtitle">Check the values extracted from your soil report. Edit anything that looks wrong.</string>
-    <string name="missing_values_warning">⚠ %1$s could not be detected. Please enter the value manually.</string>
-    <string name="extracted_from_report">Extracted from soil report</string>
-    <string name="farmer_entered">Farmer-entered</string>
-    <string name="nitrogen_label">Nitrogen (N)</string>
-    <string name="phosphorus_label">Phosphorus (P)</string>
-    <string name="potassium_label">Potassium (K)</string>
-    <string name="ph_label">Soil pH</string>
-    <string name="select_image_source">Select Image Source</string>
-    <string name="choose_from_gallery">Gallery</string>
-    <string name="take_photo_camera">Camera</string>
-    <string name="processing_image">Reading soil report…</string>
-    <string name="ocr_complete">Report scanned successfully</string>
-    <string name="ocr_error">Could not read the image: %1$s</string>
-    <string name="rescan">Rescan</string>
-    <string name="scan_soil_report_hint">Take a clear photo of your soil report so we can read N, P, K and pH automatically.</string>
-    <string name="verify_and_continue">Verify and Continue</string>
-
     <!-- Dashboard carousel -->
     <string name="dashboard_carousel_alert_badge">ALERT</string>
 </resources>

@@ -102,36 +102,21 @@ data class DiseaseDetectResponse(
     val data: DiseaseResult?
 )
 
-data class TreatmentDetail(
-    val biological: List<String>? = null,
-    val cultural: List<String>? = null,
-    val chemical: List<String>? = null,
-    val active_ingredients: List<String>? = null,
-    val treatment_notes: List<String>? = null
-)
-
 data class DiseaseResult(
-    @com.google.gson.annotations.SerializedName(value = "disease_name", alternate = ["disease"]) val disease_name: String? = null,
-    @com.google.gson.annotations.SerializedName("scientific_name") val scientific_name: String? = null,
-    @com.google.gson.annotations.SerializedName("confidence") val confidence: Double? = null,
-    @com.google.gson.annotations.SerializedName("confidence_tier") val confidence_tier: String? = null,
-    @com.google.gson.annotations.SerializedName("diagnosis_status") val diagnosis_status: String? = null,
-    @com.google.gson.annotations.SerializedName("severity") val severity: String? = null,
-    @com.google.gson.annotations.SerializedName("description") val description: String? = null,
-    @com.google.gson.annotations.SerializedName("symptoms") val symptoms: List<String>? = null,
-    @com.google.gson.annotations.SerializedName("treatment_suggestions") val treatment_suggestions: List<String>? = null,
-    @com.google.gson.annotations.SerializedName("prevention_tips") val prevention_tips: List<String>? = null,
-    @com.google.gson.annotations.SerializedName("treatment") val treatment: TreatmentDetail? = null,
-    @com.google.gson.annotations.SerializedName("crop_type") val crop_type: String? = null,
-    @com.google.gson.annotations.SerializedName("timestamp") val timestamp: String? = null,
-    @com.google.gson.annotations.SerializedName("source") val source: String? = null,
-    @com.google.gson.annotations.SerializedName("sources") val sources: List<String>? = null,
-    @com.google.gson.annotations.SerializedName("message") val message: String? = null,
-    @com.google.gson.annotations.SerializedName("is_plant_image") val is_plant_image: Boolean? = true,
-    @com.google.gson.annotations.SerializedName("can_analyze") val can_analyze: Boolean? = true,
-    @com.google.gson.annotations.SerializedName("invalid_image_reason") val invalid_image_reason: String? = null,
-    @com.google.gson.annotations.SerializedName("ai_analyzed") val ai_analyzed: Boolean? = true,
-    @com.google.gson.annotations.SerializedName("store_recommendations") val store_recommendations: List<StoreRecommendationItem>? = null
+    @com.google.gson.annotations.SerializedName("disease") val disease_name: String?,
+    @com.google.gson.annotations.SerializedName("confidence") val confidence: Double?,
+    @com.google.gson.annotations.SerializedName("severity") val severity: String?,
+    @com.google.gson.annotations.SerializedName("description") val description: String?,
+    @com.google.gson.annotations.SerializedName("treatment") val treatment_suggestions: List<String>?,
+    @com.google.gson.annotations.SerializedName("prevention") val prevention_tips: List<String>?,
+    @com.google.gson.annotations.SerializedName("crop_type") val crop_type: String?,
+    @com.google.gson.annotations.SerializedName("timestamp") val timestamp: String?,
+    @com.google.gson.annotations.SerializedName("source") val source: String?,
+    @com.google.gson.annotations.SerializedName("is_plant_image") val is_plant_image: Boolean?,
+    @com.google.gson.annotations.SerializedName("can_analyze") val can_analyze: Boolean?,
+    @com.google.gson.annotations.SerializedName("invalid_image_reason") val invalid_image_reason: String?,
+    @com.google.gson.annotations.SerializedName("ai_analyzed") val ai_analyzed: Boolean?,
+    @com.google.gson.annotations.SerializedName("store_recommendations") val store_recommendations: List<StoreRecommendationItem>?
 )
 
 data class DiseaseHistoryResponse(
@@ -326,57 +311,7 @@ data class VoiceQueryResponse(
     val response: String,
     val data: Map<String, Any>?,
     val detected_language: String,
-    val detected_dialect: String? = null,
     val confidence: Double,
-    val input_language: String? = null,
-    val input_dialect: String? = null,
-    val response_language: String? = null,
-    val response_dialect: String? = null,
-    val tts_language: String? = null,
-    val tts_dialect: String? = null,
-    val tts_provider: String? = null,
-    val tts_model: String? = null,
-    val native_tts: Boolean? = null,
-    val local_tts: Boolean? = null,
-    val fallback_used: Boolean? = null,
-    val fallback_reason: String? = null,
-    val audio_base64: String? = null,
-    val audio_format: String? = null,
     val follow_up_suggestions: List<String>?,
     val timestamp: String
 )
-
-// ============ IOT ANIMAL DETECTION ============
-
-data class SensorDetailModel(
-    val status: String,
-    val health: String,
-    val sensor_type: String,
-    val last_seen: String? = null
-)
-
-data class LatestStatusModel(
-    val device_id: String,
-    val overall_status: String,
-    val sensors: Map<String, SensorDetailModel>,
-    val detected_sensors: List<String>,
-    val offline_sensors: List<String>,
-    val last_updated: String? = null
-)
-
-data class DetectionEventModel(
-    val id: Int,
-    val device_id: String,
-    val sensor: String,
-    val sensor_type: String,
-    val status: String,
-    val timestamp: String
-)
-
-data class HistoryResponseModel(
-    val total: Int,
-    val limit: Int,
-    val offset: Int,
-    val events: List<DetectionEventModel>
-)
-
