@@ -40,8 +40,32 @@ async def run_mandi_forecasting_pipeline(request: MandiForecastRequest) -> Mandi
     """
     logger.info("mandi_price_forecast_start", commodity=request.commodity, mandi=request.mandi, days=request.days)
     
-    # Base baseline price for specified commodity
-    base_price = 2450.0 if "wheat" in request.commodity.lower() else (5400.0 if "mustard" in request.commodity.lower() else 2100.0)
+    # Retrieve real observed price from MarketService if available
+    base_price = None
+    try:
+        from app.services.market_service import MarketService
+        prices = await MarketService.get_current_prices(commodity=request.commodity, market=request.mandi)
+        if prices and prices[0].get("modal_price"):
+            base_price = float(prices[0]["modal_price"])
+    except Exception as e:
+        logger.warning("mandi_forecast_observed_price_fetch_error", error=str(e))
+
+    if base_price is None or base_price <= 0:
+        comm_lower = request.commodity.lower()
+        if "wheat" in comm_lower or "गेहूं" in comm_lower:
+            base_price = 2450.0
+        elif "mustard" in comm_lower or "सरसों" in comm_lower:
+            base_price = 5400.0
+        elif "soybean" in comm_lower or "सोयाबीन" in comm_lower:
+            base_price = 4600.0
+        elif "cotton" in comm_lower or "कपास" in comm_lower:
+            base_price = 7150.0
+        elif "gram" in comm_lower or "chana" in comm_lower or "चना" in comm_lower:
+            base_price = 5120.0
+        elif "onion" in comm_lower or "प्याज" in comm_lower:
+            base_price = 2100.0
+        else:
+            base_price = 2200.0
     
     forecasts: list[DailyPriceForecast] = []
     today = datetime.now(timezone.utc)

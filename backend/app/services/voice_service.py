@@ -235,8 +235,8 @@ Rules:
         request: VoiceQueryRequest
     ) -> Dict[str, Any]:
         from app.tools.registry import tool_registry
-        lat = request.latitude or 24.6178
-        lon = request.longitude or 73.9937
+        lat = request.latitude or 20.5937
+        lon = request.longitude or 78.9629
         soil = intent.extracted_entities.get("soil_type") or "Sandy Soil"
         tool_res = await tool_registry.execute(
             "crop_recommendation_tool",

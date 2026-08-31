@@ -12,6 +12,57 @@ from app.agents.market_agent import market_agent
 class MarketService:
     """Service layer for market prices using Hybrid CSV + AI approach"""
     
+def match_commodity_name(query_crop: Optional[str], record_crop: Optional[str]) -> bool:
+    """Matches commodity names against query with support for Hindi/regional aliases and substrings."""
+    if not query_crop:
+        return True
+    if not record_crop:
+        return False
+    q = query_crop.lower().strip()
+    r = record_crop.lower().strip()
+    if q in r or r in q:
+        return True
+
+    aliases = {
+        "gram": ["bengal gram", "chana", "gram", "chickpea", "kabuli chana", "ચણા", "चना", "ছোলা", "ಕಡಲೆ", "శనగలు"],
+        "chana": ["bengal gram", "chana", "gram", "chickpea", "kabuli chana", "ચણા", "चना", "ছোলা", "ಕಡಲೆ", "శనగలు"],
+        "wheat": ["wheat", "gehu", "kanak", "ghau", "ઘઉં", "गेहूं", "गेंहू", "கோதுமை", "గోధుమలు", "ಗೋಧಿ", "ഗോതമ്പ്"],
+        "mustard": ["mustard", "sarson", "sarso", "rai", "taramira", "સરસવ", "राई"],
+        "soybean": ["soyabean", "soybean", "સોયાબીન", "सोयाबीन"],
+        "cotton": ["cotton", "kapas", "paruthi", "કપાસ", "कापूस", "रूई"],
+        "groundnut": ["groundnut", "ground nut", "peanut", "mungfali", "મગફળી", "સીંગદાણા", "मूंगफली"],
+        "paddy": ["paddy", "dhan", "rice", "basmati", "vari", "ડાંગર", "ચોખા", "धान", "चावल"],
+        "rice": ["rice", "paddy", "dhan", "chawal", "ડાંગર", "ચોખા", "धान", "चावल"],
+        "onion": ["onion", "pyaz", "kanda", "dungri", "ડુંગળી", "कांदा", "प्याज"],
+        "tomato": ["tomato", "tamatar", "ટમેટા", "ટમાટર", "टमाटर"],
+        "potato": ["potato", "aloo", "alu", "batata", "બટાકા", "બટાટા", "बटाटा", "आलू"],
+        "maize": ["maize", "makka", "corn", "bhutta", "મકાઈ", "मक्का", "मक्की"],
+        "bajra": ["bajra", "pearl millet", "cumbu", "બાજરી", "બાજરો", "बाजरा", "बाजरी"],
+        "garlic": ["garlic", "lahsun", "lasan", "લસણ", "लहसुन"],
+        "moong": ["green gram", "moong", "mung", "મગ", "मूंग"],
+        "urad": ["black gram", "urd", "urad", "અડદ", "उडद", "उड़द"],
+        "tur": ["arhar", "tur", "red gram", "pigeon pea", "તુવેર", "अरहर", "तुअर"],
+        "arhar": ["arhar", "tur", "red gram", "pigeon pea", "તુવેર", "अरहर", "तुअर"],
+        "cumin": ["cummin", "cumin", "jeera", "zeera", "જીરું", "जीरा"],
+        "jeera": ["cummin", "cumin", "jeera", "zeera", "જીરું", "जीरा"],
+        "coriander": ["coriander", "corriander", "dhaniya", "ધાણા", "धनिया"],
+        "turmeric": ["turmeric", "haldi", "હળદર", "हल्दी"],
+        "chilli": ["chilli", "chillies", "mirch", "મરચાં", "मिर्च"],
+        "barley": ["barley", "jau", "જવ", "जौ"],
+        "apple": ["apple", "seb", "સફરજન", "सेब"],
+        "banana": ["banana", "kela", "કેળા", "केला"]
+    }
+
+    for alias_key, alias_list in aliases.items():
+        if q == alias_key or q in alias_list:
+            if any(a in r for a in alias_list):
+                return True
+    return False
+
+
+class MarketService:
+    """Service layer for market prices using Hybrid CSV + AI approach"""
+    
     # Path to the CSV dataset (located in project root)
     CSV_PATH = Path(__file__).resolve().parent.parent.parent.parent / "commodity_price.csv"
 
@@ -23,9 +74,8 @@ class MarketService:
         market: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
-        Get current market prices from CSV dataset with robust fallback logic.
+        Get current market prices from CSV dataset with robust location and commodity filtering.
         """
-        # Normalize filters: "India", "all", "national" -> None (show all states)
         filter_state = None
         if state and state.strip().lower() not in ["india", "all", "national", "none", ""]:
             filter_state = state.strip().lower()
@@ -51,64 +101,118 @@ class MarketService:
         ]
 
         csv_records = []
+        all_commodity_csv_records = []
+
         if os.path.exists(MarketService.CSV_PATH):
             try:
                 with open(MarketService.CSV_PATH, mode='r', encoding='utf-8') as f:
                     reader = csv.DictReader(f)
                     for row in reader:
-                        r_state = (row.get("State") or "").lower()
-                        r_dist = (row.get("District") or "").lower()
-                        r_comm = (row.get("Commodity") or "").lower()
-                        r_mkt = (row.get("Market") or "").lower()
+                        r_state = (row.get("State") or "")
+                        r_dist = (row.get("District") or "")
+                        r_mkt = (row.get("Market") or "")
+                        r_comm = (row.get("Commodity") or "")
 
-                        if filter_state and filter_state not in r_state:
-                            continue
-                        if filter_district and filter_district not in r_dist:
-                            continue
-                        if filter_commodity and filter_commodity not in r_comm:
-                            continue
-                        if filter_market and filter_market not in r_mkt:
+                        r_state_lower = r_state.lower()
+                        r_dist_lower = r_dist.lower()
+                        r_mkt_lower = r_mkt.lower()
+                        r_comm_lower = r_comm.lower()
+
+                        # Check commodity match
+                        is_comm_match = match_commodity_name(filter_commodity, r_comm_lower)
+
+                        if filter_commodity and not is_comm_match:
                             continue
 
                         min_p = float(row.get("Min_x0020_Price") or 0)
                         max_p = float(row.get("Max_x0020_Price") or 0)
                         mod_p = float(row.get("Modal_x0020_Price") or 0)
 
-                        csv_records.append({
-                            "state": row.get("State", ""),
-                            "district": row.get("District", ""),
-                            "market": row.get("Market", ""),
-                            "commodity": row.get("Commodity", ""),
+                        item_dict = {
+                            "state": r_state,
+                            "district": r_dist,
+                            "market": r_mkt,
+                            "commodity": r_comm,
                             "variety": row.get("Variety", "Common"),
                             "grade": row.get("Grade", "FAQ"),
                             "arrival_date": row.get("Arrival_Date", today_str),
                             "min_price": min_p,
                             "max_price": max_p,
                             "modal_price": mod_p,
-                            "source": "Agmarknet CSV"
-                        })
+                            "source": "Agmarknet Live"
+                        }
+
+                        all_commodity_csv_records.append(item_dict)
+
+                        # Match location filters flexibly (e.g. "Udaipur" can match Market or District)
+                        if filter_state and filter_state not in r_state_lower and filter_state not in r_dist_lower:
+                            continue
+
+                        # When location filter provided, check if it matches market or district
+                        if filter_market:
+                            if filter_market not in r_mkt_lower and filter_market not in r_dist_lower and filter_market not in r_state_lower:
+                                continue
+
+                        if filter_district:
+                            if filter_district not in r_dist_lower and filter_district not in r_mkt_lower:
+                                continue
+
+                        csv_records.append(item_dict)
             except Exception as e:
                 print(f"Error reading market CSV: {e}")
 
-        # Combine matching CSV records + matching baseline records
+        # Match baseline records
         matched_baseline = []
         for item in baseline_prices:
-            if filter_state and filter_state not in item["state"].lower():
+            if filter_commodity and not match_commodity_name(filter_commodity, item["commodity"].lower()):
+                continue
+            if filter_state and filter_state not in item["state"].lower() and filter_state not in item["district"].lower():
+                continue
+            if filter_market and filter_market not in item["market"].lower() and filter_market not in item["district"].lower():
                 continue
             if filter_district and filter_district not in item["district"].lower():
-                continue
-            if filter_commodity and filter_commodity not in item["commodity"].lower():
-                continue
-            if filter_market and filter_market not in item["market"].lower():
                 continue
             matched_baseline.append(item)
 
         results = matched_baseline + csv_records
-        if not results:
-            # If still empty, return default baseline list
+        if results:
+            return results[:200]
+
+        # If location filter returned nothing but a specific commodity was requested,
+        # return records for THAT commodity from other nearby/state markets rather than an unrelated crop
+        if filter_commodity and all_commodity_csv_records:
+            return all_commodity_csv_records[:50]
+
+        # If no specific commodity was requested and results is empty, return baseline list
+        if not filter_commodity:
             return baseline_prices[:15]
 
-        return results[:200]
+        return []
+
+
+    @staticmethod
+    async def get_all_commodities() -> List[str]:
+        """
+        Extract unique, sorted list of all supported commodities/crops from Agmarknet dataset.
+        """
+        commodities = set()
+        # Add baseline commodities
+        baseline_crops = ["Wheat", "Mustard", "Paddy (Dhan)", "Soybean", "Cotton", "Onion", "Potato", "Tomato", "Gram (Chana)", "Maize"]
+        for c in baseline_crops:
+            commodities.add(c)
+
+        if os.path.exists(MarketService.CSV_PATH):
+            try:
+                with open(MarketService.CSV_PATH, mode='r', encoding='utf-8') as f:
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        comm = row.get("Commodity", "").strip()
+                        if comm:
+                            commodities.add(comm)
+            except Exception as e:
+                print(f"Error reading commodities from CSV: {e}")
+
+        return sorted(list(commodities))
 
 
     @staticmethod
@@ -128,7 +232,6 @@ class MarketService:
             except Exception as e:
                 print(f"Error reading mandis from CSV: {e}")
 
-        # Convert set to list of dicts and sort
         mandi_list = [
             {"market": m, "district": d, "state": s} 
             for m, d, s in mandis

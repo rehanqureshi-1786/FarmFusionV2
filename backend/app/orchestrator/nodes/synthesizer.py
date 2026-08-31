@@ -195,6 +195,119 @@ async def response_synthesizer_node(state: OrchestratorState) -> OrchestratorSta
         else:
             response = f"Today at {mandi}, the modal price for {comm} is ₹{price} per quintal."
 
+    # 7a. Handle Best Practical & Nearby Mandi
+    elif intent in ["best_nearby_mandi", "best_practical_mandi"]:
+        comm = tool_data.get("commodity", "फसल") if isinstance(tool_data, dict) else "फसल"
+        practical = tool_data.get("best_practical_mandi") or tool_data.get("best_mandi") if isinstance(tool_data, dict) else None
+        highest = tool_data.get("highest_price_mandi") if isinstance(tool_data, dict) else None
+
+        if practical:
+            p_name = practical.get("market", "मंडी")
+            p_price = practical.get("modal_price", "--")
+            p_dist = practical.get("distance_km")
+            p_dist_hi = f" ({p_dist} किमी)" if p_dist else ""
+            p_dist_en = f" ({p_dist} km)" if p_dist else ""
+
+            if highest and highest.get("market") != p_name:
+                h_name = highest.get("market", "मंडी")
+                h_price = highest.get("modal_price", "--")
+                h_dist = highest.get("distance_km")
+                h_dist_hi = f" ({h_dist} किमी)" if h_dist else ""
+                h_dist_en = f" ({h_dist} km)" if h_dist else ""
+
+                if is_marwari:
+                    response = f"भाव और दूरी रे मुजब {p_name}{p_dist_hi} में ₹{p_price} प्रति क्विंटल सबसूं व्यावहारिक विकल्प है। सबसूं अधिक दर्ज भाव {h_name}{h_dist_hi} में ₹{h_price} है।"
+                elif lang == "hi":
+                    response = f"उपलब्ध भाव और दूरी को देखते हुए {p_name}{p_dist_hi} में ₹{p_price} प्रति क्विंटल सबसे व्यावहारिक विकल्प दिख रही है। सबसे अधिक दर्ज भाव {h_name}{h_dist_hi} में ₹{h_price}/क्विंटल है।"
+                else:
+                    response = f"Considering price and distance, {p_name}{p_dist_en} at ₹{p_price}/Q is the most practical option. Highest recorded price is at {h_name}{h_dist_en} at ₹{h_price}/Q."
+            else:
+                if is_marwari:
+                    response = f"थांके नेड़े {comm} रो सबसूं व्यावहारिक और उच्चतम भाव {p_name}{p_dist_hi} में ₹{p_price} प्रति क्विंटल है।"
+                elif lang == "hi":
+                    response = f"आपके पास {comm} का सबसे व्यावहारिक और उच्चतम दर्ज भाव {p_name}{p_dist_hi} में ₹{p_price} प्रति क्विंटल है।"
+                else:
+                    response = f"Most practical market and highest recorded price for {comm} near you is {p_name}{p_dist_en} at ₹{p_price}/Quintal."
+        else:
+            response = f"आपके पास {comm} के मंडी भाव का डेटा उपलब्ध नहीं है।" if lang == "hi" else f"No nearby market price data found for {comm}."
+
+    # 7b. Handle Mandi Comparison
+    elif intent == "compare_mandi":
+        comp = tool_data.get("comparison") if isinstance(tool_data, dict) else None
+        if comp:
+            diff = comp.get("price_difference", 0)
+            pct = comp.get("percentage_difference", 0)
+            higher = comp.get("higher_market", "")
+            if higher == "EQUAL":
+                if is_marwari:
+                    response = "दोनूं मंडियां में भाव एक जेडा (बराबर) दर्ज है।"
+                elif lang == "hi":
+                    response = "दोनों मंडियों में भाव समान दर्ज किया गया है।"
+                else:
+                    response = "Prices are equal in both markets."
+            else:
+                if is_marwari:
+                    response = f"{higher} मंडी में भाव ₹{diff} प्रति क्विंटल ({pct}%) अधिक दर्ज है।"
+                elif lang == "hi":
+                    response = f"{higher} में भाव ₹{diff} प्रति क्विंटल ({pct}%) अधिक दर्ज है।"
+                else:
+                    response = f"{higher} recorded price is ₹{diff}/Q ({pct}%) higher."
+        else:
+            response = "मंडियों के भाव की तुलना उपलब्ध नहीं हो सकी।" if lang == "hi" else "Market price comparison unavailable."
+
+    # 7c. Handle Sell-Now vs Wait Advisory
+    elif intent == "sell_wait_advisory":
+        adv = tool_data.get("advisory") if isinstance(tool_data, dict) else None
+        if adv:
+            rec_hi = adv.get("recommendation_hi", "")
+            rec_en = adv.get("recommendation_en", "")
+            if is_marwari:
+                sig = adv.get("signal")
+                if sig == "POSSIBLE_UPSIDE":
+                    response = "मॉडल रे मुजब आगलै 7 दिनां में भाव थोड़ा बढ़ण री संभावना है। जल्दी नीं होवै तो रुक सको हो।"
+                elif sig == "FAVORABLE_TO_SELL":
+                    response = "मॉडल रे मुजब भाव में नरमी आ सकै है। अभी बेचना ठीक रैवैला।"
+                elif sig == "INSUFFICIENT_EVIDENCE":
+                    response = "इण टेम उपलब्ध डेटा सूं पक्की दिशा नीं मिल री है।"
+                else:
+                    response = "आगलै दिनां में भाव लगभग बराबर रहण रो अनुमान है।"
+            elif lang == "hi":
+                response = rec_hi
+            else:
+                response = rec_en
+        else:
+            response = "इस समय उपलब्ध डेटा से स्पष्ट दिशा नहीं मिल रही है।" if lang == "hi" else "Insufficient data to provide advisory."
+
+    # 7d. Handle Forecast Explanation
+    elif intent == "explain_forecast":
+        factors = tool_data.get("factors") if isinstance(tool_data, dict) else []
+        comm = tool_data.get("commodity", "फसल") if isinstance(tool_data, dict) else "फसल"
+        if factors:
+            f_hi = factors[0].get("description_hi", "")
+            f_en = factors[0].get("description_en", "")
+            if is_marwari:
+                response = f"{comm} भाव अनुमान: पिछले हफ्तों के ट्रेंड और मौसमी आवक के आधार पर मॉडल ने यह अनुमान लगाया है।"
+            elif lang == "hi":
+                response = f"{comm} का अनुमान: {f_hi}"
+            else:
+                response = f"{comm} forecast: {f_en}"
+        else:
+            response = f"{comm} के भाव अनुमान का ऐतिहासिक विश्लेषण उपलब्ध है।" if lang == "hi" else f"Historical model components factored for {comm}."
+
+    # 7e. Handle Price Opportunity Alert
+    elif intent == "price_alert":
+        tp = tool_data.get("target_price") if isinstance(tool_data, dict) else None
+        comm = tool_data.get("commodity", "फसल") if isinstance(tool_data, dict) else "फसल"
+        if tp:
+            if is_marwari:
+                response = f"{comm} रो भाव अलर्ट ₹{tp} प्रति क्विंटल माथै सेट कर दियो है।"
+            elif lang == "hi":
+                response = f"{comm} के लिए भाव अलर्ट ₹{tp} प्रति क्विंटल पर सक्रिय कर दिया गया है।"
+            else:
+                response = f"Price alert for {comm} set at target ₹{tp}/Quintal."
+        else:
+            response = f"{comm} के लिए भाव अलर्ट दर्ज कर लिया गया है।" if lang == "hi" else f"Price alert registered for {comm}."
+
     # 8. Handle Crop Disease Info
     elif intent == "disease":
         if tool_status == "requires_photo":

@@ -228,6 +228,64 @@ class ToolRegistry:
             self._execute_animal_detection,
         )
 
+        # 11. Best Nearby & Best Practical Mandi Tool
+        self.register(
+            ToolDefinition(
+                name="best_nearby_mandi_tool",
+                description="Ranks nearby mandis by practical scoring (price + distance + freshness) and highest recorded price.",
+                required_slots=["commodity"],
+                optional_slots=["latitude", "longitude", "district", "state", "max_distance_km"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_best_nearby_mandi,
+        )
+        self.register(
+            ToolDefinition(
+                name="best_practical_mandi_tool",
+                description="Calculates deterministic best practical mandi based on price, distance, and observation freshness.",
+                required_slots=["commodity"],
+                optional_slots=["latitude", "longitude", "district", "state", "max_distance_km"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_best_nearby_mandi,
+        )
+
+        # 12. Mandi Comparison Tool
+        self.register(
+            ToolDefinition(
+                name="mandi_comparison_tool",
+                description="Calculates exact mathematical price difference and spread between two mandis.",
+                required_slots=["commodity", "market_a", "market_b"],
+                optional_slots=[],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_mandi_comparison,
+        )
+
+        # 13. Mandi Sell vs Wait Advisory & Forecast Explanation Tool
+        self.register(
+            ToolDefinition(
+                name="mandi_advisory_tool",
+                description="Deterministic sell-now vs wait decision support and time-series forecast explanation.",
+                required_slots=["commodity"],
+                optional_slots=["market", "days", "query_type"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_mandi_advisory,
+        )
+
+        # 14. Price Opportunity Alert Tool
+        self.register(
+            ToolDefinition(
+                name="price_alert_tool",
+                description="Creates and stores custom commodity price trigger alerts.",
+                required_slots=["commodity"],
+                optional_slots=["target_price", "direction", "percentage_change", "market"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_price_alert,
+        )
+
     # -------------------------------------------------------------------------
     # Executors
     # -------------------------------------------------------------------------
@@ -269,9 +327,9 @@ class ToolRegistry:
         )
 
     async def _execute_crop_recommendation(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        lat = float(slots.get("latitude") or context.get("latitude") or 24.6178)
-        lon = float(slots.get("longitude") or context.get("longitude") or 73.9937)
-        state = slots.get("state") or context.get("state") or "Rajasthan"
+        lat = float(slots.get("latitude") or context.get("latitude") or 20.5937)
+        lon = float(slots.get("longitude") or context.get("longitude") or 78.9629)
+        state = slots.get("state") or context.get("state") or "India"
         soil_type = slots.get("soil_type") or context.get("soil_type") or "Sandy Soil"
         season = slots.get("season") or context.get("season")
         has_soil_report = bool(slots.get("has_soil_report", False))
@@ -460,8 +518,8 @@ class ToolRegistry:
         )
 
     async def _execute_soil_info(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        lat = float(slots.get("latitude") or context.get("latitude") or 24.6178)
-        lon = float(slots.get("longitude") or context.get("longitude") or 73.9937)
+        lat = float(slots.get("latitude") or context.get("latitude") or 20.5937)
+        lon = float(slots.get("longitude") or context.get("longitude") or 78.9629)
 
         nutrients = await soil_service.get_soil_nutrients(lat, lon)
         return ToolResult(
@@ -585,6 +643,170 @@ class ToolRegistry:
                 provenance=ProvenanceMetadata(source="iot_service", estimated_vs_measured="measured"),
                 message="No animal intrusion detected.",
                 localized_message={"hi": "खेत सुरक्षित है।", "en": "Area is clear."}
+            )
+
+    async def _execute_best_nearby_mandi(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        commodity = slots.get("commodity") or context.get("commodity") or "Wheat"
+        lat = float(slots.get("latitude") or context.get("latitude") or 26.9124)
+        lon = float(slots.get("longitude") or context.get("longitude") or 75.7873)
+        dist_name = slots.get("district") or context.get("district")
+        state_name = slots.get("state") or context.get("state")
+
+        try:
+            from app.services.mandi_intelligence import MandiIntelligenceService
+            res = await MandiIntelligenceService.get_best_nearby_mandis(
+                commodity=commodity,
+                latitude=lat,
+                longitude=lon,
+                district=dist_name,
+                state=state_name,
+                limit=5
+            )
+
+            practical = res.best_practical_mandi or res.best_mandi
+            highest = res.highest_price_mandi
+
+            if practical:
+                p_dist = f" ({practical.distance_km} किमी)" if practical.distance_km else ""
+                p_dist_en = f" ({practical.distance_km} km)" if practical.distance_km else ""
+
+                if highest and highest.market != practical.market:
+                    h_dist = f" ({highest.distance_km} किमी)" if highest.distance_km else ""
+                    h_dist_en = f" ({highest.distance_km} km)" if highest.distance_km else ""
+                    hi_msg = (
+                        f"उपलब्ध भाव और दूरी को देखते हुए {practical.market}{p_dist} में ₹{int(practical.modal_price)}/क्विंटल सबसे व्यावहारिक विकल्प दिख रही है। "
+                        f"सबसे अधिक दर्ज भाव {highest.market}{h_dist} में ₹{int(highest.modal_price)}/क्विंटल है।"
+                    )
+                    en_msg = (
+                        f"Based on price and distance, {practical.market}{p_dist_en} at ₹{int(practical.modal_price)}/Q is the most practical option. "
+                        f"Highest recorded price is at {highest.market}{h_dist_en} at ₹{int(highest.modal_price)}/Q."
+                    )
+                else:
+                    hi_msg = f"आपके पास {commodity} का सबसे व्यावहारिक और उच्चतम दर्ज भाव {practical.market}{p_dist} में ₹{int(practical.modal_price)}/क्विंटल है।"
+                    en_msg = f"Most practical market and highest recorded price for {commodity} near you is {practical.market}{p_dist_en} at ₹{int(practical.modal_price)}/Quintal."
+            else:
+                hi_msg = f"आपके क्षेत्र के आसपास {commodity} के भाव का डेटा उपलब्ध नहीं हो सका।"
+                en_msg = f"No nearby market price records found for {commodity}."
+
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                data=res.model_dump(),
+                provenance=ProvenanceMetadata(
+                    source="Agmarknet Geospatial Price Intelligence",
+                    estimated_vs_measured="measured",
+                    location=practical.market if practical else "Regional Mandis"
+                ),
+                message=en_msg,
+                localized_message={"hi": hi_msg, "en": en_msg}
+            )
+        except Exception as e:
+            return ToolResult(
+                status=ToolStatus.UNAVAILABLE,
+                data=None,
+                provenance=ProvenanceMetadata(source="MandiIntelligenceService", estimated_vs_measured="unavailable"),
+                message=f"Error finding best nearby mandi: {str(e)}"
+            )
+
+    async def _execute_mandi_comparison(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        commodity = slots.get("commodity") or "Wheat"
+        mkt_a = slots.get("market_a") or "Udaipur"
+        mkt_b = slots.get("market_b") or "Jaipur"
+
+        try:
+            from app.services.mandi_intelligence import MandiIntelligenceService
+            res = await MandiIntelligenceService.compare_mandis(commodity=commodity, market_a=mkt_a, market_b=mkt_b)
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                data=res.model_dump(),
+                provenance=ProvenanceMetadata(
+                    source="Deterministic Agmarknet Market Comparison",
+                    estimated_vs_measured="measured"
+                ),
+                message=res.comparison.summary_en,
+                localized_message={"hi": res.comparison.summary_hi, "en": res.comparison.summary_en}
+            )
+        except Exception as e:
+            return ToolResult(
+                status=ToolStatus.UNAVAILABLE,
+                data=None,
+                provenance=ProvenanceMetadata(source="MandiIntelligenceService", estimated_vs_measured="unavailable"),
+                message=f"Error comparing mandis: {str(e)}"
+            )
+
+    async def _execute_mandi_advisory(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        commodity = slots.get("commodity") or "Wheat"
+        market = slots.get("market") or "Jaipur Mandi"
+        days = int(slots.get("days") or 7)
+        q_type = slots.get("query_type", "advisory")  # advisory or explanation
+
+        try:
+            from app.services.mandi_intelligence import MandiIntelligenceService
+            if q_type == "explanation":
+                exp_res = await MandiIntelligenceService.get_forecast_explanation(commodity=commodity, market=market)
+                return ToolResult(
+                    status=ToolStatus.SUCCESS,
+                    data=exp_res.model_dump(),
+                    provenance=ProvenanceMetadata(source="Prophet + LightGBM Ensemble Signals", estimated_vs_measured="estimated"),
+                    message=f"Forecast explanation for {commodity}: {exp_res.factors[0].description_en}",
+                    localized_message={"hi": f"{commodity} भाव अनुमान: {exp_res.factors[0].description_hi}", "en": exp_res.factors[0].description_en}
+                )
+            else:
+                adv_res = await MandiIntelligenceService.get_sell_wait_advisory(commodity=commodity, market=market, days=days)
+                return ToolResult(
+                    status=ToolStatus.SUCCESS,
+                    data=adv_res.model_dump(),
+                    provenance=ProvenanceMetadata(source="Prophet + LightGBM Advisory Engine", estimated_vs_measured="estimated"),
+                    message=adv_res.advisory.recommendation_en,
+                    localized_message={"hi": adv_res.advisory.recommendation_hi, "en": adv_res.advisory.recommendation_en}
+                )
+        except Exception as e:
+            return ToolResult(
+                status=ToolStatus.UNAVAILABLE,
+                data=None,
+                provenance=ProvenanceMetadata(source="MandiIntelligenceService", estimated_vs_measured="unavailable"),
+                message=f"Error generating mandi advisory: {str(e)}"
+            )
+
+    async def _execute_price_alert(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        commodity = slots.get("commodity") or "Wheat"
+        target_p = float(slots.get("target_price")) if slots.get("target_price") else None
+        target_pct = float(slots.get("percentage_change")) if slots.get("percentage_change") else None
+        direction = slots.get("direction", "ABOVE").upper()
+        market = slots.get("market")
+
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.services.mandi_intelligence import MandiIntelligenceService
+            from app.schemas.market import PriceAlertCreate
+
+            payload = PriceAlertCreate(
+                commodity=commodity,
+                market=market,
+                target_price=target_p,
+                direction=direction,
+                target_percentage_change=target_pct,
+                user_id=context.get("user_id", "default_user")
+            )
+
+            async with AsyncSessionLocal() as session:
+                alert_res = await MandiIntelligenceService.create_price_alert(db=session, payload=payload)
+
+            hi_msg = f"{commodity} के लिए भाव अलर्ट सेट हो गया है (लक्ष्य: ₹{alert_res.target_price}/क्विंटल)।"
+            en_msg = f"Price alert created for {commodity} (Target: ₹{alert_res.target_price}/Q)."
+
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                data=alert_res.model_dump(),
+                provenance=ProvenanceMetadata(source="FarmFusion Opportunity Alert System", estimated_vs_measured="measured"),
+                message=en_msg,
+                localized_message={"hi": hi_msg, "en": en_msg}
+            )
+        except Exception as e:
+            return ToolResult(
+                status=ToolStatus.UNAVAILABLE,
+                data=None,
+                provenance=ProvenanceMetadata(source="MandiIntelligenceService", estimated_vs_measured="unavailable"),
+                message=f"Error creating price alert: {str(e)}"
             )
 
 

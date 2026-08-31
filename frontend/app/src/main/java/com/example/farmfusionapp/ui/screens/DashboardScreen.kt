@@ -97,7 +97,7 @@ fun DashboardScreen(navController: NavController) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var weatherData by remember { mutableStateOf(WeatherSnapshotStore.latestWeather) }
-    var locationName by remember { mutableStateOf(WeatherSnapshotStore.latestWeather?.city ?: "Waiting for location...") }
+    var locationName by remember { mutableStateOf(WeatherSnapshotStore.latestWeather?.city ?: LocationSnapshotStore.latestCity ?: "Location unavailable") }
     var hasLocationPermission by remember { mutableStateOf(false) }
 
     val groupedActions = remember {
@@ -539,14 +539,13 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Uni
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
                         .background(Color.White.copy(alpha = 0.2f))
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     WeatherStatItem(Icons.Rounded.WaterDrop, "Humidity", weatherData?.let { "${it.humidity}%" } ?: "--")
                     Box(modifier = Modifier.height(24.dp).width(1.dp).background(Color.White.copy(alpha = 0.3f)))
-                    WeatherStatItem(Icons.Rounded.Air, "Wind", weatherData?.let { "${it.windSpeed.toInt()} km/h" } ?: "--")
-                    Box(modifier = Modifier.height(24.dp).width(1.dp).background(Color.White.copy(alpha = 0.3f)))
-                    WeatherStatItem(Icons.Rounded.Speed, "Pressure", "1012 hPa")
+                    WeatherStatItem(Icons.Rounded.Air, "Wind Speed", weatherData?.let { "${it.windSpeed.toInt()} km/h" } ?: "--")
                 }
             }
         }

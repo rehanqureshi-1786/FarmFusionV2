@@ -1,18 +1,19 @@
 package com.example.farmfusionapp.ui.screens
 
 import android.app.Activity
+import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Agriculture
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,202 +30,236 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.farmfusionapp.R
+import com.example.farmfusionapp.data.model.AppLanguage
+import com.example.farmfusionapp.data.model.LanguageRegistry
+import com.example.farmfusionapp.network.RetrofitInstance
 import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
 import com.example.farmfusionapp.ui.components.PremiumButton
 import com.example.farmfusionapp.utils.AuthStore
+import com.example.farmfusionapp.utils.LocaleHelper
 import com.example.farmfusionapp.viewmodel.UserViewModel
+import kotlinx.coroutines.launch
 
-data class Language(
-    val name: String,
-    val localName: String,
-    val greeting: String,
-    val code: String,
-    val color: Color
-)
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LanguageSelectionScreen(
     navController: NavController,
     userViewModel: UserViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val englishLabel = stringResource(R.string.lang_local_english)
-    val hindiLabel = stringResource(R.string.lang_local_hindi)
+    val coroutineScope = rememberCoroutineScope()
 
-    val languages = remember(englishLabel, hindiLabel) {
-        listOf(
-            Language(englishLabel, "English", "Hello", "en", Color(0xFFE3F2FD)),
-            Language(hindiLabel, "हिन्दी", "नमस्ते", "hi", Color(0xFFFFF3E0)),
-            Language("Hinglish", "Hinglish", "Kya haal hai", "hi-en", Color(0xFFF3E5F5)),
-            Language("Marathi", "मराठी", "नमस्कार", "mr", Color(0xFFE8F5E9)),
-            Language("Punjabi", "ਪੰਜਾਬੀ", "Sat Sri Akal", "pa", Color(0xFFFBE9E7)),
-            Language("Telugu", "తెలుగు", "నమస్కారం", "te", Color(0xFFE0F2F1))
-        )
-    }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("ALL") } // ALL, SCHEDULED, DIALECTS
 
-    var selectedLanguageCode by remember { 
-        mutableStateOf(AuthStore.getLanguage(context) ?: "en") 
-    }
+    val savedLang = remember { AuthStore.getLanguage(context) ?: "en" }
+    val savedDialect = remember { AuthStore.getDialect(context) }
+    var selectedCode by remember { mutableStateOf(savedDialect ?: savedLang) }
     var isSaving by remember { mutableStateOf(false) }
 
-    NeoScaffoldBackground {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            Spacer(modifier = Modifier.height(40.dp))
+    val allLanguages = LanguageRegistry.allLanguages
 
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Surface(
-                    modifier = Modifier.size(80.dp).shadow(12.dp, CircleShape),
-                    shape = CircleShape,
-                    color = Color.White
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                brush = Brush.linearGradient(
-                                    listOf(Color(0xFF2C7B46), Color(0xFF7BB45A))
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Agriculture,
-                            contentDescription = null,
-                            modifier = Modifier.size(44.dp),
-                            tint = Color.White
-                        )
+    val filteredLanguages = allLanguages.filter { lang ->
+        val matchesCategory = when (selectedCategory) {
+            "SCHEDULED" -> !lang.isDialect
+            "DIALECTS" -> lang.isDialect
+            else -> true
+        }
+        val matchesSearch = searchQuery.isBlank() ||
+            lang.name.contains(searchQuery, ignoreCase = true) ||
+            lang.nativeName.contains(searchQuery, ignoreCase = true) ||
+            lang.code.contains(searchQuery, ignoreCase = true) ||
+            lang.regions.any { it.contains(searchQuery, ignoreCase = true) }
+        matchesCategory && matchesSearch
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Select Language / भाषा चुनें", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                     }
                 }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Text(
-                    text = stringResource(R.string.choose_app_language),
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1B1B1B)
-                    ),
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = stringResource(R.string.select_lang_desc),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Color.Gray
-                    ),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-            }
-
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(bottom = 16.dp)
+            )
+        }
+    ) { padding ->
+        NeoScaffoldBackground(modifier = Modifier.fillMaxSize().padding(padding)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(languages) { language ->
-                    val isSelected = selectedLanguageCode == language.code
-                    Surface(
-                        onClick = { selectedLanguageCode = language.code },
-                        shape = RoundedCornerShape(24.dp),
-                        color = if (isSelected) Color.White else Color.White.copy(alpha = 0.6f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .shadow(if (isSelected) 8.dp else 2.dp, RoundedCornerShape(24.dp)),
-                        border = BorderStroke(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFEEEEEE)
-                        )
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(
-                                            if (isSelected) language.color.copy(alpha = 0.4f) else Color.Transparent,
-                                            Color.White
-                                        )
-                                    )
-                                )
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                // Search Bar
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    shadowElevation = 2.dp,
+                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    TextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Search language or dialect (e.g. Marwari, Gujarati, हिन्दी)...", fontSize = 13.sp) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }) {
+                                    Icon(Icons.Rounded.Clear, contentDescription = "Clear")
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                // Category Filter Chips
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = selectedCategory == "ALL",
+                        onClick = { selectedCategory = "ALL" },
+                        label = { Text("All (${allLanguages.size})", fontSize = 12.sp) }
+                    )
+                    FilterChip(
+                        selected = selectedCategory == "SCHEDULED",
+                        onClick = { selectedCategory = "SCHEDULED" },
+                        label = { Text("Primary (${LanguageRegistry.scheduledLanguages.size})", fontSize = 12.sp) }
+                    )
+                    FilterChip(
+                        selected = selectedCategory == "DIALECTS",
+                        onClick = { selectedCategory = "DIALECTS" },
+                        label = { Text("Regional & Dialects (${LanguageRegistry.regionalDialects.size})", fontSize = 12.sp) }
+                    )
+                }
+
+                // Languages List
+                LazyColumn(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 8.dp)
+                ) {
+                    items(filteredLanguages, key = { it.code }) { lang ->
+                        val isSelected = selectedCode.equals(lang.code, ignoreCase = true)
+                        Surface(
+                            onClick = { selectedCode = lang.code },
+                            shape = RoundedCornerShape(16.dp),
+                            color = if (isSelected) Color(0xFFECFDF5) else Color.White,
+                            border = BorderStroke(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFE5E7EB)
+                            ),
+                            shadowElevation = if (isSelected) 4.dp else 1.dp,
+                            modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(
-                                            if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.1f) 
-                                            else Color(0xFFF5F5F5), 
-                                            CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = if (isSelected) Icons.Rounded.Check else Icons.Rounded.Language,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(18.dp),
-                                        tint = if (isSelected) MaterialTheme.colorScheme.primary else Color.Gray
-                                    )
+                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            text = lang.nativeName,
+                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                        )
+                                        Text(
+                                            text = "• ${lang.name}",
+                                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
+                                        )
+                                    }
+
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        // Type badge
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = if (lang.isDialect) Color(0xFFFEF3C7) else Color(0xFFDBEAFE)
+                                        ) {
+                                            Text(
+                                                text = if (lang.isDialect) "Dialect of ${lang.parentLanguage?.uppercase() ?: "HI"}" else "Primary",
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = if (lang.isDialect) Color(0xFF92400E) else Color(0xFF1E40AF)
+                                                )
+                                            )
+                                        }
+
+                                        // Capability badge
+                                        Text(
+                                            text = lang.capabilityLabel,
+                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                fontSize = 10.sp,
+                                                color = if (lang.supportTier == 1) Color(0xFF047857) else Color(0xFF6B7280),
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        )
+                                    }
                                 }
-                            }
-                            
-                            Column {
-                                Text(
-                                    text = language.localName,
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFF1B1B1B)
-                                    )
-                                )
-                                Text(
-                                    text = language.name,
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
-                                )
+
+                                if (isSelected) {
+                                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Rounded.Check, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            PremiumButton(
-                text = "SAVE CHANGES / सुरक्षित करें",
-                onClick = {
-                    isSaving = true
-                    AuthStore.saveLanguage(context, selectedLanguageCode)
-                    
-                    val token = AuthStore.getAuthToken(context)
-                    if (token != null) {
-                        userViewModel.updateLanguage(token, selectedLanguageCode) { _, _ ->
-                            isSaving = false
-                            // Recreate to apply locale, NavHost will then start at Splash
-                            (context as? Activity)?.recreate()
+                // Confirm / Apply Button
+                Button(
+                    onClick = {
+                        val chosen = LanguageRegistry.findByCode(selectedCode) ?: LanguageRegistry.scheduledLanguages.first()
+                        val primaryLang = if (chosen.isDialect) (chosen.parentLanguage ?: "hi") else chosen.code
+                        val dialect = if (chosen.isDialect) chosen.code else null
+
+                        isSaving = true
+                        AuthStore.saveLanguageAndDialect(context, primaryLang, dialect)
+                        LocaleHelper.wrap(context, primaryLang)
+
+                        coroutineScope.launch {
+                            try {
+                                val token = AuthStore.getAuthToken(context)
+                                if (!token.isNullOrBlank()) {
+                                    userViewModel.updateLanguage(token, chosen.code) { _, _ -> }
+                                }
+                            } catch (_: Exception) {}
+                            finally {
+                                isSaving = false
+                                navController.popBackStack()
+                            }
                         }
+                    },
+                    enabled = !isSaving,
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
-                        isSaving = false
-                        // If not logged in, just go to Splash -> Login
-                        (context as? Activity)?.recreate()
+                        val chosenName = LanguageRegistry.findByCode(selectedCode)?.displayTitle ?: "Selected Language"
+                        Text("Apply $chosenName", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                     }
-                },
-                isLoading = isSaving,
-                modifier = Modifier.fillMaxWidth().height(56.dp)
-            )
-            
-            Spacer(modifier = Modifier.height(10.dp))
+                }
+            }
         }
     }
 }

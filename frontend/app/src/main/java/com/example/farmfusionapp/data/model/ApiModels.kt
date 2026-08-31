@@ -380,3 +380,125 @@ data class HistoryResponseModel(
     val events: List<DetectionEventModel>
 )
 
+// ============ MANDI PRICE INTELLIGENCE ============
+
+data class MandiProximityItemModel(
+    val market_id: String? = null,
+    val market: String,
+    val district: String,
+    val state: String,
+    val distance_km: Double? = null,
+    val modal_price: Double,
+    val min_price: Double,
+    val max_price: Double,
+    val arrival_date: String,
+    val unit: String = "₹/Quintal",
+    val source: String,
+    val freshness_status: String = "FRESH",
+    val practical_score: Double = 0.0,
+    val ranking_reason: String = "",
+    val is_best_practical: Boolean = false,
+    val is_highest_price: Boolean = false,
+    val wording_label: String = "उपलब्ध दर्ज भाव"
+)
+
+data class BestMandiResponseModel(
+    val commodity: String,
+    val best_mandi: MandiProximityItemModel? = null,
+    val best_practical_mandi: MandiProximityItemModel? = null,
+    val highest_price_mandi: MandiProximityItemModel? = null,
+    val ranked_mandis: List<MandiProximityItemModel>,
+    val total_found: Int,
+    val status: String = "SUCCESS",
+    val disclaimer: String
+)
+
+data class MarketComparisonItemModel(
+    val market: String,
+    val district: String? = null,
+    val state: String? = null,
+    val modal_price: Double,
+    val min_price: Double,
+    val max_price: Double,
+    val arrival_date: String,
+    val unit: String = "₹/Quintal",
+    val source: String
+)
+
+data class MandiComparisonDetailModel(
+    val higher_market: String,
+    val price_difference: Double,
+    val percentage_difference: Double,
+    val unit: String = "₹/Quintal",
+    val summary_hi: String,
+    val summary_en: String
+)
+
+data class MandiComparisonResponseModel(
+    val commodity: String,
+    val market_a: MarketComparisonItemModel,
+    val market_b: MarketComparisonItemModel,
+    val comparison: MandiComparisonDetailModel
+)
+
+data class AdvisoryObservedModel(
+    val price: Double,
+    val date: String,
+    val market: String,
+    val source: String,
+    val unit: String = "₹/Quintal"
+)
+
+data class AdvisoryForecastModel(
+    val horizon_days: Int,
+    val projected_price: Double,
+    val expected_change: Double,
+    val percentage_change: Double,
+    val trend: String,
+    val confidence_level: Double,
+    val lower_bound_95: Double,
+    val upper_bound_95: Double,
+    val model_name: String
+)
+
+data class AdvisoryDetailModel(
+    val signal: String,
+    val recommendation_hi: String,
+    val recommendation_en: String,
+    val reasoning_factors: List<String>
+)
+
+data class MandiAdvisoryResponseModel(
+    val commodity: String,
+    val market: String,
+    val observed: AdvisoryObservedModel,
+    val forecast: AdvisoryForecastModel,
+    val advisory: AdvisoryDetailModel,
+    val disclaimer: String
+)
+
+data class PriceAlertCreateModel(
+    val commodity: String,
+    val market: String? = null,
+    val target_price: Double? = null,
+    val direction: String = "ABOVE",
+    val target_percentage_change: Double? = null,
+    val user_id: String = "default_user"
+)
+
+data class PriceAlertResponseModel(
+    val id: Int,
+    val user_id: String,
+    val commodity: String,
+    val market: String? = null,
+    val target_price: Double? = null,
+    val direction: String,
+    val target_percentage_change: Double? = null,
+    val base_price: Double,
+    val status: String,
+    val created_at: String,
+    val triggered_at: String? = null,
+    val notification_status: String
+)
+
+

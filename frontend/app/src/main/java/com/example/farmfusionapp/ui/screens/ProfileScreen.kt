@@ -28,6 +28,7 @@ import androidx.navigation.NavController
 import com.example.farmfusionapp.R
 import com.example.farmfusionapp.viewmodel.AuthViewModel
 import com.example.farmfusionapp.utils.AffiliatePreferences
+import com.example.farmfusionapp.utils.AuthStore
 import com.example.farmfusionapp.utils.LanguagePreferences
 import com.example.farmfusionapp.utils.LocaleHelper
 import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
@@ -40,15 +41,11 @@ import com.example.farmfusionapp.ui.screens.WeatherSnapshotStore
 fun ProfileScreen(navController: NavController) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val langCode = LanguagePreferences.getSelectedLanguage(context) ?: "en"
-    val langLabel = when (LocaleHelper.resourceLocaleTag(langCode)) {
-        "hi" -> stringResource(R.string.profile_lang_display_hi)
-        "mr" -> stringResource(R.string.profile_lang_display_mr)
-        "gu" -> stringResource(R.string.profile_lang_display_gu)
-        "pa" -> stringResource(R.string.profile_lang_display_pa)
-        "te" -> stringResource(R.string.profile_lang_display_te)
-        else -> stringResource(R.string.profile_lang_display_en)
-    }
+    val savedLang = AuthStore.getLanguage(context) ?: "en"
+    val savedDialect = AuthStore.getDialect(context)
+    val activeCode = savedDialect ?: savedLang
+    val langObj = remember(activeCode) { com.example.farmfusionapp.data.model.LanguageRegistry.findByCode(activeCode) }
+    val langLabel = langObj?.let { "${it.nativeName} (${it.name})" } ?: "English"
 
     val authViewModel: AuthViewModel = remember { AuthViewModel() }
     val userInfo = remember { authViewModel.getCurrentUserInfo() }
@@ -136,7 +133,7 @@ fun ProfileScreen(navController: NavController) {
                                 tint = Color.White.copy(alpha = 0.8f)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            val displayCity = WeatherSnapshotStore.latestWeather?.city ?: "Nagpur, Maharashtra"
+                            val displayCity = WeatherSnapshotStore.latestWeather?.city ?: com.example.farmfusionapp.utils.LocationSnapshotStore.latestCity ?: "Location unavailable"
                             Text(
                                 text = displayCity, 
                                 style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.9f))

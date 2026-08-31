@@ -195,7 +195,125 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
                 filled_slots["soil_type"] = normalize_soil_name(s_word)
                 break
 
-    # 12. Mandi / Market Prices Intent (Multi-lingual: Gujarati 'ભાવ', Punjabi 'ਕੀਮਤ', Telugu 'ధర', Tamil 'விலை', Kannada 'ಬೆಲೆ', Malayalam 'വില', Odia 'ଦର', Urdu 'قیمत')
+    # 12. Mandi Intelligence & Price Queries (High-value farmer features)
+    # 12a. Price Opportunity Alert Intent: "अगर गेहूं 2600 रुपये से ऊपर जाए तो बताना", "गेहूं के लिए alert लगाओ"
+    elif any(kw in query for kw in ["alert", "अलर्ट"]) or (any(kw in query for kw in ["अगर", "यदि", "बता देना", "बताओ जब", "notify"]) and any(kw in query for kw in ["से ऊपर", "बढ़े", "घटे", "रुपये से", "ऊपर जाए", "above", "below", "reach"])):
+        intent = "price_alert"
+        confidence = 0.95
+        num_match = re.search(r'(\d{3,6})', query)
+        if num_match:
+            filled_slots["target_price"] = float(num_match.group(1))
+        pct_match = re.search(r'(\d+)\s*(?:प्रतिशत|%|percent)', query)
+        if pct_match:
+            filled_slots["percentage_change"] = float(pct_match.group(1))
+        filled_slots["direction"] = "BELOW" if any(w in query for w in ["नीचे", "घटे", "below", "कम"]) else "ABOVE"
+
+        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "गन्ना", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "sugarcane", "onion", "potato", "garlic", "tomato"]:
+            if c_word in query:
+                filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
+                break
+
+        # Multi-turn slot clarification
+        if "commodity" not in filled_slots:
+            state["requires_clarification"] = True
+            state["clarification_question"] = "किस फसल के लिए अलर्ट सेट करना है?"
+        elif "target_price" not in filled_slots and "percentage_change" not in filled_slots:
+            state["requires_clarification"] = True
+            state["clarification_question"] = f"{filled_slots['commodity']} के लिए किस भाव पर अलर्ट सेट करना है (जैसे ₹2600)?"
+
+    # 12b. Forecast Explanation Intent: "भाव बढ़ने का अनुमान क्यों है?", "भाव क्यों बढ़ेगा?"
+    elif any(kw in query for kw in ["अनुमान क्यों", "क्यों बढ़ेगा", "क्यों गिरेगा", "क्यों है", "why forecast", "why price rise", "explain forecast"]):
+        intent = "explain_forecast"
+        confidence = 0.95
+        filled_slots["query_type"] = "explanation"
+        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "onion"]:
+            if c_word in query:
+                filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
+                break
+        if "commodity" not in filled_slots:
+            filled_slots["commodity"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
+
+    # 12c. Sell-Now vs Wait Advisory Intent: "आज बेचूं या रुकूं?", "अभी बेचना ठीक रहेगा?", "कब बेचूं?"
+    elif any(kw in query for kw in ["बेचूं या रुकूं", "बेचना ठीक", "रुकना ठीक", "कब बेचना", "sell now or wait", "should i sell", "should i wait"]):
+        intent = "sell_wait_advisory"
+        confidence = 0.95
+        filled_slots["query_type"] = "advisory"
+        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "onion"]:
+            if c_word in query:
+                filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
+                break
+        if "commodity" not in filled_slots:
+            filled_slots["commodity"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
+
+    # 12d. Mandi Comparison Intent: "उदयपुर और जयपुर में कौन महंगा है?", "गेहूं का भाव compare करो", "मंडी तुलना"
+    elif any(kw in query for kw in ["compare", "तुलना", "कहाँ महंगा", "कौन महंगा", "कहाँ सस्ता", "vs", "versus"]):
+        intent = "compare_mandi"
+        confidence = 0.95
+        cities = []
+        city_lookup = {
+            "जयपुर": "Jaipur", "jaipur": "Jaipur",
+            "उदयपुर": "Udaipur", "udaipur": "Udaipur",
+            "कोटा": "Kota", "kota": "Kota",
+            "जोधपुर": "Jodhpur", "jodhpur": "Jodhpur",
+            "बीकानेर": "Bikaner", "bikaner": "Bikaner",
+            "इंदौर": "Indore", "indore": "Indore",
+            "भोपाल": "Bhopal", "bhopal": "Bhopal",
+            "लुधियाना": "Ludhiana", "ludhiana": "Ludhiana",
+            "करनाल": "Karnal", "karnal": "Karnal",
+            "नासिक": "Nashik", "nashik": "Nashik",
+            "पुणे": "Pune", "pune": "Pune",
+            "राजकोट": "Rajkot", "rajkot": "Rajkot",
+            "सूरत": "Surat", "surat": "Surat",
+            "अहमदाबाद": "Ahmedabad", "ahmedabad": "Ahmedabad",
+            "आगरा": "Agra", "agra": "Agra"
+        }
+        for token, c_name in city_lookup.items():
+            if token in query:
+                if c_name not in cities:
+                    cities.append(c_name)
+
+        if len(cities) >= 2:
+            filled_slots["market_a"] = cities[0]
+            filled_slots["market_b"] = cities[1]
+        elif len(cities) == 1:
+            filled_slots["market_a"] = cities[0]
+
+        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "onion"]:
+            if c_word in query:
+                filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
+                break
+
+        # Multi-turn slot clarification
+        if "commodity" not in filled_slots and not (last_recs and any(w in query for w in ["इसका", "इस फसल"])):
+            state["requires_clarification"] = True
+            state["clarification_question"] = "किस फसल का भाव compare करना है?"
+        elif not filled_slots.get("market_a") or not filled_slots.get("market_b"):
+            state["requires_clarification"] = True
+            state["clarification_question"] = "कौन-कौन सी दो मंडियों की तुलना करनी है?"
+
+    # 12e. Best Practical Mandi Intent: "मेरे पास गेहूं कहाँ बेचना बेहतर रहेगा?", "कौन सी मंडी पास भी है और भाव भी अच्छा है?"
+    elif any(kw in query for kw in ["कहाँ बेचना बेहतर", "बेचना बेहतर रहेगा", "पास भी है और भाव भी", "पास भी और भाव", "व्यवहारिक", "best practical", "practical mandi"]):
+        intent = "best_practical_mandi"
+        confidence = 0.96
+        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "गन्ना", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "sugarcane", "onion", "potato", "garlic", "tomato"]:
+            if c_word in query:
+                filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
+                break
+        if "commodity" not in filled_slots:
+            filled_slots["commodity"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
+
+    # 12f. Best Nearby Mandi Intent: "मेरे पास गेहूं सबसे महंगा कहाँ बिक रहा है?", "मेरे आसपास मूंगफली का भाव कहाँ अच्छा है?"
+    elif any(kw in query for kw in ["मेरे पास", "आसपास", "पास में", "नजदीकी", "near me", "nearby", "best mandi", "सबसे महंगा कहाँ", "कहाँ अच्छा", "कहाँ बिक रहा"]):
+        intent = "best_nearby_mandi"
+        confidence = 0.95
+        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "गन्ना", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "sugarcane", "onion", "potato", "garlic", "tomato"]:
+            if c_word in query:
+                filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
+                break
+        if "commodity" not in filled_slots:
+            filled_slots["commodity"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
+
+    # 12f. General Mandi / Market Prices Intent (Multi-lingual: Gujarati 'ભાવ', Punjabi 'ਕੀਮਤ', Telugu 'ధర', Tamil 'விலை', Kannada 'ಬೆಲೆ', Malayalam 'വില', Odia 'ଦର', Urdu 'قیمत')
     elif any(kw in query for kw in [
         "मंडी", "भाव", "कीमत", "दाम", "price", "mandi", "rate", "market", "रेट", "दर", "चल रहा", "क्या रेट", "क्या भाव", "कितना है",
         "bhav", "mandi bhav", "market rate", "kitna hai", "kya rate", "bhav kya",
@@ -274,7 +392,8 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
     else:
         state["intent"] = intent
         state["intent_confidence"] = confidence
-        state["requires_clarification"] = False
+        if not state.get("requires_clarification"):
+            state["requires_clarification"] = False
 
     state["filled_slots"] = filled_slots
     return state

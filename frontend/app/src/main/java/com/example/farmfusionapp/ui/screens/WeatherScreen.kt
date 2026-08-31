@@ -45,7 +45,6 @@ data class DisplayWeatherData(
     val description: String,
     val humidity: Int,
     val windSpeed: Double,
-    val pressure: Int,
     val city: String,
     val advice: String,
     val forecast: List<DailyForecast> = emptyList()
@@ -311,14 +310,13 @@ private fun WeatherHero(weatherData: DisplayWeatherData) {
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(20.dp))
                         .background(Color.White.copy(alpha = 0.2f))
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
                     WeatherHeroStat(Icons.Rounded.WaterDrop, "Humidity", "${weatherData.humidity}%")
                     Box(modifier = Modifier.height(24.dp).width(1.dp).background(Color.White.copy(alpha = 0.3f)))
-                    WeatherHeroStat(Icons.Rounded.Air, "Wind", "${weatherData.windSpeed.toInt()} km/h")
-                    Box(modifier = Modifier.height(24.dp).width(1.dp).background(Color.White.copy(alpha = 0.3f)))
-                    WeatherHeroStat(Icons.Rounded.Compress, "Pressure", "${weatherData.pressure} hPa")
+                    WeatherHeroStat(Icons.Rounded.Air, "Wind Speed", "${weatherData.windSpeed.toInt()} km/h")
                 }
             }
         }
@@ -464,7 +462,6 @@ suspend fun fetchWeatherFromLocation(
                     description = backendData.weather,
                     humidity = backendData.humidity_percent,
                     windSpeed = backendData.wind_speed_ms,
-                    pressure = backendData.pressure_hpa,
                     city = city,
                     advice = backendData.farming_advice
                 )

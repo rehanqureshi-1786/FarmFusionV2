@@ -89,35 +89,23 @@ fun VoiceAssistantScreen(navController: NavController) {
     val voiceState by viewModel.voiceState
     val listState = rememberLazyListState()
 
-    // 20+ Verified Indian Languages & Agrarian Regional Varieties
+    // Unified 38-language inventory from canonical LanguageRegistry
     val availableLanguages = remember {
-        listOf(
-            VoiceLanguage("hi", "Hindi", "हिन्दी (Hindi)", Locale("hi", "IN")),
-            VoiceLanguage("mr", "Marathi", "मराठी (Marathi)", Locale("mr", "IN")),
-            VoiceLanguage("gu", "Gujarati", "ગુજરાતી (Gujarati)", Locale("gu", "IN")),
-            VoiceLanguage("pa", "Punjabi", "ਪੰਜਾਬੀ (Punjabi)", Locale("pa", "IN")),
-            VoiceLanguage("te", "Telugu", "తెలుగు (Telugu)", Locale("te", "IN")),
-            VoiceLanguage("bn", "Bengali", "বাংলা (Bengali)", Locale("bn", "IN")),
-            VoiceLanguage("ta", "Tamil", "தமிழ் (Tamil)", Locale("ta", "IN")),
-            VoiceLanguage("kn", "Kannada", "ಕನ್ನಡ (Kannada)", Locale("kn", "IN")),
-            VoiceLanguage("ml", "Malayalam", "മലയാളം (Malayalam)", Locale("ml", "IN")),
-            VoiceLanguage("or", "Odia", "ଓଡ଼ିଆ (Odia)", Locale("or", "IN")),
-            VoiceLanguage("as", "Assamese", "অসমীয়া (Assamese)", Locale("as", "IN")),
-            VoiceLanguage("mai", "Maithili", "मैथिली (Maithili)", Locale("mai", "IN")),
-            VoiceLanguage("bgc", "Haryanvi", "हरियाणवी (Haryanvi)", Locale("hi", "IN")),
-            VoiceLanguage("hne", "Chhattisgarhi", "छत्तीसगढ़ी (Chhattisgarhi)", Locale("hi", "IN")),
-            VoiceLanguage("awa", "Awadhi", "अवधी (Awadhi)", Locale("hi", "IN")),
-            VoiceLanguage("mag", "Magahi", "मगही (Magahi)", Locale("hi", "IN")),
-            VoiceLanguage("gbm", "Garhwali", "गढ़वाली (Garhwali)", Locale("hi", "IN")),
-            VoiceLanguage("dgo", "Dogri", "डोगरी (Dogri)", Locale("hi", "IN")),
-            VoiceLanguage("ur", "Urdu", "اردو (Urdu)", Locale("ur", "IN")),
-            VoiceLanguage("en", "English", "English (India)", Locale("en", "IN"))
-        )
+        com.example.farmfusionapp.data.model.LanguageRegistry.allLanguages.map { lang ->
+            VoiceLanguage(
+                code = lang.code,
+                label = lang.name,
+                nativeLabel = lang.displayTitle,
+                locale = lang.getLocale()
+            )
+        }
     }
 
     var selectedLanguage by remember {
-        val preferred = AuthStore.getLanguage(context) ?: "hi"
-        mutableStateOf(availableLanguages.firstOrNull { it.code == preferred } ?: availableLanguages.first())
+        val preferredDialect = AuthStore.getDialect(context)
+        val preferredLang = AuthStore.getLanguage(context) ?: "hi"
+        val activeCode = preferredDialect ?: preferredLang
+        mutableStateOf(availableLanguages.firstOrNull { it.code == activeCode } ?: availableLanguages.first())
     }
     var languageDropdownExpanded by remember { mutableStateOf(false) }
 
