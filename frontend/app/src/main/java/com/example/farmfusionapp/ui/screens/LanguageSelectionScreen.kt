@@ -1,264 +1,307 @@
 package com.example.farmfusionapp.ui.screens
 
 import android.app.Activity
-import androidx.compose.animation.*
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.VolumeUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.farmfusionapp.R
-import com.example.farmfusionapp.data.model.AppLanguage
-import com.example.farmfusionapp.data.model.LanguageRegistry
-import com.example.farmfusionapp.network.RetrofitInstance
-import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
 import com.example.farmfusionapp.ui.components.PremiumButton
 import com.example.farmfusionapp.utils.AuthStore
-import com.example.farmfusionapp.utils.LocaleHelper
 import com.example.farmfusionapp.viewmodel.UserViewModel
-import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+data class AppLanguage(
+    val code: String,
+    val nativeName: String,
+    val englishName: String,
+    val illustration: Int,
+    val baseColor: Color
+)
+
 @Composable
 fun LanguageSelectionScreen(
     navController: NavController,
     userViewModel: UserViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
 
-    var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("ALL") } // ALL, SCHEDULED, DIALECTS
-
-    val savedLang = remember { AuthStore.getLanguage(context) ?: "en" }
-    val savedDialect = remember { AuthStore.getDialect(context) }
-    var selectedCode by remember { mutableStateOf(savedDialect ?: savedLang) }
-    var isSaving by remember { mutableStateOf(false) }
-
-    val allLanguages = LanguageRegistry.allLanguages
-
-    val filteredLanguages = allLanguages.filter { lang ->
-        val matchesCategory = when (selectedCategory) {
-            "SCHEDULED" -> !lang.isDialect
-            "DIALECTS" -> lang.isDialect
-            else -> true
-        }
-        val matchesSearch = searchQuery.isBlank() ||
-            lang.name.contains(searchQuery, ignoreCase = true) ||
-            lang.nativeName.contains(searchQuery, ignoreCase = true) ||
-            lang.code.contains(searchQuery, ignoreCase = true) ||
-            lang.regions.any { it.contains(searchQuery, ignoreCase = true) }
-        matchesCategory && matchesSearch
+    val languages = remember {
+        listOf(
+            AppLanguage("hi", "हिंदी", "Hindi", R.drawable.ill_lang_hi, Color(0xFF81C784)),
+            AppLanguage("en", "English", "English", R.drawable.ill_lang_en, Color(0xFF4CAF50)),
+            AppLanguage("ta", "தமிழ்", "Tamil", R.drawable.ill_lang_ta, Color(0xFFFFB74D)),
+            AppLanguage("te", "తెలుగు", "Telugu", R.drawable.ill_lang_te, Color(0xFF64B5F6)),
+            AppLanguage("gu", "ગુજરાતી", "Gujarati", R.drawable.ill_lang_gu, Color(0xFF4FC3F7)),
+            AppLanguage("bn", "বাংলা", "Bangla", R.drawable.ill_lang_bn, Color(0xFFF06292)),
+            AppLanguage("mr", "मराठी", "Marathi", R.drawable.ill_lang_mr, Color(0xFFAED581)),
+            AppLanguage("kn", "ಕನ್ನಡ", "Kannada", R.drawable.ill_lang_kn, Color(0xFFFFD54F))
+        )
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Select Language / भाषा चुनें", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                    }
-                }
+    val currentCode = remember { AuthStore.getLanguage(context) ?: "en" }
+    var selectedLanguage by remember {
+        mutableStateOf(languages.find { it.code == currentCode } ?: languages[1])
+    }
+
+    var isSaving by remember { mutableStateOf(false) }
+
+    val navigateForward = {
+        isSaving = false
+        navController.navigate(NavRoutes.Splash) {
+            popUpTo(NavRoutes.LanguageSelection) { inclusive = true }
+        }
+        (context as? Activity)?.recreate()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFAFAFA))
+            .statusBarsPadding()
+            .padding(top = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // --- Header Section ---
+        Icon(
+            imageVector = Icons.Rounded.Language,
+            contentDescription = "Globe Icon",
+            tint = Color(0xFF2E7D32),
+            modifier = Modifier.size(36.dp)
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = "Choose Your Language",
+            style = MaterialTheme.typography.headlineMedium.copy(
+                fontWeight = FontWeight.ExtraBold,
+                color = Color(0xFF1B3B22),
+                fontSize = 24.sp
+            )
+        )
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.VolumeUp,
+                contentDescription = "Audio Instructions",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Select the languages you're comfortable with",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF6B7B6B),
+                    fontSize = 13.sp
+                )
             )
         }
-    ) { padding ->
-        NeoScaffoldBackground(modifier = Modifier.fillMaxSize().padding(padding)) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Search Bar
-                Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.White,
-                    shadowElevation = 2.dp,
-                    border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                    modifier = Modifier.fillMaxWidth()
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // --- Fluid Weighted Grid Section ---
+        Column(
+            modifier = Modifier
+                .weight(1f) // Consumes all middle space perfectly
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            val chunkedLanguages = languages.chunked(2)
+            chunkedLanguages.forEach { rowLanguages ->
+                Row(
+                    modifier = Modifier
+                        .weight(1f) // Divides vertical space equally across all 4 rows
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    TextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        placeholder = { Text("Search language or dialect (e.g. Marwari, Gujarati, हिन्दी)...", fontSize = 13.sp) },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
-                        trailingIcon = {
-                            if (searchQuery.isNotEmpty()) {
-                                IconButton(onClick = { searchQuery = "" }) {
-                                    Icon(Icons.Rounded.Clear, contentDescription = "Clear")
-                                }
-                            }
-                        },
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                // Category Filter Chips
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = selectedCategory == "ALL",
-                        onClick = { selectedCategory = "ALL" },
-                        label = { Text("All (${allLanguages.size})", fontSize = 12.sp) }
-                    )
-                    FilterChip(
-                        selected = selectedCategory == "SCHEDULED",
-                        onClick = { selectedCategory = "SCHEDULED" },
-                        label = { Text("Primary (${LanguageRegistry.scheduledLanguages.size})", fontSize = 12.sp) }
-                    )
-                    FilterChip(
-                        selected = selectedCategory == "DIALECTS",
-                        onClick = { selectedCategory = "DIALECTS" },
-                        label = { Text("Regional & Dialects (${LanguageRegistry.regionalDialects.size})", fontSize = 12.sp) }
-                    )
-                }
-
-                // Languages List
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 8.dp)
-                ) {
-                    items(filteredLanguages, key = { it.code }) { lang ->
-                        val isSelected = selectedCode.equals(lang.code, ignoreCase = true)
-                        Surface(
-                            onClick = { selectedCode = lang.code },
-                            shape = RoundedCornerShape(16.dp),
-                            color = if (isSelected) Color(0xFFECFDF5) else Color.White,
-                            border = BorderStroke(
-                                width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFE5E7EB)
-                            ),
-                            shadowElevation = if (isSelected) 4.dp else 1.dp,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(14.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text(
-                                            text = lang.nativeName,
-                                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-                                        )
-                                        Text(
-                                            text = "• ${lang.name}",
-                                            style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
-                                        )
-                                    }
-
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        // Type badge
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = if (lang.isDialect) Color(0xFFFEF3C7) else Color(0xFFDBEAFE)
-                                        ) {
-                                            Text(
-                                                text = if (lang.isDialect) "Dialect of ${lang.parentLanguage?.uppercase() ?: "HI"}" else "Primary",
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                style = MaterialTheme.typography.labelSmall.copy(
-                                                    fontSize = 10.sp,
-                                                    fontWeight = FontWeight.SemiBold,
-                                                    color = if (lang.isDialect) Color(0xFF92400E) else Color(0xFF1E40AF)
-                                                )
-                                            )
-                                        }
-
-                                        // Capability badge
-                                        Text(
-                                            text = lang.capabilityLabel,
-                                            style = MaterialTheme.typography.labelSmall.copy(
-                                                fontSize = 10.sp,
-                                                color = if (lang.supportTier == 1) Color(0xFF047857) else Color(0xFF6B7280),
-                                                fontWeight = FontWeight.Medium
-                                            )
-                                        )
-                                    }
-                                }
-
-                                if (isSelected) {
-                                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp)) {
-                                        Box(contentAlignment = Alignment.Center) {
-                                            Icon(Icons.Rounded.Check, contentDescription = "Selected", tint = Color.White, modifier = Modifier.size(16.dp))
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    rowLanguages.forEach { language ->
+                        LanguageGridCard(
+                            modifier = Modifier.weight(1f), // Halves the width perfectly
+                            language = language,
+                            isSelected = selectedLanguage == language,
+                            onClick = { selectedLanguage = language }
+                        )
                     }
                 }
+            }
+        }
 
-                // Confirm / Apply Button
-                Button(
-                    onClick = {
-                        val chosen = LanguageRegistry.findByCode(selectedCode) ?: LanguageRegistry.scheduledLanguages.first()
-                        val primaryLang = if (chosen.isDialect) (chosen.parentLanguage ?: "hi") else chosen.code
-                        val dialect = if (chosen.isDialect) chosen.code else null
-
-                        isSaving = true
-                        AuthStore.saveLanguageAndDialect(context, primaryLang, dialect)
-                        LocaleHelper.wrap(context, primaryLang)
-
-                        coroutineScope.launch {
-                            try {
-                                val token = AuthStore.getAuthToken(context)
-                                if (!token.isNullOrBlank()) {
-                                    userViewModel.updateLanguage(token, chosen.code) { _, _ -> }
-                                }
-                            } catch (_: Exception) {}
-                            finally {
-                                isSaving = false
-                                navController.popBackStack()
-                            }
-                        }
-                    },
-                    enabled = !isSaving,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-                    shape = RoundedCornerShape(16.dp),
+        // --- Bottom Sticky Button ---
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = Color.Transparent,
+            shadowElevation = 0.dp
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 24.dp) // Restored nice padding
+            ) {
+                PremiumButton(
+                    text = "Continue",
+                    icon = Icons.Rounded.ArrowForward,
+                    isLoading = isSaving,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
-                ) {
-                    if (isSaving) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    } else {
-                        val chosenName = LanguageRegistry.findByCode(selectedCode)?.displayTitle ?: "Selected Language"
-                        Text("Apply $chosenName", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF2E7D32),
+                        contentColor = Color.White
+                    ),
+                    onClick = {
+                        isSaving = true
+                        AuthStore.saveLanguage(context, selectedLanguage.code)
+
+                        val token = AuthStore.getAuthToken(context)
+                        if (token != null) {
+                            userViewModel.updateLanguage(token, selectedLanguage.code) { _, _ ->
+                                navigateForward()
+                            }
+                        } else {
+                            navigateForward()
+                        }
                     }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun LanguageGridCard(
+    modifier: Modifier = Modifier,
+    language: AppLanguage,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+
+    // Fluid animations for selection state
+    val targetScale = if (isSelected) 1.15f else 1.0f
+    val animatedScale by animateFloatAsState(
+        targetValue = targetScale,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "IllustrationScale"
+    )
+
+    val targetOpacity = if (isSelected) 0.8f else 0.5f
+    val animatedOpacity by animateFloatAsState(
+        targetValue = targetOpacity,
+        animationSpec = tween(durationMillis = 300),
+        label = "IllustrationOpacity"
+    )
+
+    val animatedBgColor by animateColorAsState(
+        targetValue = if (isSelected) language.baseColor.copy(alpha = 0.25f) else language.baseColor.copy(alpha = 0.08f),
+        animationSpec = tween(durationMillis = 300),
+        label = "CardBackgroundColor"
+    )
+
+    val borderColor = if (isSelected) language.baseColor.copy(alpha = 0.6f) else Color.Transparent
+
+    Surface(
+        modifier = modifier
+            .fillMaxSize() // Removed aspectRatio so it organically fills the given flex weight
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            ),
+        shape = RoundedCornerShape(20.dp),
+        color = animatedBgColor,
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+
+            // Background Illustration (Right Aligned, Scaled down initially)
+            Image(
+                painter = painterResource(id = language.illustration),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .fillMaxWidth(0.6f)
+                    .fillMaxHeight(0.7f)
+                    .padding(end = 8.dp, bottom = 4.dp)
+                    .graphicsLayer {
+                        // Transforms scale originating from the bottom right so it doesn't clip out of the card
+                        transformOrigin = TransformOrigin(1f, 1f)
+                        scaleX = animatedScale
+                        scaleY = animatedScale
+                        alpha = animatedOpacity
+                    }
+            )
+
+            // Top Content Layout
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                // Language Names
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = language.nativeName,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF1B1B1B),
+                            fontSize = 15.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = language.englishName,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF757575)
+                        )
+                    )
                 }
+
+                // Radio Button Indicator
+                Icon(
+                    imageVector = if (isSelected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
+                    contentDescription = if (isSelected) "Selected" else "Unselected",
+                    tint = if (isSelected) Color(0xFF2E7D32) else Color(0xFF9E9E9E),
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

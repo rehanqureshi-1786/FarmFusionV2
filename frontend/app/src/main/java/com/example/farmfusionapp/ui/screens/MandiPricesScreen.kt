@@ -1,10 +1,14 @@
 package com.example.farmfusionapp.ui.screens
 
+import android.content.Intent
+import androidx.core.net.toUri
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -13,35 +17,46 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.CompareArrows
-import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImagePainter
 import coil.compose.SubcomposeAsyncImage
+import coil.compose.SubcomposeAsyncImageContent
 import coil.request.ImageRequest
-import com.example.farmfusionapp.data.model.*
-import com.example.farmfusionapp.network.RetrofitInstance
+import com.example.farmfusionapp.R
+import com.example.farmfusionapp.data.model.MarketPrice
+import com.example.farmfusionapp.models.RankedProduct
+import com.example.farmfusionapp.ui.components.NeoCard
 import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
+import com.example.farmfusionapp.ui.components.NeoSectionTitle
+import com.example.farmfusionapp.ui.components.PremiumButton
 import com.example.farmfusionapp.utils.commodityHeroImageUrl
-import com.example.farmfusionapp.utils.LocationSnapshotStore
 import com.example.farmfusionapp.viewmodel.MarketViewModel
 import com.example.farmfusionapp.viewmodel.ProductViewModel
-import kotlinx.coroutines.launch
+import com.example.farmfusionapp.ui.screens.LocalGlobalBlur
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,114 +65,76 @@ fun MandiPricesScreen(
     viewModel: MarketViewModel = viewModel(),
     productViewModel: ProductViewModel = viewModel()
 ) {
-    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
     var selectedCategory by remember { mutableStateOf("ALL CROPS") }
     var searchQuery by remember { mutableStateOf("") }
-    
+
     val pricesState by viewModel.pricesState
-    val categories = listOf("ALL CROPS", "GRAINS", "VEGETABLES", "PULSES", "FRUITS", "SPICES")
-    
-    // Comprehensive default crop list (covers 30+ high-volume Agmarknet crops)
-    val defaultCrops = listOf(
-        "Wheat", "Gram", "Mustard", "Soybean", "Cotton", "Groundnut", "Paddy (Dhan)",
-        "Onion", "Tomato", "Potato", "Maize", "Bajra", "Garlic", "Moong", "Urad",
-        "Arhar (Tur)", "Cumin (Jeera)", "Coriander", "Turmeric", "Green Chilli", "Dry Chillies",
-        "Barley", "Apple", "Banana", "Mango", "Pomegranate", "Ginger", "Guar Seed"
-    )
-    var allAvailableCrops by remember { mutableStateOf(defaultCrops) }
+    val predictionState by viewModel.predictionState
 
-    // Prominent mandis for quick suggestion
-    val prominentMandis = listOf("Udaipur", "Jaipur", "Kota", "Jodhpur", "Bikaner", "Indore", "Amreli", "Rajkot", "Nashik", "Ludhiana", "Karnal", "Agra")
+    val bestTreatment by productViewModel.bestTreatment.observeAsState(emptyList())
+    val recommendedTools by productViewModel.recommendedTools.observeAsState(emptyList())
+    val productLoading by productViewModel.loading.observeAsState(false)
 
-    // =========================================================================
-    // GUIDED ACTION FLOW STATES
-    // =========================================================================
+    val categories = listOf("ALL CROPS", "GRAINS", "VEGETABLES", "PULSES", "OILSEEDS", "SPICES")
 
-    // 1. Best Nearby Flow State
-    var showNearbyDialog by remember { mutableStateOf(false) }
-    var nearbySelectedCrop by remember { mutableStateOf("Wheat") }
-    var nearbyCropInput by remember { mutableStateOf("Wheat") }
-    var nearbyResult by remember { mutableStateOf<BestMandiResponseModel?>(null) }
-    var isNearbyLoading by remember { mutableStateOf(false) }
+    val globalBlur = LocalGlobalBlur.current
 
-    // 2. Compare Flow State
-    var showCompareDialog by remember { mutableStateOf(false) }
-    var compareCrop by remember { mutableStateOf("Wheat") }
-    var compareMarketA by remember { mutableStateOf(LocationSnapshotStore.latestCity ?: "") }
-    var compareMarketB by remember { mutableStateOf("") }
-    var compareResult by remember { mutableStateOf<MandiComparisonResponseModel?>(null) }
-    var compareError by remember { mutableStateOf<String?>(null) }
-    var isCompareLoading by remember { mutableStateOf(false) }
-
-    // 3. Sell vs Wait Flow State
-    var showAdvisoryDialog by remember { mutableStateOf(false) }
-    var advisoryCrop by remember { mutableStateOf("Wheat") }
-    var advisoryMarket by remember { mutableStateOf(LocationSnapshotStore.latestCity ?: "") }
-    var advisoryResult by remember { mutableStateOf<MandiAdvisoryResponseModel?>(null) }
-    var advisoryError by remember { mutableStateOf<String?>(null) }
-    var isAdvisoryLoading by remember { mutableStateOf(false) }
-
-    // 4. Set Alert Flow State
-    var showAlertModal by remember { mutableStateOf(false) }
-    var alertCrop by remember { mutableStateOf("Wheat") }
-    var alertMarket by remember { mutableStateOf(LocationSnapshotStore.latestCity ?: "") }
-    var alertCondition by remember { mutableStateOf("ABOVE") } // ABOVE, BELOW
-    var alertTargetValue by remember { mutableStateOf("2600") }
-    var alertSuccessMsg by remember { mutableStateOf<String?>(null) }
-    var alertError by remember { mutableStateOf<String?>(null) }
-    var isAlertLoading by remember { mutableStateOf(false) }
+    var showForecastDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.getMarketPrices()
         productViewModel.loadProducts(null)
-        coroutineScope.launch {
-            try {
-                val commRes = RetrofitInstance.api.getCommodities()
-                if (commRes.isSuccessful && commRes.body() != null && commRes.body()!!.isNotEmpty()) {
-                    allAvailableCrops = commRes.body()!!
-                }
-            } catch (_: Exception) {}
-        }
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Mandi Prices & Intelligence", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+    NeoScaffoldBackground(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                CenterAlignedTopAppBar(
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    ),
+                    title = {
+                        Text(
+                            "Market Prices",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1B5E20)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color(0xFF424242))
+                        }
                     }
-                }
-            )
-        }
-    ) { padding ->
-        NeoScaffoldBackground(modifier = Modifier.fillMaxSize().padding(padding)) {
+                )
+            }
+        ) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                // REDUCED padding to 90.dp since the nav bar is in permanent shrunk mode
+                contentPadding = PaddingValues(top = 16.dp, bottom = 90.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 // Search Bar
                 item {
                     Surface(
                         shape = RoundedCornerShape(24.dp),
                         color = Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(24.dp)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .shadow(4.dp, RoundedCornerShape(24.dp)),
                         border = BorderStroke(1.dp, Color(0xFFEEEEEE))
                     ) {
                         TextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search crops (e.g. Wheat, Gram, Mustard), mandis...") },
+                            placeholder = { Text("Search crops, mandis...") },
                             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
-                            trailingIcon = {
-                                if (searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { searchQuery = "" }) {
-                                        Icon(Icons.Rounded.Clear, contentDescription = "Clear")
-                                    }
-                                }
-                            },
                             singleLine = true,
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
@@ -170,79 +147,50 @@ fun MandiPricesScreen(
                     }
                 }
 
-                // High-Value Guided Farmer Action Chips
+                // AI Insight Card
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // 1. Best Nearby
-                        ActionChip(
-                            label = "Best Nearby",
-                            icon = Icons.Rounded.NearMe,
-                            color = Color(0xFF10B981),
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                showNearbyDialog = true
-                            }
-                        )
-
-                        // 2. Compare Mandis
-                        ActionChip(
-                            label = "Compare",
-                            icon = Icons.AutoMirrored.Rounded.CompareArrows,
-                            color = Color(0xFF3B82F6),
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                compareError = null
-                                showCompareDialog = true
-                            }
-                        )
-
-                        // 3. Sell vs Wait Advisory
-                        ActionChip(
-                            label = "Sell vs Wait",
-                            icon = Icons.AutoMirrored.Rounded.TrendingUp,
-                            color = Color(0xFF8B5CF6),
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                advisoryError = null
-                                showAdvisoryDialog = true
-                            }
-                        )
-
-                        // 4. Set Alert
-                        ActionChip(
-                            label = "Set Alert",
-                            icon = Icons.Rounded.NotificationsActive,
-                            color = Color(0xFFF59E0B),
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                alertError = null
-                                alertSuccessMsg = null
-                                showAlertModal = true
-                            }
-                        )
+                    when (val state = predictionState) {
+                        is MarketViewModel.MarketPredictionState.Success -> {
+                            AiInsightCard(
+                                modifier = Modifier.padding(horizontal = 20.dp),
+                                title = "${state.response.commodity} Analysis",
+                                body = state.response.ai_analysis ?: "",
+                                onClick = { showForecastDialog = true }
+                            )
+                        }
+                        else -> {
+                            AiInsightCard(
+                                modifier = Modifier.padding(horizontal = 20.dp),
+                                title = "AI Price Forecast",
+                                body = "Predict future prices for any crop and region with AI.",
+                                onClick = { showForecastDialog = true }
+                            )
+                        }
                     }
                 }
 
                 // Category Tabs
                 item {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(horizontal = 20.dp)
+                    ) {
                         items(categories) { category ->
                             val isSelected = category == selectedCategory
+                            val displayCategory = if (category == "ALL CROPS") "All Crops" else category.lowercase().replaceFirstChar { it.uppercase() }
+
                             Surface(
                                 onClick = { selectedCategory = category },
-                                shape = RoundedCornerShape(16.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                                border = if (!isSelected) BorderStroke(1.dp, Color(0xFFEEEEEE)) else null
+                                shape = RoundedCornerShape(50),
+                                color = if (isSelected) Color(0xFF1B5E20) else Color.White,
+                                border = if (!isSelected) BorderStroke(1.dp, Color(0xFFE0E0E0)) else null
                             ) {
                                 Text(
-                                    text = category,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    text = displayCategory,
+                                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
                                     style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.White else Color.Black
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else Color.DarkGray
                                     )
                                 )
                             }
@@ -253,12 +201,12 @@ fun MandiPricesScreen(
                 // Mandi Price List
                 when (val state = pricesState) {
                     is MarketViewModel.MarketPricesState.Loading -> {
-                        item { Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                        item { Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFF1B5E20)) } }
                     }
                     is MarketViewModel.MarketPricesState.Success -> {
                         val filtered = state.response.data.filter {
-                            (searchQuery.isEmpty() || it.commodity.contains(searchQuery, true) || it.market.contains(searchQuery, true) || it.district.contains(searchQuery, true)) &&
-                            (selectedCategory == "ALL CROPS" || isCropInCategory(it.commodity, selectedCategory))
+                            (searchQuery.isEmpty() || it.commodity.contains(searchQuery, true) || it.market.contains(searchQuery, true)) &&
+                                    (selectedCategory == "ALL CROPS" || isCropInCategory(it.commodity, selectedCategory))
                         }
 
                         if (filtered.isEmpty()) {
@@ -266,719 +214,417 @@ fun MandiPricesScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
                                         .height(140.dp)
                                         .padding(top = 20.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        "No mandi price results found for '$searchQuery'. Try searching another crop like Wheat, Gram, Mustard, Soybean, or clear search.",
+                                        "No mandi price results found. Try another crop, state or district.",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = Color.Gray,
-                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        textAlign = TextAlign.Center,
                                         modifier = Modifier.padding(16.dp)
                                     )
                                 }
                             }
                         } else {
-                            items(filtered.take(30)) { item ->
-                                PriceCard(item)
+                            items(filtered.take(20)) { item ->
+                                PriceCard(
+                                    item = item,
+                                    modifier = Modifier.padding(horizontal = 20.dp)
+                                )
                             }
                         }
                     }
                     is MarketViewModel.MarketPricesState.Error -> {
                         item {
-                            Text(
-                                text = "Unable to load mandi prices: ${state.message}",
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(16.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp)
+                                    .height(140.dp)
+                                    .padding(top = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    "Unable to load mandi prices: ${state.message}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.Red,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
                         }
                     }
                     else -> {}
                 }
+
+                // Ranked Products
+                if (!productLoading && bestTreatment.isNotEmpty()) {
+                    item {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            NeoSectionTitle("Best Treatment Products", "Top rated for your crops")
+                        }
+                    }
+                    items(bestTreatment.take(3)) { rp ->
+                        ProductRecommendationCard(
+                            rp = rp,
+                            modifier = Modifier.padding(horizontal = 20.dp)
+                        ) {
+                            val intent = Intent(Intent.ACTION_VIEW, it.toUri())
+                            context.startActivity(intent)
+                        }
+                    }
+                }
             }
         }
     }
 
-    // =========================================================================
-    // 1. GUIDED BEST PRACTICAL MANDI DIALOG
-    // =========================================================================
-    if (showNearbyDialog) {
-        AlertDialog(
-            onDismissRequest = { showNearbyDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.NearMe, null, tint = Color(0xFF10B981))
-                    Text("Best Nearby Mandi", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text("Step 1: Search / Select Any Crop", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold, color = Color.DarkGray))
+    if (showForecastDialog) {
+        // This guarantees the blur triggers when the dialog appears,
+        // and ALWAYS clears when the dialog leaves the screen.
+        DisposableEffect(Unit) {
+            globalBlur.value = true
+            onDispose {
+                globalBlur.value = false
+            }
+        }
 
-                    // Crop Search / Input Field
-                    OutlinedTextField(
-                        value = nearbyCropInput,
-                        onValueChange = { 
-                            nearbyCropInput = it
-                            nearbySelectedCrop = it
-                        },
-                        placeholder = { Text("Search crop e.g. Wheat, Gram, Mustard...") },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Matching Crop Suggestions & Popular Chips
-                    val matchingNearbyCrops = allAvailableCrops.filter { 
-                        nearbyCropInput.isBlank() || it.contains(nearbyCropInput, ignoreCase = true) 
-                    }.take(10)
-
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingNearbyCrops) { crop ->
-                            val isSel = crop.equals(nearbySelectedCrop, ignoreCase = true)
-                            FilterChip(
-                                selected = isSel,
-                                onClick = {
-                                    nearbySelectedCrop = crop
-                                    nearbyCropInput = crop
-                                    isNearbyLoading = true
-                                    coroutineScope.launch {
-                                        try {
-                                            val res = RetrofitInstance.api.getBestNearbyMandis(commodity = crop)
-                                            if (res.isSuccessful) nearbyResult = res.body()
-                                        } catch (_: Exception) {}
-                                        finally { isNearbyLoading = false }
-                                    }
-                                },
-                                label = { Text(crop, fontSize = 11.sp) }
-                            )
-                        }
-                    }
-
-                    if (isNearbyLoading) {
-                        Box(Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Color(0xFF10B981))
-                        }
-                    } else if (nearbyResult != null) {
-                        val res = nearbyResult!!
-                        val practical = res.best_practical_mandi ?: res.best_mandi
-                        val highest = res.highest_price_mandi
-
-                        LazyColumn(
-                            modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // 1. BEST PRACTICAL OPTION CARD
-                            if (practical != null) {
-                                item {
-                                    Surface(
-                                        shape = RoundedCornerShape(12.dp),
-                                        color = Color(0xFFECFDF5),
-                                        border = BorderStroke(1.5.dp, Color(0xFF10B981)),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Surface(shape = RoundedCornerShape(6.dp), color = Color(0xFF10B981)) {
-                                                    Text(
-                                                        "⭐ Best Practical Option",
-                                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                        style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                                                    )
-                                                }
-                                                Text("Score: ${practical.practical_score}", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF047857)))
-                                            }
-
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth(),
-                                                horizontalArrangement = Arrangement.SpaceBetween,
-                                                verticalAlignment = Alignment.Bottom
-                                            ) {
-                                                Column {
-                                                    Text(practical.market, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                                    Text(
-                                                        "${practical.district}" + (if (practical.distance_km != null) " • ${practical.distance_km} km away" else ""),
-                                                        style = MaterialTheme.typography.labelSmall.copy(color = Color.DarkGray)
-                                                    )
-                                                }
-                                                Text("₹${practical.modal_price.toInt()}/Q", fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium, color = Color(0xFF10B981))
-                                            }
-
-                                            if (practical.ranking_reason.isNotBlank()) {
-                                                Text(practical.ranking_reason, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF065F46), fontSize = 10.sp))
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 2. HIGHEST RECORDED PRICE CARD
-                            if (highest != null && (practical == null || highest.market != practical.market)) {
-                                item {
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = Color(0xFFFFFBEB),
-                                        border = BorderStroke(1.dp, Color(0xFFFCD34D)),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(8.dp).fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Column {
-                                                Text("🏆 Highest Recorded: ${highest.market}", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF92400E)))
-                                                Text("${highest.district}" + (if (highest.distance_km != null) " • ${highest.distance_km} km" else ""), style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, color = Color.Gray))
-                                            }
-                                            Text("₹${highest.modal_price.toInt()}/Q", fontWeight = FontWeight.Bold, color = Color(0xFFD97706), style = MaterialTheme.typography.bodyMedium)
-                                        }
-                                    }
-                                }
-                            }
-
-                            // 3. NEARBY ALTERNATIVES
-                            val alternatives = res.ranked_mandis.filter { it.market != practical?.market && it.market != highest?.market }
-                            if (alternatives.isNotEmpty()) {
-                                item {
-                                    Text("Nearby Alternatives", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.Gray))
-                                }
-                                items(alternatives) { m ->
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Color(0xFFF9FAFB),
-                                        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.SpaceBetween
-                                        ) {
-                                            Column {
-                                                Text(m.market, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.labelMedium)
-                                                Text("${m.district}" + (if (m.distance_km != null) " • ${m.distance_km} km" else "") + " • ${m.freshness_status}", style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, color = Color.Gray))
-                                            }
-                                            Text("₹${m.modal_price.toInt()}/Q", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                                        }
-                                    }
-                                }
-                            }
-
-                            item {
-                                Text(res.disclaimer, style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, color = Color.Gray))
-                            }
-                        }
-                    } else {
-                        Button(
-                            onClick = {
-                                if (nearbyCropInput.isNotBlank()) {
-                                    isNearbyLoading = true
-                                    coroutineScope.launch {
-                                        try {
-                                            val res = RetrofitInstance.api.getBestNearbyMandis(commodity = nearbyCropInput.trim())
-                                            if (res.isSuccessful) nearbyResult = res.body()
-                                        } catch (_: Exception) {}
-                                        finally { isNearbyLoading = false }
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Find Best Nearby Mandis for $nearbyCropInput")
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showNearbyDialog = false }) { Text("Done") } }
-        )
-    }
-
-    // =========================================================================
-    // 2. GUIDED MANDI COMPARISON DIALOG
-    // =========================================================================
-    if (showCompareDialog) {
-        AlertDialog(
-            onDismissRequest = { showCompareDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.AutoMirrored.Rounded.CompareArrows, null, tint = Color(0xFF3B82F6))
-                    Text("Compare Mandi Prices", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Step 1: Crop Selection / Search
-                    Text("Step 1: Crop / फसल (Search or Select)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    OutlinedTextField(
-                        value = compareCrop,
-                        onValueChange = { 
-                            compareCrop = it
-                            compareResult = null 
-                        },
-                        placeholder = { Text("e.g. Gram, Wheat, Mustard, Soybean...") },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Quick Crop Chips
-                    val matchingCompareCrops = allAvailableCrops.filter { 
-                        compareCrop.isBlank() || it.contains(compareCrop, ignoreCase = true) 
-                    }.take(8)
-
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingCompareCrops) { crop ->
-                            FilterChip(
-                                selected = crop.equals(compareCrop, ignoreCase = true),
-                                onClick = { compareCrop = crop; compareResult = null },
-                                label = { Text(crop, fontSize = 11.sp) }
-                            )
-                        }
-                    }
-
-                    // Step 2: Mandi A Selection
-                    Text("Step 2: First Mandi / पहली मंडी", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    OutlinedTextField(
-                        value = compareMarketA,
-                        onValueChange = { compareMarketA = it; compareResult = null },
-                        placeholder = { Text("e.g. Udaipur, Kota, Indore") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Step 3: Mandi B Selection
-                    Text("Step 3: Second Mandi / दूसरी मंडी", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    OutlinedTextField(
-                        value = compareMarketB,
-                        onValueChange = { compareMarketB = it; compareResult = null },
-                        placeholder = { Text("e.g. Jaipur, Jodhpur, Bhopal") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Validation Error Banner
-                    if (compareError != null) {
-                        Text(compareError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                    }
-
-                    // Comparison Button
-                    Button(
-                        onClick = {
-                            if (compareCrop.isBlank()) {
-                                compareError = "Please enter or select a crop to compare."
-                            } else if (compareMarketA.isBlank() || compareMarketB.isBlank()) {
-                                compareError = "Please enter both mandi names."
-                            } else if (compareMarketA.trim().equals(compareMarketB.trim(), ignoreCase = true)) {
-                                compareError = "Please choose two different mandis to compare."
-                            } else {
-                                compareError = null
-                                isCompareLoading = true
-                                coroutineScope.launch {
-                                    try {
-                                        val res = RetrofitInstance.api.compareMandis(
-                                            commodity = compareCrop.trim(),
-                                            marketA = compareMarketA.trim(),
-                                            marketB = compareMarketB.trim()
-                                        )
-                                        if (res.isSuccessful) {
-                                            compareResult = res.body()
-                                        } else {
-                                            compareError = "Could not fetch comparison for ${compareCrop.trim()}."
-                                        }
-                                    } catch (e: Exception) {
-                                        compareError = "Could not fetch comparison: ${e.message}"
-                                    } finally {
-                                        isCompareLoading = false
-                                    }
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3B82F6)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Compare Prices")
-                    }
-
-                    // Results View
-                    if (isCompareLoading) {
-                        Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFF3B82F6)) }
-                    } else if (compareResult != null) {
-                        val comp = compareResult!!
-                        Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFFEFF6FF), border = BorderStroke(1.dp, Color(0xFF93C5FD)), modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(comp.market_a.market, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-                                        Text("₹${comp.market_a.modal_price.toInt()}/Q", fontWeight = FontWeight.Black, color = Color(0xFF1E40AF))
-                                    }
-                                    Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                                        Text(comp.market_b.market, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-                                        Text("₹${comp.market_b.modal_price.toInt()}/Q", fontWeight = FontWeight.Black, color = Color(0xFF1E40AF))
-                                    }
-                                }
-                                HorizontalDivider(color = Color(0xFFBFDBFE))
-                                Text(comp.comparison.summary_hi, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall, color = Color(0xFF1E3A8A))
-                                Text(comp.comparison.summary_en, style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF3B82F6), fontSize = 10.sp))
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showCompareDialog = false }) { Text("Close") } }
-        )
-    }
-
-    // =========================================================================
-    // 3. GUIDED SELL VS WAIT ADVISORY DIALOG
-    // =========================================================================
-    if (showAdvisoryDialog) {
-        AlertDialog(
-            onDismissRequest = { showAdvisoryDialog = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.AutoMirrored.Rounded.TrendingUp, null, tint = Color(0xFF8B5CF6))
-                    Text("Sell vs Wait Advisory", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Step 1: Crop Selection
-                    Text("Step 1: Crop / फसल (Search or Select)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    OutlinedTextField(
-                        value = advisoryCrop,
-                        onValueChange = { advisoryCrop = it; advisoryResult = null },
-                        placeholder = { Text("Search crop e.g. Wheat, Mustard, Soybean...") },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    val matchingAdvisoryCrops = allAvailableCrops.filter { 
-                        advisoryCrop.isBlank() || it.contains(advisoryCrop, ignoreCase = true) 
-                    }.take(8)
-
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingAdvisoryCrops) { crop ->
-                            FilterChip(
-                                selected = crop.equals(advisoryCrop, ignoreCase = true),
-                                onClick = { advisoryCrop = crop; advisoryResult = null },
-                                label = { Text(crop, fontSize = 11.sp) }
-                            )
-                        }
-                    }
-
-                    // Step 2: Mandi Selection
-                    Text("Step 2: Select Mandi / मंडी चुनें", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    OutlinedTextField(
-                        value = advisoryMarket,
-                        onValueChange = { advisoryMarket = it; advisoryResult = null },
-                        placeholder = { Text("e.g. Jaipur Mandi, Udaipur, Kota") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    if (advisoryError != null) {
-                        Text(advisoryError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                    }
-
-                    Button(
-                        onClick = {
-                            if (advisoryCrop.isBlank() || advisoryMarket.isBlank()) {
-                                advisoryError = "Please select both crop and mandi."
-                            } else {
-                                advisoryError = null
-                                isAdvisoryLoading = true
-                                coroutineScope.launch {
-                                    try {
-                                        val res = RetrofitInstance.api.getMandiAdvisory(
-                                            commodity = advisoryCrop.trim(),
-                                            market = advisoryMarket.trim(),
-                                            days = 7
-                                        )
-                                        if (res.isSuccessful) advisoryResult = res.body()
-                                    } catch (e: Exception) {
-                                        advisoryError = "Could not fetch advisory: ${e.message}"
-                                    } finally {
-                                        isAdvisoryLoading = false
-                                    }
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8B5CF6)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Check Advisory")
-                    }
-
-                    if (isAdvisoryLoading) {
-                        Box(Modifier.fillMaxWidth().height(80.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFF8B5CF6)) }
-                    } else if (advisoryResult != null) {
-                        val adv = advisoryResult!!
-                        val badgeColor = when (adv.advisory.signal) {
-                            "POSSIBLE_UPSIDE" -> Color(0xFF10B981)
-                            "FAVORABLE_TO_SELL" -> Color(0xFFEF4444)
-                            else -> Color(0xFF6B7280)
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = badgeColor.copy(alpha = 0.10f),
-                            border = BorderStroke(1.dp, badgeColor.copy(alpha = 0.4f)),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Surface(shape = RoundedCornerShape(6.dp), color = badgeColor) {
-                                    Text(
-                                        adv.advisory.signal.replace("_", " "),
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color.White, fontSize = 10.sp)
-                                    )
-                                }
-                                Text(adv.advisory.recommendation_hi, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold))
-                                Text("Current: ₹${adv.observed.price.toInt()}/Q • 7-Day Horizon: ₹${adv.forecast.projected_price.toInt()}/Q (${adv.forecast.percentage_change}%)", style = MaterialTheme.typography.labelSmall.copy(color = Color.DarkGray))
-                                Text(adv.disclaimer, style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp, color = Color.Gray))
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showAdvisoryDialog = false }) { Text("Close") } }
-        )
-    }
-
-    // =========================================================================
-    // 4. GUIDED SET PRICE ALERT DIALOG
-    // =========================================================================
-    if (showAlertModal) {
-        AlertDialog(
-            onDismissRequest = { showAlertModal = false },
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Rounded.NotificationsActive, null, tint = Color(0xFFF59E0B))
-                    Text("Set Price Opportunity Alert", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    // Step 1: Crop Selection
-                    Text("Step 1: Crop / फसल (Search or Select)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    OutlinedTextField(
-                        value = alertCrop,
-                        onValueChange = { alertCrop = it; alertSuccessMsg = null },
-                        placeholder = { Text("Search crop e.g. Wheat, Mustard, Soybean...") },
-                        leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    val matchingAlertCrops = allAvailableCrops.filter { 
-                        alertCrop.isBlank() || it.contains(alertCrop, ignoreCase = true) 
-                    }.take(8)
-
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingAlertCrops) { crop ->
-                            FilterChip(
-                                selected = crop.equals(alertCrop, ignoreCase = true),
-                                onClick = { alertCrop = crop; alertSuccessMsg = null },
-                                label = { Text(crop, fontSize = 11.sp) }
-                            )
-                        }
-                    }
-
-                    // Step 2: Mandi Selection
-                    Text("Step 2: Mandi / मंडी (Optional)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    OutlinedTextField(
-                        value = alertMarket,
-                        onValueChange = { alertMarket = it; alertSuccessMsg = null },
-                        placeholder = { Text("e.g. Udaipur, Jaipur (Leave blank for all mandis)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    // Step 3: Alert Condition
-                    Text("Step 3: Alert Condition / शर्त", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        FilterChip(
-                            selected = alertCondition == "ABOVE",
-                            onClick = { alertCondition = "ABOVE" },
-                            label = { Text("Rises Above (ऊपर)", fontSize = 11.sp) }
-                        )
-                        FilterChip(
-                            selected = alertCondition == "BELOW",
-                            onClick = { alertCondition = "BELOW" },
-                            label = { Text("Drops Below (नीचे)", fontSize = 11.sp) }
-                        )
-                    }
-
-                    // Step 4: Target Value
-                    Text("Step 4: Target Price (₹/Quintal)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
-                    OutlinedTextField(
-                        value = alertTargetValue,
-                        onValueChange = { alertTargetValue = it; alertSuccessMsg = null },
-                        placeholder = { Text("e.g. 2600") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    if (alertError != null) {
-                        Text(alertError!!, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.labelSmall)
-                    }
-                    if (alertSuccessMsg != null) {
-                        Text(alertSuccessMsg!!, color = Color(0xFF047857), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
-                    }
-
-                    Button(
-                        onClick = {
-                            val targetNum = alertTargetValue.toDoubleOrNull()
-                            if (alertCrop.isBlank()) {
-                                alertError = "Please select a crop."
-                            } else if (targetNum == null || targetNum <= 0) {
-                                alertError = "Please enter a valid numeric target price."
-                            } else {
-                                alertError = null
-                                isAlertLoading = true
-                                coroutineScope.launch {
-                                    try {
-                                        val payload = PriceAlertCreateModel(
-                                            commodity = alertCrop.trim(),
-                                            market = if (alertMarket.isNotBlank()) alertMarket.trim() else null,
-                                            target_price = targetNum,
-                                            direction = alertCondition
-                                        )
-                                        val res = RetrofitInstance.api.createPriceAlert(payload)
-                                        if (res.isSuccessful) {
-                                            alertSuccessMsg = "Alert set for $alertCrop — ${alertMarket.ifBlank { "All Mandis" }} when price goes ${if (alertCondition == "ABOVE") "above" else "below"} ₹${targetNum.toInt()}/Q!"
-                                        }
-                                    } catch (e: Exception) {
-                                        alertSuccessMsg = "Alert active for $alertCrop at target ₹${targetNum.toInt()}/Q."
-                                    } finally {
-                                        isAlertLoading = false
-                                    }
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Set Price Alert")
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showAlertModal = false }) { Text("Done") } }
-        )
+        ForecastDialog(
+            onDismiss = {
+                showForecastDialog = false
+            }
+        ) { city, crop ->
+            viewModel.predictPrices(commodity = crop, state = "India", district = city, months = 3)
+            showForecastDialog = false
+        }
     }
 }
 
 @Composable
-private fun ActionChip(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
+fun AiInsightCard(modifier: Modifier = Modifier, title: String, body: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.1f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.3f)),
-        modifier = modifier
+        modifier = modifier.shadow(6.dp, RoundedCornerShape(24.dp)),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp, color = color),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+        Box(modifier = Modifier.fillMaxWidth().height(160.dp)) {
+
+            Image(
+                painter = painterResource(id = R.drawable.ill_ai_forecast),
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.BottomEnd,
+                modifier = Modifier
+                    .matchParentSize()
+                    .padding(start = 40.dp)
+                    .offset(x = 20.dp, y = 20.dp)
             )
+
+            Column(
+                modifier = Modifier
+                    .padding(24.dp)
+                    .fillMaxWidth(0.65f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = title,
+                    color = Color(0xFF1B5E20),
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = body,
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.bodySmall,
+                    lineHeight = 16.sp
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFF1B5E20),
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clickable { onClick() }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                            contentDescription = "Forecast Prices",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-fun PriceCard(item: MarketPrice) {
+fun PriceCard(item: MarketPrice, modifier: Modifier = Modifier) {
     Surface(
+        modifier = modifier.shadow(2.dp, RoundedCornerShape(20.dp)),
         shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.9f),
-        border = BorderStroke(1.dp, Color(0xFFEEEEEE)),
-        modifier = Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(20.dp))
+        color = Color.White
     ) {
         Row(
-            modifier = Modifier.padding(16.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) {
-            SubcomposeAsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(commodityHeroImageUrl(item.commodity))
-                    .crossfade(true)
-                    .build(),
-                contentDescription = item.commodity,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(56.dp).clip(CircleShape).background(Color(0xFFF3F4F6)),
-                loading = {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                    }
-                },
-                error = {
-                    Box(Modifier.fillMaxSize().background(Color(0xFFE5E7EB)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Agriculture, null, tint = Color.Gray)
+            Box(
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFFF5F5F5)),
+                contentAlignment = Alignment.Center
+            ) {
+                SubcomposeAsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(commodityHeroImageUrl(item.commodity))
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                ) {
+                    if (painter.state is AsyncImagePainter.State.Loading) {
+                        CircularProgressIndicator(strokeWidth = 2.dp, color = Color(0xFF1B5E20))
+                    } else if (painter.state is AsyncImagePainter.State.Error) {
+                        Icon(Icons.Rounded.Grass, null, tint = Color(0xFF4CAF50))
+                    } else {
+                        SubcomposeAsyncImageContent()
                     }
                 }
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(item.commodity, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                Text("${item.market}, ${item.district}", style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray))
-                Text("Range: ₹${item.min_price.toInt()} - ₹${item.max_price.toInt()}", style = MaterialTheme.typography.labelSmall.copy(color = Color.DarkGray))
             }
-
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = item.commodity,
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color(0xFF1B1B1B)
+                )
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.LocationOn,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = item.market,
+                        color = Color.Gray,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
             Column(horizontalAlignment = Alignment.End) {
-                Text("₹${item.modal_price.toInt()}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary))
-                Text("per Quintal", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
+                Text(
+                    text = "₹${item.modal_price.toInt()}",
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF1B5E20),
+                    fontSize = 20.sp
+                )
+                Text(
+                    text = "per quintal",
+                    color = Color.Gray,
+                    style = MaterialTheme.typography.labelSmall
+                )
             }
         }
     }
 }
 
-fun isCropInCategory(crop: String, category: String): Boolean {
-    val grains = listOf("wheat", "paddy", "rice", "maize", "bajra", "barley", "jau")
-    val pulses = listOf("gram", "chana", "moong", "urad", "tur", "arhar", "lentil", "masur", "soybean", "soyabean", "kulthi", "lobia", "cowpea", "beans")
-    val veg = listOf("tomato", "potato", "onion", "garlic", "chilli", "brinjal", "cabbage", "cauliflower", "bhindi", "carrot", "capsicum", "gourd", "pea")
-    val fruits = listOf("apple", "banana", "mango", "orange", "grapes", "papaya", "pomegranate", "guava", "chikoo", "lemon", "lime", "watermelon")
-    val spices = listOf("coriander", "cumin", "jeera", "turmeric", "fennel", "fenugreek", "mustard", "ajwan", "garlic", "chilli", "methi", "soanf")
+@Composable
+fun ProductRecommendationCard(rp: RankedProduct, modifier: Modifier = Modifier, onBuy: (String) -> Unit) {
+    Box(modifier = modifier) {
+        NeoCard(contentPadding = PaddingValues(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(60.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFFF5F5F5))) {
+                    SubcomposeAsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current).data(rp.product.imageUrl).crossfade(true).build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    ) { SubcomposeAsyncImageContent() }
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(rp.product.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("₹${rp.product.price}", fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
+                }
+                Surface(color = Color(0xFFE8F5E9), shape = RoundedCornerShape(8.dp)) {
+                    Text("${rp.matchPercentage}% Match", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, color = Color(0xFF2E7D32), fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            PremiumButton(text = "Buy Now", onClick = { onBuy(rp.product.buyUrl) }, modifier = Modifier.height(40.dp))
+        }
+    }
+}
 
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun ForecastDialog(onDismiss: () -> Unit, onForecast: (String, String) -> Unit) {
+    var city by remember { mutableStateOf("") }
+    var crop by remember { mutableStateOf("") }
+
+    val view = LocalView.current
+
+    LaunchedEffect(view) {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        window?.let {
+            it.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            it.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White.copy(alpha = 0.2f))
+                .imePadding()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismiss
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {}
+                    ),
+                shape = RoundedCornerShape(28.dp),
+                color = Color.White,
+                shadowElevation = 12.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "AI Price Forecast",
+                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = Color(0xFF1B1B1B)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Get AI-powered price predictions\nfor any crop in any city.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    OutlinedTextField(
+                        value = city,
+                        onValueChange = { city = it },
+                        placeholder = { Text("Enter city or district", color = Color.Gray) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF1B5E20),
+                            unfocusedBorderColor = Color(0xFFEEEEEE),
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color(0xFFFAFAFA)
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = crop,
+                        onValueChange = { crop = it },
+                        placeholder = { Text("Enter crop name", color = Color.Gray) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF1B5E20),
+                            unfocusedBorderColor = Color(0xFFEEEEEE),
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color(0xFFFAFAFA)
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFF5F5F5),
+                                contentColor = Color(0xFF1B5E20)
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(0.dp)
+                        ) {
+                            Text("Cancel", fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = { if (city.isNotBlank() && crop.isNotBlank()) onForecast(city, crop) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(50.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF1B5E20),
+                                contentColor = Color.White
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(2.dp)
+                        ) {
+                            Text("Predict", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun isCropInCategory(crop: String, category: String): Boolean {
     val c = crop.lowercase()
-    return when (category) {
-        "GRAINS" -> grains.any { c.contains(it) }
-        "PULSES" -> pulses.any { c.contains(it) }
-        "VEGETABLES" -> veg.any { c.contains(it) }
-        "FRUITS" -> fruits.any { c.contains(it) }
-        "SPICES" -> spices.any { c.contains(it) }
+    return when(category) {
+        "GRAINS" -> listOf("wheat", "rice", "maize", "paddy", "barley").any { c.contains(it) }
+        "VEGETABLES" -> listOf("potato", "tomato", "onion", "cabbage", "brinjal").any { c.contains(it) }
+        "PULSES" -> listOf("soybean", "chana", "dal", "moong", "urad").any { c.contains(it) }
+        "FRUITS" -> listOf("mango", "apple", "banana", "lemon", "papaya").any { c.contains(it) }
+        "OILSEEDS" -> listOf("mustard", "soybean", "groundnut", "sunflower", "sesame").any { c.contains(it) }
+        "SPICES" -> listOf("cumin", "jeera", "coriander", "turmeric", "chillies", "garlic").any { c.contains(it) }
         else -> true
     }
 }

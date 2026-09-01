@@ -3,14 +3,13 @@ package com.example.farmfusionapp.utils
 import android.content.Context
 
 /**
- * AuthStore - Manages persistent authentication state & global language settings using SharedPreferences
+ * AuthStore - Manages persistent authentication state using SharedPreferences
  */
 object AuthStore {
     private const val PREFS_NAME = "farmfusion_auth_prefs"
     private const val KEY_IS_LOGGED_IN = "is_logged_in"
     private const val KEY_AUTH_TOKEN = "auth_token"
     private const val KEY_LANGUAGE = "selected_language"
-    private const val KEY_DIALECT = "selected_dialect"
 
     /**
      * Save login state and token
@@ -25,7 +24,7 @@ object AuthStore {
     }
 
     /**
-     * Save selected language and optional dialect
+     * Save selected language
      */
     fun saveLanguage(context: Context, languageCode: String) {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -34,28 +33,12 @@ object AuthStore {
             .commit()
     }
 
-    fun saveLanguageAndDialect(context: Context, languageCode: String, dialectCode: String?) {
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putString(KEY_LANGUAGE, languageCode)
-            .putString(KEY_DIALECT, dialectCode)
-            .commit()
-    }
-
     /**
-     * Get saved language (default "en" or "hi")
+     * Get saved language
      */
     fun getLanguage(context: Context): String? {
         return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_LANGUAGE, null)
-    }
-
-    /**
-     * Get saved dialect if any
-     */
-    fun getDialect(context: Context): String? {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_DIALECT, null)
     }
 
     /**

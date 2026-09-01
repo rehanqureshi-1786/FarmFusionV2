@@ -63,10 +63,6 @@ dependencies {
     // Image loading
     implementation("io.coil-kt:coil-compose:2.6.0")
 
-    // ML Kit Text Recognition (on-device OCR)
-    implementation("com.google.mlkit:text-recognition:16.0.0")
-
-
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
@@ -79,4 +75,5 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    implementation("dev.chrisbanes.haze:haze:0.7.2")
 }
