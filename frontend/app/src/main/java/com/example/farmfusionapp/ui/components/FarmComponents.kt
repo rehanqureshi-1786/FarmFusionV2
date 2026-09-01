@@ -3,7 +3,6 @@ package com.example.farmfusionapp.ui.components
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,24 +27,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.farmfusionapp.ui.theme.FarmColors
 import com.example.farmfusionapp.ui.theme.FarmTypography
 import com.example.farmfusionapp.ui.theme.extendedColors
-import com.example.farmfusionapp.R
-import com.example.farmfusionapp.ui.screens.NavRoutes
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeChild
-import dev.chrisbanes.haze.HazeStyle
 
 // ============================================
 // DESIGN SYSTEM CONSTANTS
@@ -83,30 +73,6 @@ object FarmDesignSystem {
     val ElevationDefault = 2.dp
     val ElevationRaised = 4.dp
     val ElevationFloating = 8.dp
-}
-
-// ============================================
-// OPTIMIZED IMAGE WRAPPER
-// ============================================
-@Composable
-fun OptimizedIllustration(
-    drawableResId: Int,
-    contentDescription: String?,
-    modifier: Modifier = Modifier,
-    alignment: Alignment = Alignment.Center,
-    ratio: Float = 1f
-) {
-    Box(
-        modifier = modifier.aspectRatio(ratio),
-        contentAlignment = alignment
-    ) {
-        Image(
-            painter = painterResource(id = drawableResId),
-            contentDescription = contentDescription,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
-        )
-    }
 }
 
 // ============================================
@@ -192,44 +158,6 @@ fun PremiumSecondaryButton(
         ),
         shape = RoundedCornerShape(FarmDesignSystem.RadiusMedium)
     )
-}
-
-@Composable
-fun GlassFloatingVoiceButton(
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        modifier = modifier
-            .size(64.dp)
-            .shadow(10.dp, CircleShape, spotColor = Color(0xFF2E7D32)),
-        shape = CircleShape,
-        color = Color.White,
-        border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF81C784), Color(0xFF2E7D32)))),
-        tonalElevation = 0.dp
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFFE8F5E9).copy(alpha = 0.8f),
-                            Color(0xFFC8E6C9).copy(alpha = 0.8f)
-                        )
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.Mic,
-                contentDescription = "Voice Assistant",
-                tint = Color(0xFF2E7D32),
-                modifier = Modifier.size(28.dp)
-            )
-        }
-    }
 }
 
 @Composable
@@ -366,11 +294,13 @@ fun NeoScaffoldBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
+    // Ultimate Premium Background with Multi-Layered Atmospheric Mesh
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFFFBFDFA))
+            .background(Color(0xFFFBFDFA)) // New Ultra-Clean Paper Base
     ) {
+        // Layer 1: Soft Dynamic Gradient Flow (Main)
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -383,6 +313,7 @@ fun NeoScaffoldBackground(
                 )
         )
 
+        // Layer 2: Top-Right Celestial Blue Glow
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
@@ -396,6 +327,7 @@ fun NeoScaffoldBackground(
                 )
         )
 
+        // Layer 3: Bottom-Left Vitality Green Glow
         Box(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -409,6 +341,7 @@ fun NeoScaffoldBackground(
                 )
         )
 
+        // Layer 4: Floating Soft Amber (Center Right)
         Box(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -422,6 +355,7 @@ fun NeoScaffoldBackground(
                 )
         )
 
+        // Content Container
         Box(modifier = Modifier.fillMaxSize(), content = content)
     }
 }
@@ -542,6 +476,44 @@ fun NeoSectionTitle(
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            )
+        }
+    }
+}
+
+@Composable
+fun GlassFloatingVoiceButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .size(64.dp) // Increased from 48dp
+            .shadow(10.dp, CircleShape, spotColor = Color(0xFF2E7D32)),
+        shape = CircleShape,
+        color = Color.White,
+        border = BorderStroke(2.dp, Brush.linearGradient(listOf(Color(0xFF81C784), Color(0xFF2E7D32)))),
+        tonalElevation = 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFE8F5E9),
+                            Color(0xFFC8E6C9)
+                        )
+                    )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.GraphicEq,
+                contentDescription = "Voice Assistant",
+                tint = Color(0xFF2E7D32),
+                modifier = Modifier.size(28.dp) // Scaled up icon
             )
         }
     }
@@ -940,24 +912,16 @@ fun PremiumTextField(
 fun VoiceFab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    isListening: Boolean = false,
-    isShrunk: Boolean = false // New state parameter
+    isListening: Boolean = false
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-
     val scale by animateFloatAsState(
         targetValue = if (isPressed || isListening) 0.95f else 1f,
         label = "voiceFabScale"
     )
 
-    // 1. Matches the exact navigation bar easing to stay in perfect visual sync
-    val yOffset by animateDpAsState(
-        targetValue = if (isShrunk) 36.dp else 0.dp, // Drops the mic down 36dp to fill the newly created gap
-        animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-        label = "micOffset"
-    )
-
+    // Pulsing animation when listening
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -970,9 +934,7 @@ fun VoiceFab(
     )
 
     Box(
-        modifier = modifier
-            .offset(y = yOffset) // 2. Reacts fluidly to the user's scroll state
-            .size(80.dp),
+        modifier = modifier.size(80.dp),
         contentAlignment = Alignment.Center
     ) {
         if (isListening) {
@@ -1449,189 +1411,95 @@ fun InfoCard(
     modifier = modifier
 )
 
-// ============================================
-// BOTTOM NAVIGATION SYSTEM
-// ============================================
-
-data class BottomNavItem(
-    val label: String,
-    val route: String,
-    val iconVector: ImageVector? = null,
-    val iconDrawable: Int? = null,
-    val isPrimaryAction: Boolean = false
+@Deprecated("Use LoadingScreen instead")
+@Composable
+fun FarmerLoadingScreen(
+    message: String,
+    subMessage: String? = null,
+    modifier: Modifier = Modifier
+) = LoadingScreen(
+    message = message,
+    modifier = modifier,
+    subMessage = subMessage
 )
 
 @Composable
 fun HomeBottomBar(
     navController: NavController,
-    currentRoute: String?,
-    isShrunk: Boolean = false,
-    hazeState: HazeState // Keeping the HazeState for your frosted glass!
+    currentRoute: String?
 ) {
     val items = listOf(
-        BottomNavItem("Home", NavRoutes.Dashboard, iconDrawable = R.drawable.nav_home),
-        BottomNavItem("Rates", NavRoutes.MandiPrices, iconDrawable = R.drawable.nav_rates),
-        BottomNavItem("Scan", NavRoutes.CropDisease, iconVector = Icons.Rounded.CropFree, isPrimaryAction = true),
-        BottomNavItem("Weather", NavRoutes.Weather, iconDrawable = R.drawable.nav_weather),
-        BottomNavItem("Profile", NavRoutes.Profile, iconDrawable = R.drawable.nav_profile)
+        Triple("Home", "dashboard", Icons.Rounded.Dashboard),
+        Triple("Rates", "mandi_prices", Icons.Rounded.BarChart),
+        Triple("Scan", "crop_disease", Icons.Rounded.CenterFocusStrong),
+        Triple("Weather", "weather", Icons.Rounded.CloudQueue),
+        Triple("Profile", "profile", Icons.Rounded.Person)
     )
 
-    // 1. Unified Snappy Easing (Zero bounce, zero quiver, 250ms duration)
-    val fluidTweenDp = tween<Dp>(durationMillis = 350, easing = FastOutSlowInEasing)
-    val fluidTweenFloat = tween<Float>(durationMillis = 350, easing = FastOutSlowInEasing)
-
-    // 2. Container Animations
-    val horizontalPadding by animateDpAsState(
-        targetValue = if (isShrunk) 72.dp else 0.dp, // Drastically increased to tightly cluster the icons
-        animationSpec = fluidTweenDp,
-        label = "navPadding"
-    )
-    val barHeight by animateDpAsState(
-        targetValue = if (isShrunk) 64.dp else 76.dp, // Enlarged slightly from the previous 56.dp
-        animationSpec = fluidTweenDp,
-        label = "navHeight"
-    )
-    val yOffset by animateDpAsState(
-        targetValue = if (isShrunk) 16.dp else 0.dp,
-        animationSpec = fluidTweenDp,
-        label = "navOffset"
-    )
-    val shadowElevation by animateDpAsState(
-        targetValue = if (isShrunk) 2.dp else 20.dp,
-        animationSpec = fluidTweenDp,
-        label = "navShadow"
-    )
-
-    // 3. Internal Content Animations (Slightly larger when shrunk for a premium feel)
-    val iconBoxSize by animateDpAsState(
-        targetValue = if (isShrunk) 40.dp else 46.dp, // Increased from 36.dp
-        animationSpec = fluidTweenDp,
-        label = "iconBox"
-    )
-    val standardIconSize by animateDpAsState(
-        targetValue = if (isShrunk) 22.dp else 26.dp, // Increased from 20.dp
-        animationSpec = fluidTweenDp,
-        label = "stdIcon"
-    )
-    val primaryIconSize by animateDpAsState(
-        targetValue = if (isShrunk) 20.dp else 24.dp, // Increased from 18.dp
-        animationSpec = fluidTweenDp,
-        label = "primIcon"
-    )
-    val textSizeFloat by animateFloatAsState(
-        targetValue = if (isShrunk) 0f else 11f,
-        animationSpec = fluidTweenFloat,
-        label = "textSize"
-    )
-
-    Surface(
+    Row(
         modifier = Modifier
-            .padding(horizontal = horizontalPadding.coerceAtLeast(0.dp))
             .fillMaxWidth()
-            .height(barHeight)
-            .offset(y = yOffset)
-            .shadow(
-                elevation = shadowElevation,
-                shape = RoundedCornerShape(50.dp),
-                spotColor = Color.Black.copy(alpha = 0.05f),
-                ambientColor = Color.Transparent
-            )
-            .hazeChild(
-                state = hazeState,
-                shape = RoundedCornerShape(50.dp),
-                style = HazeStyle(
-                    tint = Color.White.copy(alpha = 0.65f),
-                    blurRadius = 24.dp
-                )
-            ),
-        shape = RoundedCornerShape(50.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.8f)),
-        tonalElevation = 0.dp
+            .padding(horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            items.forEach { item ->
-                val selected = currentRoute == item.route
-                val primaryColor = Color(0xFF2E7D32)
-                val unselectedColor = Color.DarkGray
-
-                Column(
+        items.forEach { (label, route, icon) ->
+            val selected = currentRoute == route
+            val primaryColor = MaterialTheme.colorScheme.primary
+            
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { if (!selected) navController.navigate(route) }
+                    .padding(vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
-                        .weight(1f)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) { if (!selected) navController.navigate(item.route) },
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .size(42.dp)
+                        .shadow(
+                            elevation = if (selected) 4.dp else 0.dp,
+                            shape = RoundedCornerShape(12.dp),
+                            spotColor = primaryColor.copy(alpha = 0.3f)
+                        ),
+                    color = if (selected) Color.White else Color.Transparent,
+                    border = if (selected) BorderStroke(1.dp, Color(0xFFF0F0F0)) else null
                 ) {
-                    if (item.isPrimaryAction) {
-                        Box(
-                            modifier = Modifier
-                                .size(iconBoxSize)
-                                .background(primaryColor, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (item.iconVector != null) {
-                                Icon(
-                                    imageVector = item.iconVector,
-                                    contentDescription = item.label,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(primaryIconSize)
-                                )
-                            } else if (item.iconDrawable != null) {
-                                Icon(
-                                    painter = painterResource(id = item.iconDrawable),
-                                    contentDescription = item.label,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(primaryIconSize)
-                                )
-                            }
-                        }
-                    } else {
-                        val tintColor = if (selected) primaryColor else unselectedColor
-
-                        Box(
-                            modifier = Modifier.size(iconBoxSize),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (item.iconVector != null) {
-                                Icon(
-                                    imageVector = item.iconVector,
-                                    contentDescription = item.label,
-                                    tint = tintColor,
-                                    modifier = Modifier.size(standardIconSize)
-                                )
-                            } else if (item.iconDrawable != null) {
-                                Icon(
-                                    painter = painterResource(id = item.iconDrawable),
-                                    contentDescription = item.label,
-                                    tint = tintColor,
-                                    modifier = Modifier.size(standardIconSize)
-                                )
-                            }
-                        }
-                    }
-
-                    if (textSizeFloat > 1f) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = item.label,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) primaryColor else unselectedColor,
-                                fontSize = textSizeFloat.sp
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                if (selected) {
+                                    Brush.verticalGradient(listOf(primaryColor.copy(alpha = 0.1f), Color.White))
+                                } else {
+                                    Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent))
+                                }
                             ),
-                            maxLines = 1
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = if (selected) primaryColor else Color.Gray,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Medium,
+                        color = if (selected) primaryColor else Color.Gray,
+                        fontSize = 10.sp
+                    ),
+                    maxLines = 1
+                )
             }
         }
     }

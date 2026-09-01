@@ -19,6 +19,13 @@ interface FarmFusionApi {
         @Body request: CropRecommendRequest
     ): Response<CropRecommendResponse>
 
+    // ============ CROP RECOMMENDATION - NO SOIL REPORT ============
+
+    @POST("api/v1/crop-recommendation/no-soil-report")
+    suspend fun getNoSoilReportRecommendations(
+        @Body request: NoSoilReportRequest
+    ): Response<NoSoilReportResponse>
+
     @GET("api/v1/crop/history")
     suspend fun getCropRecommendationHistory(
         @Query("firebase_token") token: String,
@@ -100,6 +107,20 @@ interface FarmFusionApi {
     suspend fun processVoice(
         @Body request: VoiceQueryRequest
     ): Response<VoiceQueryResponse>
+
+    // ============ IOT ANIMAL DETECTION ============
+
+    @GET("api/v1/animal-detection/latest")
+    suspend fun getAnimalDetectionLatest(
+        @Query("device_id") deviceId: String = "NODE_01"
+    ): Response<LatestStatusModel>
+
+    @GET("api/v1/animal-detection/history")
+    suspend fun getAnimalDetectionHistory(
+        @Query("device_id") deviceId: String = "NODE_01",
+        @Query("limit") limit: Int = 50,
+        @Query("offset") offset: Int = 0
+    ): Response<HistoryResponseModel>
 
     // ============ AUTHENTICATION ============
 
