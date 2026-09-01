@@ -19,6 +19,13 @@ interface FarmFusionApi {
         @Body request: CropRecommendRequest
     ): Response<CropRecommendResponse>
 
+    // ============ CROP RECOMMENDATION - NO SOIL REPORT ============
+
+    @POST("api/v1/crop-recommendation/no-soil-report")
+    suspend fun getNoSoilReportRecommendations(
+        @Body request: NoSoilReportRequest
+    ): Response<NoSoilReportResponse>
+
     @GET("api/v1/crop/history")
     suspend fun getCropRecommendationHistory(
         @Query("firebase_token") token: String,
@@ -72,6 +79,37 @@ interface FarmFusionApi {
         @Query("months") months: Int = 6
     ): Response<MarketTrendsResponse>
 
+    @GET("api/v1/market/best-nearby")
+    suspend fun getBestNearbyMandis(
+        @Query("commodity") commodity: String,
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null,
+        @Query("district") district: String? = null,
+        @Query("limit") limit: Int = 5
+    ): Response<BestMandiResponseModel>
+
+    @GET("api/v1/market/compare")
+    suspend fun compareMandis(
+        @Query("commodity") commodity: String,
+        @Query("market_a") marketA: String,
+        @Query("market_b") marketB: String
+    ): Response<MandiComparisonResponseModel>
+
+    @GET("api/v1/market/advisory")
+    suspend fun getMandiAdvisory(
+        @Query("commodity") commodity: String,
+        @Query("market") market: String = "Jaipur Mandi",
+        @Query("days") days: Int = 7
+    ): Response<MandiAdvisoryResponseModel>
+
+    @POST("api/v1/market/alerts")
+    suspend fun createPriceAlert(
+        @Body request: PriceAlertCreateModel
+    ): Response<PriceAlertResponseModel>
+
+    @GET("api/v1/market/commodities")
+    suspend fun getCommodities(): Response<List<String>>
+
     // ============ WEATHER ============
 
     @GET("api/v1/weather/current")
@@ -100,6 +138,20 @@ interface FarmFusionApi {
     suspend fun processVoice(
         @Body request: VoiceQueryRequest
     ): Response<VoiceQueryResponse>
+
+    // ============ IOT ANIMAL DETECTION ============
+
+    @GET("api/v1/animal-detection/latest")
+    suspend fun getAnimalDetectionLatest(
+        @Query("device_id") deviceId: String = "NODE_01"
+    ): Response<LatestStatusModel>
+
+    @GET("api/v1/animal-detection/history")
+    suspend fun getAnimalDetectionHistory(
+        @Query("device_id") deviceId: String = "NODE_01",
+        @Query("limit") limit: Int = 50,
+        @Query("offset") offset: Int = 0
+    ): Response<HistoryResponseModel>
 
     // ============ AUTHENTICATION ============
 

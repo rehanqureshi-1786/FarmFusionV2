@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -48,20 +49,16 @@ import com.example.farmfusionapp.ui.screens.WeatherSnapshotStore
 fun ProfileScreen(navController: NavController) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val langCode = LanguagePreferences.getSelectedLanguage(context) ?: "en"
-    val langLabel = when (LocaleHelper.resourceLocaleTag(langCode)) {
-        "hi" -> stringResource(R.string.profile_lang_display_hi)
-        "mr" -> stringResource(R.string.profile_lang_display_mr)
-        "gu" -> stringResource(R.string.profile_lang_display_gu)
-        "pa" -> stringResource(R.string.profile_lang_display_pa)
-        "te" -> stringResource(R.string.profile_lang_display_te)
-        else -> stringResource(R.string.profile_lang_display_en)
-    }
+    val savedLang = AuthStore.getLanguage(context) ?: "en"
+    val savedDialect = AuthStore.getDialect(context)
+    val activeCode = savedDialect ?: savedLang
+    val langObj = remember(activeCode) { com.example.farmfusionapp.data.model.LanguageRegistry.findByCode(activeCode) }
+    val langLabel = langObj?.let { "${it.nativeName} (${it.name})" } ?: "English"
 
     val authViewModel: AuthViewModel = remember { AuthViewModel() }
     val userInfo = remember { authViewModel.getCurrentUserInfo() }
     val userName = userInfo.third ?: "Farmer"
-    val displayCity = WeatherSnapshotStore.latestWeather?.city ?: "Nagpur, Maharashtra"
+    val displayCity = WeatherSnapshotStore.latestWeather?.city ?: com.example.farmfusionapp.utils.LocationSnapshotStore.latestCity ?: "Location unavailable"
 
     // Theme Colors
     val darkGreen = Color(0xFF1E5631)
@@ -228,10 +225,10 @@ fun ProfileScreen(navController: NavController) {
 
                 // Settings Rows
                 SettingPremiumRow(
-                    icon = Icons.Rounded.Language,
+                    icon = Icons.Rounded.Translate,
                     title = stringResource(R.string.profile_language),
                     subtitle = langLabel,
-                    onClick = { showLanguageDialog = true }
+                    onClick = { navController.navigate("language") }
                 )
                 SettingPremiumRow(
                     icon = Icons.Rounded.Notifications,
@@ -243,7 +240,7 @@ fun ProfileScreen(navController: NavController) {
                     icon = Icons.Rounded.Mic,
                     title = stringResource(R.string.profile_voice),
                     subtitle = stringResource(R.string.profile_voice_sub),
-                    onClick = { navController.navigate(NavRoutes.VoiceAssistant) }
+                    onClick = { navController.navigate("voice_assistant") }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -252,7 +249,7 @@ fun ProfileScreen(navController: NavController) {
                 Button(
                     onClick = {
                         authViewModel.logout(context)
-                        navController.navigate(NavRoutes.Login) {
+                        navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }
                     },
@@ -262,37 +259,24 @@ fun ProfileScreen(navController: NavController) {
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Icon(Icons.Rounded.ExitToApp, contentDescription = null, tint = Color.White)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Logout", fontWeight = FontWeight.Bold, color = Color.White)
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ExitToApp,
+                        contentDescription = "Logout",
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "Logout",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))
             }
         }
-    }
-
-    // Modal Language Selection Popup
-    if (showLanguageDialog) {
-
-        // This guarantees the blur triggers when the dialog appears,
-        // and ALWAYS clears when the dialog leaves the screen.
-        DisposableEffect(Unit) {
-            globalBlur.value = true
-            onDispose {
-                globalBlur.value = false
-            }
-        }
-
-        LanguageSelectionDialog(
-            currentLanguageCode = langCode,
-            onDismiss = { showLanguageDialog = false },
-            onSave = { selectedCode ->
-                showLanguageDialog = false
-                AuthStore.saveLanguage(context, selectedCode)
-                (context as? Activity)?.recreate()
-            }
-        )
     }
 }
 

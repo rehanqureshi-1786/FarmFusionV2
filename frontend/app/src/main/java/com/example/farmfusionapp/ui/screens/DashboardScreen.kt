@@ -149,7 +149,7 @@ fun DashboardScreen(navController: NavController) {
     val view = LocalView.current
 
     var weatherData by remember { mutableStateOf(WeatherSnapshotStore.latestWeather) }
-    var locationName by remember { mutableStateOf(WeatherSnapshotStore.latestWeather?.city ?: "Waiting for location...") }
+    var locationName by remember { mutableStateOf(WeatherSnapshotStore.latestWeather?.city ?: com.example.farmfusionapp.utils.LocationSnapshotStore.latestCity ?: "Location unavailable") }
     var hasLocationPermission by remember { mutableStateOf(false) }
 
     // Changed to LaunchedEffect to prevent multiple redraws that break canvas loading sync
@@ -773,15 +773,13 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Uni
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(24.dp))
                         .background(Color.White.copy(alpha = 0.28f)) // Increased opacity for frosted look
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     WeatherStatItem(Icons.Rounded.WaterDrop, "Humidity", weatherData?.let { "${it.humidity}%" } ?: "--")
                     Box(modifier = Modifier.height(24.dp).width(1.dp).background(Color.White.copy(alpha = 0.3f)))
-                    WeatherStatItem(Icons.Rounded.Air, "Wind", weatherData?.let { "${it.windSpeed.toInt()} km/h" } ?: "--")
-                    Box(modifier = Modifier.height(24.dp).width(1.dp).background(Color.White.copy(alpha = 0.3f)))
-                    WeatherStatItem(Icons.Rounded.Speed, "Pressure", weatherData?.let { "${it.pressure ?: "--"} hPa" } ?: "--")
+                    WeatherStatItem(Icons.Rounded.Air, "Wind Speed", weatherData?.let { "${it.windSpeed.toInt()} km/h" } ?: "--")
                 }
             }
         }
