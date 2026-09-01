@@ -5,7 +5,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.farmfusionapp.data.model.CropRecommendationItem
+import com.example.farmfusionapp.data.model.NoSoilReportResponse
 import com.example.farmfusionapp.data.repository.CropRecommendationRepository
+import com.example.farmfusionapp.data.soilreport.SoilReportOcrParser
 import com.example.farmfusionapp.utils.Resource
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -39,22 +41,97 @@ class CropRecommendationViewModel : ViewModel() {
     private val _isSuccess = mutableStateOf(false)
     val isSuccess: State<Boolean> = _isSuccess
 
-    /**
-     * Fetch crop recommendations from AI backend
-     *
-     * @param location User's location (city, country)
-     * @param soilType Selected soil type (Black, Red, Alluvial, Sandy)
-     * @param rainfallMm Annual rainfall in mm
-     * @param temperatureC Average temperature in Celsius
-     * @param farmSizeAcres Farm size in acres
-     */
+    // ============ NO SOIL REPORT FLOW STATE ============
+
+    private val _noSoilReportResult = mutableStateOf<NoSoilReportResponse?>(null)
+    val noSoilReportResult: State<NoSoilReportResponse?> = _noSoilReportResult
+
+    private val _isNoSoilReportLoading = mutableStateOf(false)
+    val isNoSoilReportLoading: State<Boolean> = _isNoSoilReportLoading
+
+    private val _noSoilReportError = mutableStateOf<String?>(null)
+    val noSoilReportError: State<String?> = _noSoilReportError
+
+    private val _isNoSoilReportSuccess = mutableStateOf(false)
+    val isNoSoilReportSuccess: State<Boolean> = _isNoSoilReportSuccess
+
+    /** Fetch crop recommendations for the "I don't have a soil report" flow. */
+    fun fetchNoSoilReportRecommendations(
+        latitude: Double,
+        longitude: Double,
+        state: String?,
+        soilType: String? = null,
+        locationName: String? = null
+    ) {
+        repository.getNoSoilReportRecommendations(latitude, longitude, state, soilType, locationName)
+            .onEach { result ->
+                when (result) {
+                    is Resource.Loading -> {
+                        _isNoSoilReportLoading.value = true
+                        _noSoilReportError.value = null
+                        _isNoSoilReportSuccess.value = false
+                    }
+                    is Resource.Success -> {
+                        _isNoSoilReportLoading.value = false
+                        _noSoilReportResult.value = result.data
+                        _isNoSoilReportSuccess.value = true
+                    }
+                    is Resource.Error -> {
+                        _isNoSoilReportLoading.value = false
+                        _noSoilReportError.value = result.message
+                        _isNoSoilReportSuccess.value = false
+                    }
+                }
+            }.launchIn(viewModelScope)
+    }
+
+    /** Clear only the No-Soil-Report flow state. */
+    fun resetNoSoilReportState() {
+        _noSoilReportResult.value = null
+        _isNoSoilReportLoading.value = false
+        _noSoilReportError.value = null
+        _isNoSoilReportSuccess.value = false
+    }
+
+    // ============ SOIL REPORT OCR FLOW STATE ============
+
+    private val _ocrParsedValues = mutableStateOf<SoilReportOcrParser.ParsedSoilValues?>(null)
+    val ocrParsedValues: State<SoilReportOcrParser.ParsedSoilValues?> = _ocrParsedValues
+
+    private val _confirmedSoilValues = mutableStateOf<SoilReportOcrParser.ParsedSoilValues?>(null)
+    val confirmedSoilValues: State<SoilReportOcrParser.ParsedSoilValues?> = _confirmedSoilValues
+
+    /** Store OCR-parsed values from PhotoInputStep. */
+    fun setOcrParsedValues(values: SoilReportOcrParser.ParsedSoilValues?) {
+        _ocrParsedValues.value = values
+    }
+
+    /** Store farmer-confirmed values after verification step. */
+    fun setConfirmedSoilValues(values: SoilReportOcrParser.ParsedSoilValues) {
+        _confirmedSoilValues.value = values
+    }
+
+    /** Get the confirmed soil values for the recommendation request. */
+    fun getConfirmedSoilValues(): SoilReportOcrParser.ParsedSoilValues? {
+        return _confirmedSoilValues.value
+    }
+
+    /** Reset OCR-related state (for "Scan Again" flow). */
+    fun resetOcrState() {
+        _ocrParsedValues.value = null
+        _confirmedSoilValues.value = null
+    }
+
+    /** Fetch crop recommendations from AI backend */
     fun fetchRecommendations(
         location: String = "Mumbai, India",
         soilType: String,
-        rainfallMm: Double = 1000.0,
-        temperatureC: Double = 28.0,
-        farmSizeAcres: Double = 2.0,
+        rainfallMm: Double = -1.0,
+        temperatureC: Double = 25.0,
+        farmSizeAcres: Double = 1.0,
         budgetUsd: Double? = null,
+        latitude: Double? = null,
+        longitude: Double? = null,
         preferredLanguage: String = "en"
     ) {
         // Map frontend soil types to backend expected values
@@ -66,6 +143,9 @@ class CropRecommendationViewModel : ViewModel() {
             else -> soilType.lowercase()
         }
 
+        // Use confirmed soil values if available (from soil report OCR flow)
+        val confirmedValues = getConfirmedSoilValues()
+        
         repository.getCropRecommendations(
             location = location,
             soilType = backendSoilType,
@@ -73,7 +153,13 @@ class CropRecommendationViewModel : ViewModel() {
             temperatureC = temperatureC,
             farmSizeAcres = farmSizeAcres,
             budgetUsd = budgetUsd,
-            preferredLanguage = preferredLanguage
+            latitude = latitude,
+            longitude = longitude,
+            preferredLanguage = preferredLanguage,
+            nitrogen = confirmedValues?.nitrogen?.value,
+            phosphorus = confirmedValues?.phosphorus?.value,
+            potassium = confirmedValues?.potassium?.value,
+            ph = confirmedValues?.ph?.value
         ).onEach { result ->
             when (result) {
                 is Resource.Loading -> {
@@ -98,16 +184,12 @@ class CropRecommendationViewModel : ViewModel() {
         }.launchIn(viewModelScope)
     }
 
-    /**
-     * Clear error state
-     */
+    /** Clear error state */
     fun clearError() {
         _error.value = null
     }
 
-    /**
-     * Reset all state
-     */
+    /** Reset all state */
     fun resetState() {
         _recommendations.value = emptyList()
         _aiInsights.value = ""
@@ -116,9 +198,7 @@ class CropRecommendationViewModel : ViewModel() {
         _isSuccess.value = false
     }
 
-    /**
-     * Test backend connection
-     */
+    /** Test backend connection */
     fun testConnection() {
         viewModelScope.launch {
             val isConnected = repository.testConnection()

@@ -1,167 +1,115 @@
 package com.example.farmfusionapp.ui.screens
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.Eco
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.farmfusionapp.R
 
-data class StoreProduct(
+data class Product(
     val id: Int,
+    val name: String,
+    val price: String,
+    val rating: String,
     val category: String,
-    val title: String,
-    val description: String,
-    val tags: List<String>,
-    val imageRes: Int,
-    val searchQuery: String
+    val emoji: String,
+    val color: Color
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MarketplaceScreen(navController: NavController) {
+    var selectedCategory by remember { mutableStateOf("All") }
+    val categories = listOf("All", "Seeds", "Fertilizer", "Tools", "Feed")
 
-    val products = remember {
-        listOf(
-            StoreProduct(
-                id = 1,
-                category = "FERTILIZER",
-                title = "Organic NPK Fertilizer",
-                description = "Balanced nutrition for field crops",
-                tags = listOf("Improves growth", "Boosts yield"),
-                imageRes = R.drawable.img_npk_fertilizer,
-                searchQuery = "Organic NPK Fertilizer for agriculture field crops plant growth"
-            ),
-            StoreProduct(
-                id = 2,
-                category = "SEEDS",
-                title = "Certified Wheat Seeds",
-                description = "High-yield varieties",
-                tags = listOf("Better germination", "Disease resistant"),
-                imageRes = R.drawable.img_wheat_seeds,
-                searchQuery = "High yield certified wheat seeds for farming agriculture"
-            ),
-            StoreProduct(
-                id = 3,
-                category = "CROP CARE",
-                title = "Neem Oil Spray",
-                description = "Organic pest care",
-                tags = listOf("Natural protection", "Safe for crops"),
-                imageRes = R.drawable.img_neem_spray,
-                searchQuery = "Organic Neem Oil Spray for plant pests agriculture farming"
-            ),
-            StoreProduct(
-                id = 4,
-                category = "TOOLS",
-                title = "Garden Hand Tools Set",
-                description = "Durable tools for every gardener",
-                tags = listOf("Ergonomic design", "Long lasting"),
-                imageRes = R.drawable.img_garden_tools,
-                searchQuery = "Heavy duty ergonomic garden hand tools set farming agriculture"
-            )
-        )
-    }
+    val products = listOf(
+        Product(1, "Organic Urea", "₹850", "4.8", "Fertilizer", "🧪", Color(0xFFE8F5E9)),
+        Product(2, "Hybrid Wheat Seeds", "₹1,200", "4.5", "Seeds", "🌾", Color(0xFFFFF3E0)),
+        Product(3, "Steel Shovel", "₹450", "4.2", "Tools", "⚒️", Color(0xFFECEFF1)),
+        Product(4, "Cattle Feed", "₹2,100", "4.7", "Feed", "🐄", Color(0xFFF3E5F5)),
+        Product(5, "NPK Spray", "650", "4.6", "Fertilizer", "🧴", Color(0xFFE1F5FE))
+    )
+
+    val filteredProducts = if (selectedCategory == "All") products 
+                          else products.filter { it.category == selectedCategory }
 
     Scaffold(
-        containerColor = Color(0xFFFAFAFA),
         topBar = {
             CenterAlignedTopAppBar(
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = Color.Transparent,
-                    scrolledContainerColor = Color.Transparent
-                ),
-                title = {
-                    Text(
-                        text = "Farm Store",
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1B5E20)
-                    )
-                },
+                title = { Text("Farm Store", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color(0xFF1A1A1A))
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { /* Search */ }) {
+                        Icon(Icons.Rounded.Search, contentDescription = "Search")
                     }
                 }
             )
         }
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(paddingValues)
         ) {
-
-            item {
-                Column(modifier = Modifier.padding(bottom = 8.dp)) {
-                    Text(
-                        text = "Recommended for You",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF112A1F)
-                        )
-                    )
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 4.dp, bottom = 8.dp)
-                            .size(width = 32.dp, height = 3.dp)
-                            .background(Color(0xFF2E7D32), RoundedCornerShape(50))
-                    )
-                    Text(
-                        text = "Top picks based on your farm and trends",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF616161)
+            // Category Filter Row
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(categories) { category ->
+                    FilterChip(
+                        selected = selectedCategory == category,
+                        onClick = { selectedCategory = category },
+                        label = { Text(category, modifier = Modifier.padding(horizontal = 4.dp)) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                         )
                     )
                 }
             }
 
-            items(products) { product ->
-                PremiumProductCard(product = product)
+            // Product List
+            LazyColumn(
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                items(filteredProducts) { product ->
+                    ProductCard(product)
+                }
             }
-
-            item { Spacer(modifier = Modifier.height(24.dp)) }
         }
     }
 }
 
 @Composable
-fun PremiumProductCard(product: StoreProduct) {
-    val context = LocalContext.current
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(24.dp),
-                spotColor = Color.Black.copy(alpha = 0.04f),
-                ambientColor = Color.Black.copy(alpha = 0.02f)
-            ),
+fun ProductCard(product: Product) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        color = Color.White
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
@@ -169,154 +117,67 @@ fun PremiumProductCard(product: StoreProduct) {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-
-            Image(
-                painter = painterResource(id = product.imageRes),
-                contentDescription = product.title,
-                contentScale = ContentScale.Fit,
+            // Product Image (Emoji Placeholder)
+            Box(
                 modifier = Modifier
-                    .size(110.dp)
-                    .padding(end = 16.dp)
-            )
-
-            Column(
-                modifier = Modifier.weight(1f)
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(product.color),
+                contentAlignment = Alignment.Center
             ) {
-                // Heart icon removed from this Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFE8F5E9)
-                    ) {
-                        Text(
-                            text = product.category,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFF2E7D32),
-                                letterSpacing = 0.5.sp,
-                                fontSize = 9.sp
-                            )
-                        )
-                    }
-                }
+                Text(product.emoji, fontSize = 40.sp)
+            }
 
-                Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
+            // Details
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = product.title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF1B1B1B)
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = product.name,
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
                 Text(
-                    text = product.description,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF757575)
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    text = product.category,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
+                
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.padding(top = 4.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Eco,
-                        contentDescription = null,
-                        tint = Color(0xFF2E7D32),
-                        modifier = Modifier.size(12.dp)
+                        Icons.Rounded.Star, 
+                        contentDescription = null, 
+                        tint = Color(0xFFFFB300), 
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = product.tags.getOrNull(0) ?: "",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF616161),
-                            fontSize = 11.sp
-                        )
-                    )
-
-                    Text(
-                        text = "   |   ",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFFE0E0E0),
-                            fontSize = 10.sp
-                        )
-                    )
-
-                    Text(
-                        text = product.tags.getOrNull(1) ?: "",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF616161),
-                            fontSize = 11.sp
-                        )
+                        text = product.rating,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
                     )
                 }
+            }
 
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Surface(
-                    onClick = {
-                        // Using the standard product title for accurate search results
-                        val query = android.net.Uri.encode(product.title)
-                        val amazonUrl = "https://www.amazon.in/s?k=$query"
-
-                        // Fired using a basic intent without aggressive flags so the
-                        // Android OS manages the backstack naturally.
-                        val intent = android.content.Intent(
-                            android.content.Intent.ACTION_VIEW,
-                            android.net.Uri.parse(amazonUrl)
-                        )
-                        context.startActivity(intent)
-                    },
-                    shape = RoundedCornerShape(24.dp),
-                    border = BorderStroke(1.dp, Color(0xFFEEEEEE)),
-                    color = Color.White
+            // Price & Buy
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = product.price,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Black,
+                        color = Color(0xFF2E7D32)
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = { /* Add to Cart */ },
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(36.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_amazon_logo),
-                            contentDescription = "Amazon",
-                            modifier = Modifier.height(16.dp).width(50.dp),
-                            contentScale = ContentScale.Fit
-                        )
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Text(
-                            text = "Buy on Amazon",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1B1B1B)
-                            )
-                        )
-
-                        Spacer(modifier = Modifier.width(4.dp))
-
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            tint = Color(0xFF1B1B1B),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
+                    Text("BUY", fontWeight = FontWeight.ExtraBold)
                 }
             }
         }
