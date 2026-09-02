@@ -120,6 +120,10 @@ app.include_router(disease_router, prefix=settings.api_v1_prefix)
 app.include_router(knowledge_router, prefix=settings.api_v1_prefix)
 app.include_router(crop_recommendation_router, prefix=settings.api_v1_prefix)
 app.include_router(calling_router, prefix=settings.api_v1_prefix)
+# Direct root mount for Vobiz telephony audio stream
+from app.api.v1.calling import telephony_audio_stream_endpoint
+app.websocket("/ws/calling/stream")(telephony_audio_stream_endpoint)
+
 app.include_router(weather_router, prefix=settings.api_v1_prefix)
 app.include_router(legacy_crop_router)
 
