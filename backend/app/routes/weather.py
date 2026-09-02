@@ -4,6 +4,7 @@ GET /weather/current - Current weather
 GET /weather/forecast - Weather forecast
 GET /weather/farming - Weather for farming decisions
 """
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Query
 from app.services.weather_service import WeatherService
 
@@ -14,6 +15,7 @@ router = APIRouter(prefix="/weather", tags=["weather"])
 async def get_current_weather(
     lat: float = Query(..., description="Latitude"),
     lon: float = Query(..., description="Longitude"),
+    language: Optional[str] = Query(None, description="Language code")
 ):
     """
     GET /weather/current
@@ -25,8 +27,10 @@ async def get_current_weather(
 
     Returns temperature, humidity, conditions, and farming advice
     """
+    from app.core.language import get_current_language
+    req_lang = language or get_current_language()
     try:
-        weather = await WeatherService.get_current_weather(lat, lon)
+        weather = await WeatherService.get_current_weather(lat, lon, language=req_lang)
         if not weather.get("success"):
             raise HTTPException(status_code=503, detail=weather.get("error", "Weather service unavailable"))
         return {
@@ -44,6 +48,7 @@ async def get_weather_forecast(
     lat: float = Query(..., description="Latitude"),
     lon: float = Query(..., description="Longitude"),
     days: int = Query(5, ge=1, le=7, description="Number of days (1-7)"),
+    language: Optional[str] = Query(None, description="Language code")
 ):
     """
     GET /weather/forecast
@@ -56,8 +61,10 @@ async def get_weather_forecast(
 
     Returns daily forecast with farming advice
     """
+    from app.core.language import get_current_language
+    req_lang = language or get_current_language()
     try:
-        forecast = await WeatherService.get_forecast(lat, lon, days)
+        forecast = await WeatherService.get_forecast(lat, lon, days, language=req_lang)
         if not forecast.get("success"):
             raise HTTPException(status_code=503, detail=forecast.get("error", "Forecast service unavailable"))
         return {

@@ -573,12 +573,17 @@ class MandiIntelligenceService:
         cls,
         commodity: str,
         market: str = "Jaipur Mandi",
-        days: int = 7
+        days: int = 7,
+        language: str = "hi"
     ) -> MandiAdvisoryResponse:
         """
         Deterministic decision-support matrix combining observed price with ML 7-day forecast.
         Outputs: FAVORABLE_TO_SELL, POSSIBLE_UPSIDE, STABLE, INSUFFICIENT_EVIDENCE.
         """
+        from app.core.language import resolve_language_code
+        lang_ctx = resolve_language_code(language)
+        target_lang = lang_ctx.canonical_code
+
         # 1. Fetch latest observed price
         prices = await MarketService.get_current_prices(commodity=commodity, market=market)
         obs_item = prices[0] if prices else None
@@ -605,23 +610,50 @@ class MandiIntelligenceService:
             signal = "INSUFFICIENT_EVIDENCE"
             rec_hi = "इस समय उपलब्ध डेटा से स्पष्ट दिशा नहीं मिल रही है। कृपया स्थानीय मंडी में संपर्क करें।"
             rec_en = "Current market data does not provide a reliable directional trend. Please verify with your local market."
+            rec_gu = "આ સમયે ઉપલબ્ધ ડેટા પરથી સ્પષ્ટ દિશા નથી મળતી. કૃપા કરીને સ્થાનિક મંડીનો સંપર્ક કરો."
+            rec_mr = "या वेळी उपलब्ध माहितीवरून स्पष्ट दिशा मिळत नाही. कृपया स्थानिक बाजार समितीशी संपर्क साधा."
+            rec_pa = "ਇਸ ਸਮੇਂ ਉਪਲਬਧ ਡੇਟਾ ਤੋਂ ਸਪੱਸ਼ਟ ਦਿਸ਼ਾ ਨਹੀਂ ਮਿਲ ਰਹੀ। ਕਿਰਪਾ ਕਰਕੇ ਸਥਾਨਕ ਮੰਡੀ ਨਾਲ ਸੰਪਰਕ ਕਰੋ।"
+            rec_bn = "বর্তমানে প্রাপ্ত তথ্য থেকে স্পষ্ট ধারণা পাওয়া যাচ্ছে না। অনুগ্রহ করে স্থানীয় মান্ডিতে যোগাযোগ করুন।"
             reasoning_factors.append("Low statistical confidence in 7-day arrival time-series.")
         elif pct_change >= 2.5:
             signal = "POSSIBLE_UPSIDE"
             rec_hi = f"मॉडल के अनुसार अगले {days} दिनों में ₹{round(price_delta)} (+{pct_change}%) तक की बढ़त की संभावना है। यदि तत्काल आवश्यकता न हो तो रुकने पर विचार कर सकते हैं।"
             rec_en = f"Model indicates possible upside of ₹{round(price_delta)}/Q (+{pct_change}%) over next {days} days. Holding may be favorable if cash need is not immediate."
+            rec_gu = f"મૉડલ મુજબ આગામી {days} દિવસોમાં ₹{round(price_delta)} (+{pct_change}%) સુધી વધારો થવાની શક્યતા છે. તાત્કાલિક જરૂરિયાત ન હોય તો રાહ જોવાનું વિચારી શકાય."
+            rec_mr = f"मॉडेलनुसार पुढील {days} दिवसांत ₹{round(price_delta)} (+{pct_change}%) पर्यंत वाढ होण्याची शक्यता आहे. तातडीची गरज नसल्यास थांबण्याचा विचार करू शकता."
+            rec_pa = f"ਮਾਡਲ ਅਨੁਸਾਰ ਅਗਲੇ {days} ਦਿਨਾਂ ਵਿੱਚ ₹{round(price_delta)} (+{pct_change}%) ਤੱਕ ਵਾਧੇ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਜੇਕਰ ਤੁਰੰਤ ਲੋੜ ਨਾ ਹੋਵੇ ਤਾਂ ਰੁਕਣ 'ਤੇ ਵਿਚਾਰ ਕੀਤਾ ਜਾ ਸਕਦਾ ਹੈ।"
+            rec_bn = f"মডেল অনুযায়ী আগামী {days} দিনে ₹{round(price_delta)} (+{pct_change}%) পর্যন্ত বৃদ্ধির সম্ভাবনা রয়েছে। তাত্ক্ষণিক প্রয়োজন না থাকলে অপেক্ষার পরামর্শ দেওয়া হচ্ছে।"
             reasoning_factors.append(f"Prophet + LightGBM projected {days}-day upward momentum (+{pct_change}%).")
             reasoning_factors.append(f"95% confidence target range: ₹{round(lower_bound)} - ₹{round(upper_bound)}/Q.")
         elif pct_change <= -2.5:
             signal = "FAVORABLE_TO_SELL"
             rec_hi = f"मॉडल के अनुसार अगले {days} दिनों में भाव में ₹{abs(round(price_delta))} ({pct_change}%) की गिरावट का अनुमान है। वर्तमान भाव (₹{round(obs_price)}) पर बेचना अनुकूल हो सकता है।"
             rec_en = f"Model projects potential softening by ₹{abs(round(price_delta))}/Q ({pct_change}%) over next {days} days. Selling at current observed price (₹{round(obs_price)}) is favorable."
+            rec_gu = f"મૉડલ મુજબ આગામી {days} દિવસોમાં ભાવમાં ₹{abs(round(price_delta))} ({pct_change}%) ઘટાડો થવાનો અંદાજ છે. વર્તમાન ભાવે (₹{round(obs_price)}) વેચવું ફાયદાકારક રહેશે."
+            rec_mr = f"मॉडेलनुसार पुढील {days} दिवसांत दरात ₹{abs(round(price_delta))} ({pct_change}%) घसरण होण्याचा अंदाज आहे. सध्याच्या दराने (₹{round(obs_price)}) विकणे फायद्याचे ठरेल."
+            rec_pa = f"ਮਾਡਲ ਅਨੁਸਾਰ ਅਗਲੇ {days} ਦਿਨਾਂ ਵਿੱਚ ਭਾਅ ਵਿੱਚ ₹{abs(round(price_delta))} ({pct_change}%) ਗਿਰਾਵਟ ਦਾ ਅਨੁਮਾਨ ਹੈ। ਮੌਜੂਦਾ ਭਾਅ (₹{round(obs_price)}) 'ਤੇ ਵੇਚਣਾ ਲਾਭਦਾਇਕ ਹੋ ਸਕਦਾ ਹੈ।"
+            rec_bn = f"মডেল অনুযায়ী আগামী {days} দিনে দরে ₹{abs(round(price_delta))} ({pct_change}%) হ্রাসের সম্ভাবনা রয়েছে। বর্তমান দরে (₹{round(obs_price)}) বিক্রি করা অনুকূল।"
             reasoning_factors.append(f"Downward trend component detected across arrival cycles ({pct_change}%).")
         else:
             signal = "STABLE"
             rec_hi = f"अगले {days} दिनों में भाव लगभग स्थिर (₹{round(obs_price)} से ₹{round(proj_price)}/क्विंटल) रहने का अनुमान है।"
             rec_en = f"Prices are expected to remain largely stable (around ₹{round(obs_price)} to ₹{round(proj_price)}/Q)."
+            rec_gu = f"આગામી {days} દિવસોમાં ભાવ લગભગ સ્થિર (₹{round(obs_price)} થી ₹{round(proj_price)}/ક્વિન્ટલ) રહેવાનો અંદાજ છે."
+            rec_mr = f"पुढील {days} दिवसांत दर साधारणपणे स्थिर (₹{round(obs_price)} ते ₹{round(proj_price)}/क्विंटल) राहण्याचा अंदाज आहे."
+            rec_pa = f"ਅਗਲੇ {days} ਦਿਨਾਂ ਵਿੱਚ ਭਾਅ ਲਗਭਗ ਸਥਿਰ (₹{round(obs_price)} ਤੋਂ ₹{round(proj_price)}/ਕੁਇੰਟਲ) ਰਹਿਣ ਦਾ ਅਨੁਮਾਨ ਹੈ।"
+            rec_bn = f"আগামী {days} দিনে দর মোটামুটি স্থিতিশীল (₹{round(obs_price)} থেকে ₹{round(proj_price)}/কুইন্টাল) থাকার সম্ভাবনা।"
             reasoning_factors.append("Neutral price delta within ±2.5% band.")
+
+        # Pick localized text based on requested language
+        lang_map = {
+            "hi": rec_hi,
+            "en": rec_en,
+            "gu": rec_gu,
+            "mr": rec_mr,
+            "pa": rec_pa,
+            "bn": rec_bn
+        }
+        localized_rec = lang_map.get(target_lang, rec_hi if target_lang != "en" else rec_en)
 
         return MandiAdvisoryResponse(
             commodity=commodity,
@@ -648,8 +680,11 @@ class MandiIntelligenceService:
                 signal=signal,
                 recommendation_hi=rec_hi,
                 recommendation_en=rec_en,
+                localized_recommendation=localized_rec,
+                language=target_lang,
                 reasoning_factors=reasoning_factors
             ),
+            language=target_lang,
             disclaimer="मॉडल केवल ऐतिहासिक रुझानों और सांख्यिकीय संकेतों के आधार पर अनुमान प्रस्तुत करता है। यह कोई निश्चित वित्तीय गारंटी नहीं है।"
         )
 

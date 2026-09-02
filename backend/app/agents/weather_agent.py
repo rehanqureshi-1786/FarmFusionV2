@@ -19,7 +19,9 @@ class WeatherAgent:
     def is_available(self) -> bool:
         return True
 
-    async def get_current_weather(self, lat: float, lon: float) -> Dict[str, Any]:
+    async def get_current_weather(self, lat: float, lon: float, language: Optional[str] = None) -> Dict[str, Any]:
+        from app.core.language import resolve_language_code, get_current_language
+        lang_code = resolve_language_code(language or get_current_language()).canonical_code
         try:
             payload = await self._fetch_weather_bundle(lat, lon, forecast_days=1, past_days=0)
             current = payload.get("current", {})
@@ -39,17 +41,19 @@ class WeatherAgent:
                 "feels_like_c": current.get("apparent_temperature", temperature),
                 "humidity_percent": int(humidity or 0),
                 "pressure_hpa": int(current.get("pressure_msl") or 0),
-                "weather": self._weather_code_to_text(weather_code),
+                "weather": self._weather_code_to_text(weather_code, language=lang_code),
                 "wind_speed_ms": self._kmh_to_ms(current.get("wind_speed_10m")),
                 "visibility_m": int(current.get("visibility") or 10000),
                 "cloudiness_percent": int(current.get("cloud_cover") or 0),
                 "sunrise": sunrise,
                 "sunset": sunset,
+                "language": lang_code,
                 "farming_advice": self._generate_farming_advice(
                     temperature_c=temperature,
                     humidity_percent=humidity,
                     wind_speed_kmh=current.get("wind_speed_10m"),
-                    weather_code=weather_code
+                    weather_code=weather_code,
+                    language=lang_code
                 ),
                 "source": "open-meteo"
             }
@@ -60,17 +64,20 @@ class WeatherAgent:
                 "source": "open-meteo"
             }
 
-    async def get_forecast(self, lat: float, lon: float, days: int = 5) -> Dict[str, Any]:
+    async def get_forecast(self, lat: float, lon: float, days: int = 5, language: Optional[str] = None) -> Dict[str, Any]:
+        from app.core.language import resolve_language_code, get_current_language
+        lang_code = resolve_language_code(language or get_current_language()).canonical_code
         try:
             payload = await self._fetch_weather_bundle(lat, lon, forecast_days=days, past_days=0)
             daily = payload.get("daily", {})
-            forecasts = self._build_daily_rows(daily, days)
+            forecasts = self._build_daily_rows(daily, days, language=lang_code)
 
             return {
                 "success": True,
                 "location": "",
                 "forecast": forecasts,
-                "farming_advice": self._generate_forecast_advice(forecasts),
+                "language": lang_code,
+                "farming_advice": self._generate_forecast_advice(forecasts, language=lang_code),
                 "source": "open-meteo"
             }
         except Exception as exc:
@@ -85,8 +92,11 @@ class WeatherAgent:
         lat: float,
         lon: float,
         forecast_days: int = 7,
-        past_days: int = 7
+        past_days: int = 7,
+        language: Optional[str] = None
     ) -> Dict[str, Any]:
+        from app.core.language import resolve_language_code, get_current_language
+        lang_code = resolve_language_code(language or get_current_language()).canonical_code
         try:
             payload = await self._fetch_weather_bundle(
                 lat,
@@ -95,14 +105,16 @@ class WeatherAgent:
                 past_days=past_days
             )
             daily = payload.get("daily", {})
-            past_forecasts = self._build_daily_rows(daily, past_days, past=True)
-            future_forecasts = self._build_daily_rows(daily, forecast_days)
+            past_forecasts = self._build_daily_rows(daily, past_days, past=True, language=lang_code)
+            future_forecasts = self._build_daily_rows(daily, forecast_days, language=lang_code)
 
             return {
                 "success": True,
                 "location": "",
-                "past": past_forecasts,
-                "forecast": future_forecasts,
+                "past_days": past_forecasts,
+                "forecast_days": future_forecasts,
+                "language": lang_code,
+                "farming_advice": self._generate_forecast_advice(future_forecasts, language=lang_code),
                 "source": "open-meteo"
             }
         except Exception as exc:
@@ -133,7 +145,7 @@ class WeatherAgent:
             response.raise_for_status()
             return response.json()
 
-    def _build_daily_rows(self, daily: Dict[str, Any], days: int, past: bool = False) -> List[Dict[str, Any]]:
+    def _build_daily_rows(self, daily: Dict[str, Any], days: int, past: bool = False, language: str = "hi") -> List[Dict[str, Any]]:
         rows = []
         for i in range(min(days, len(daily.get("time", [])))):
             max_temp = daily.get("temperature_2m_max", [None])[i]
@@ -146,7 +158,7 @@ class WeatherAgent:
                 "date": daily.get("time", [None])[i],
                 "temperature_c": avg_temp,
                 "humidity_percent": 0,
-                "weather": self._weather_code_to_text(daily.get("weather_code", [0])[i]),
+                "weather": self._weather_code_to_text(daily.get("weather_code", [0])[i], language=language),
                 "wind_speed_ms": self._kmh_to_ms(daily.get("wind_speed_10m_max", [0])[i]),
                 "rain_chance": float(daily.get("precipitation_probability_max", [0])[i] or 0),
                 "precipitation_mm": float(daily.get("precipitation_sum", [0])[i] or 0),
@@ -160,67 +172,139 @@ class WeatherAgent:
         temperature_c: float | None,
         humidity_percent: float | None,
         wind_speed_kmh: float | None,
-        weather_code: int | None
+        weather_code: int | None,
+        language: str = "hi"
     ) -> str:
-        advice: List[str] = []
+        advice_hi: List[str] = []
+        advice_gu: List[str] = []
+        advice_mr: List[str] = []
+        advice_pa: List[str] = []
+        advice_bn: List[str] = []
+        advice_en: List[str] = []
 
-        if temperature_c is not None:
-            if temperature_c > 35:
-                advice.append("High temperature - ensure irrigation")
-            elif temperature_c < 15:
-                advice.append("Cool conditions - protect sensitive crops")
+        if temperature_c is not None and temperature_c > 35:
+            advice_hi.append("उच्च तापमान - नमी बनाए रखने के लिए हल्की सिंचाई करें")
+            advice_gu.append("ઊંચું તાપમાન - ભેજ જાળવવા હળવું પિયત આપો")
+            advice_mr.append("उच्च तापमान - ओलावा टिकवण्यासाठी हलके पाणी द्या")
+            advice_pa.append("ਉੱਚ ਤਾਪਮਾਨ - ਨਮੀ ਬਣਾਈ ਰੱਖਣ ਲਈ ਹਲਕੀ ਸਿੰਚਾਈ ਕਰੋ")
+            advice_bn.append("উচ্চ তাপমাত্রা - আর্দ্রতা বজায় রাখতে হালকা সেচ দিন")
+            advice_en.append("High temperature - irrigate lightly to preserve soil moisture")
 
-        if humidity_percent is not None:
-            if humidity_percent > 80:
-                advice.append("High humidity - watch for fungal disease")
-            elif humidity_percent < 30:
-                advice.append("Low humidity - monitor soil moisture")
+        if humidity_percent is not None and humidity_percent > 85:
+            advice_hi.append("अधिक नमी - कवक एवं फफूंद जनित रोगों की निगरानी करें")
+            advice_gu.append("વધુ ભેજ - ફૂગજન્ય રોગોનું ધ્યાન રાખો")
+            advice_mr.append("जास्त आर्द्रता - बुरशीजन्य रोगांचे निरीक्षण करा")
+            advice_pa.append("ਵੱਧ ਨਮੀ - ਉੱਲੀ ਰੋਗਾਂ ਦੀ ਨਿਗਰਾਨੀ ਕਰੋ")
+            advice_bn.append("অতিরিক্ত আর্দ্রতা - ছত্রাকজনিত রোগের লক্ষণ খেয়াল রাখুন")
+            advice_en.append("High humidity - monitor crops for fungal disease symptoms")
 
         if wind_speed_kmh is not None and wind_speed_kmh > 20:
-            advice.append("Windy conditions - delay spraying")
+            advice_hi.append("तेज हवा - कीटनाशक छिड़काव स्थगित रखें")
+            advice_gu.append("ઝડપી પવન - દવાનો છંટકાવ મોકૂફ રાખો")
+            advice_mr.append("जोराचा वारा - कीटकनाशक फवारणी थांबवा")
+            advice_pa.append("ਤੇਜ਼ ਹਵਾ - ਕੀਟਨਾਸ਼ਕ ਸਪਰੇਅ ਰੋਕੋ")
+            advice_bn.append("দমকা হাওয়া - কীটনাশক স্প্রে করা স্থগিত রাখুন")
+            advice_en.append("Windy conditions - delay foliar spraying")
 
         if weather_code is not None and weather_code in {61, 63, 65, 80, 81, 82, 95, 96, 99}:
-            advice.append("Rain likely - avoid spraying before showers")
+            advice_hi.append("बारिश की संभावना - छिड़काव रोकें एवं जल निकासी रखें")
+            advice_gu.append("વરસાદની શક્યતા - છંટકાવ અટકાવો અને પાણી નિકાલ રાખો")
+            advice_mr.append("पावसाची शक्यता - फवारणी टाळा आणि पाण्याचा निचरा करा")
+            advice_pa.append("ਮੀਂਹ ਦੀ ਸੰਭਾਵਨਾ - ਸਪਰੇਅ ਰੋਕੋ ਅਤੇ ਨਿਕਾਸੀ ਯਕੀਨੀ ਬਣਾਓ")
+            advice_bn.append("বৃষ্টির সম্ভাবনা - স্প্রে স্থগিত রাখুন ও নিকাশি বজায় রাখুন")
+            advice_en.append("Rain likely - avoid spraying before showers and ensure drainage")
 
-        return " | ".join(advice) if advice else "Good weather conditions for farm work"
+        lang_map = {
+            "hi": " | ".join(advice_hi) if advice_hi else "मौसम खेती कार्यों के अनुकूल है",
+            "gu": " | ".join(advice_gu) if advice_gu else "હવામાન ખેતી કામ માટે અનુકૂળ છે",
+            "mr": " | ".join(advice_mr) if advice_mr else "हवामान शेतीकामासाठी अनुकूल आहे",
+            "pa": " | ".join(advice_pa) if advice_pa else "ਮੌਸਮ ਖੇਤੀਬਾੜੀ ਕਾਰਜਾਂ ਲਈ ਅਨੁਕੂਲ ਹੈ",
+            "bn": " | ".join(advice_bn) if advice_bn else "আবহাওয়া চাষের কাজের জন্য অনুকূল",
+            "en": " | ".join(advice_en) if advice_en else "Good weather conditions for farm work"
+        }
+        return lang_map.get(language, lang_map["hi"] if language != "en" else lang_map["en"])
 
-    def _generate_forecast_advice(self, forecasts: List[Dict[str, Any]]) -> str:
+    def _generate_forecast_advice(self, forecasts: List[Dict[str, Any]], language: str = "hi") -> str:
         rainy_days = sum(1 for day in forecasts if day.get("rain_chance", 0) >= 40 or day.get("precipitation_mm", 0) > 1)
         hot_days = sum(1 for day in forecasts if day.get("temperature_max_c", 0) > 35)
 
-        advice: List[str] = []
-        if rainy_days:
-            advice.append(f"{rainy_days} rainy day(s) expected. Plan spraying around dry windows.")
-        if hot_days:
-            advice.append(f"{hot_days} hot day(s) ahead. Keep irrigation ready.")
+        if language == "gu":
+            parts = []
+            if rainy_days: parts.append(f"{rainy_days} દિવસ વરસાદની શક્યતા છે. સૂકા સમયમાં છંટકાવનું આયોજન કરો.")
+            if hot_days: parts.append(f"{hot_days} દિવસ ગરમી વધુ રહેશે. પિયત તૈયાર રાખો.")
+            return " ".join(parts) if parts else "આગામી દિવસોમાં હવામાન સ્થિર રહેશે. ખેતી કામ માટે સારું છે."
+        elif language == "mr":
+            parts = []
+            if rainy_days: parts.append(f"{rainy_days} दिवस पावसाची शक्यता आहे. कोरड्या वेळेत फवारणी करा.")
+            if hot_days: parts.append(f"{hot_days} दिवस जास्त उष्णता राहील. पाणी देण्याची तयारी ठेवा.")
+            return " ".join(parts) if parts else "हवामान साधारणपणे स्थिर राहील. शेतीच्या कामासाठी योग्य."
+        elif language == "pa":
+            parts = []
+            if rainy_days: parts.append(f"{rainy_days} ਦਿਨ ਮੀਂਹ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਸੁੱਕੇ ਦਿਨਾਂ ਵਿੱਚ ਸਪਰੇਅ ਦੀ ਯੋਜਨਾ ਬਣਾਓ।")
+            if hot_days: parts.append(f"{hot_days} ਦਿਨ ਗਰਮੀ ਵੱਧ ਰਹੇਗੀ। ਸਿੰਚਾਈ ਤਿਆਰ ਰੱਖੋ।")
+            return " ".join(parts) if parts else "ਮੌਸਮ ਸਥਿਰ ਰਹਿਣ ਦੀ ਉਮੀਦ ਹੈ। ਖੇਤੀ ਲਈ ਚੰਗਾ।"
+        elif language == "bn":
+            parts = []
+            if rainy_days: parts.append(f"{rainy_days} দিন বৃষ্টির সম্ভাবনা রয়েছে। শুকনো দিনে স্প্রে করার পরিকল্পনা করুন।")
+            if hot_days: parts.append(f"{hot_days} দিন তাপমাত্রা বেশি থাকবে। সেচের ব্যবস্থা প্রস্তুত রাখুন।")
+            return " ".join(parts) if parts else "আবহাওয়া স্থিতিশীল থাকবে। মাঠের কাজের জন্য উপযুক্ত।"
+        elif language == "en":
+            parts = []
+            if rainy_days: parts.append(f"{rainy_days} rainy day(s) expected. Plan spraying around dry windows.")
+            if hot_days: parts.append(f"{hot_days} hot day(s) ahead. Keep irrigation ready.")
+            return " ".join(parts) if parts else "Stable weather expected. Good for field operations."
+        else:
+            # Default Hindi
+            parts = []
+            if rainy_days: parts.append(f"{rainy_days} दिन बारिश की संभावना है। सूखे मौसम में ही छिड़काव की योजना बनाएं।")
+            if hot_days: parts.append(f"{hot_days} दिन तेज गर्मी रहेगी। सिंचाई की व्यवस्था तैयार रखें।")
+            return " ".join(parts) if parts else "मौसम स्थिर रहने की संभावना है। सामान्य खेती कार्यों के लिए अच्छा समय।"
 
-        return " ".join(advice) if advice else "Stable weather expected. Good for field operations."
-
-    def _weather_code_to_text(self, code: int | None) -> str:
-        mapping = {
-            0: "clear sky",
-            1: "mainly clear",
-            2: "partly cloudy",
-            3: "overcast",
-            45: "fog",
-            48: "depositing rime fog",
-            51: "light drizzle",
-            53: "drizzle",
-            55: "dense drizzle",
-            61: "light rain",
-            63: "rain",
-            65: "heavy rain",
-            71: "light snow",
-            73: "snow",
-            75: "heavy snow",
-            80: "rain showers",
-            81: "rain showers",
-            82: "heavy rain showers",
-            95: "thunderstorm",
-            96: "thunderstorm with hail",
-            99: "severe thunderstorm with hail",
-        }
-        return mapping.get(code or 0, "weather update available")
+    def _weather_code_to_text(self, code: int | None, language: str = "hi") -> str:
+        code_val = code or 0
+        if language == "gu":
+            gu_map = {
+                0: "સ્વચ્છ આકાશ", 1: "સામાન્ય સ્વચ્છ", 2: "અંશતઃ વાદળછાયું", 3: "વાદળછાયું",
+                45: "ધુમ્મસ", 51: "ઝરમર વરસાદ", 61: "હળવો વરસાદ", 63: "મધ્યમ વરસાદ",
+                65: "ભારે વરસાદ", 80: "ઝાપટાં", 95: "ગાજવીજ સાથે વાવાઝોડું"
+            }
+            return gu_map.get(code_val, "હવામાન અપડેટ ઉપલબ્ધ")
+        elif language == "mr":
+            mr_map = {
+                0: "निरभ्र आकाश", 1: "साधारण स्वच्छ", 2: "अंशतः ढगाळ", 3: "ढगाळ",
+                45: "धुके", 51: "रिमझिम पाऊस", 61: "हलका पाऊस", 63: "मध्यम पाऊस",
+                65: "मुसळधार पाऊस", 80: "पावसाच्या सरी", 95: "वादळी पाऊस"
+            }
+            return mr_map.get(code_val, "हवामान माहिती उपलब्ध")
+        elif language == "pa":
+            pa_map = {
+                0: "ਸਾਫ ਅਸਮਾਨ", 1: "ਮੁੱਖ ਤੌਰ 'ਤੇ ਸਾਫ", 2: "ਅੰਸ਼ਕ ਬੱਦਲਵਾਈ", 3: "ਬੱਦਲਵਾਈ",
+                45: "ਧੁੰਦ", 51: "ਫੁਹਾਰ", 61: "ਹਲਕੀ ਬਾਰਿਸ਼", 63: "ਦਰਮਿਆਨੀ ਬਾਰਿਸ਼",
+                65: "ਭਾਰੀ ਬਾਰਿਸ਼", 80: "ਤੇਜ਼ ਬਾਰਿਸ਼ ਦੀਆਂ ਛੱਲਾਂ", 95: "ਗਰਜ ਨਾਲ ਤੂਫਾਨ"
+            }
+            return pa_map.get(code_val, "ਮੌਸਮ ਅਪਡੇਟ ਉਪਲਬਧ")
+        elif language == "bn":
+            bn_map = {
+                0: "পরিষ্কার আকাশ", 1: "প্রধানত পরিষ্কার", 2: "আংশিক মেঘলা", 3: "মেঘলা আকাশ",
+                45: "কুয়াশা", 51: "গুঁড়ি গুঁড়ি বৃষ্টি", 61: "হালকা বৃষ্টি", 63: "মাঝারি বৃষ্টি",
+                65: "ভারী বৃষ্টি", 80: "বৃষ্টির ঝলক", 95: "বজ্রবিদ্যুৎসহ ঝড়"
+            }
+            return bn_map.get(code_val, "আবহাওয়া আপডেট উপলব্ধ")
+        elif language == "en":
+            en_map = {
+                0: "clear sky", 1: "mainly clear", 2: "partly cloudy", 3: "overcast",
+                45: "fog", 51: "light drizzle", 61: "light rain", 63: "rain",
+                65: "heavy rain", 80: "rain showers", 95: "thunderstorm"
+            }
+            return en_map.get(code_val, "weather update available")
+        else:
+            # Default Hindi
+            hi_map = {
+                0: "साफ आसमान", 1: "मुख्यतः साफ", 2: "आंशिक रूप से बादल", 3: "घने बादल",
+                45: "कोहरा", 51: "हल्की बूंदाबांदी", 61: "हल्की बारिश", 63: "बारिश",
+                65: "भारी बारिश", 80: "तेज बारिश की बौछारें", 95: "गरज-चमक के साथ आंधी"
+            }
+            return hi_map.get(code_val, "मौसम का पूर्वानुमान उपलब्ध")
 
     def _kmh_to_ms(self, speed_kmh: float | None) -> float:
         if speed_kmh is None:

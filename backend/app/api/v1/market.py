@@ -120,16 +120,20 @@ async def compare_mandis(
 async def get_sell_wait_advisory(
     commodity: str = Query(..., description="Crop or commodity name"),
     market: str = Query("Jaipur Mandi", description="Target market location"),
-    days: int = Query(7, ge=1, le=30, description="Forecast horizon in days")
+    days: int = Query(7, ge=1, le=30, description="Forecast horizon in days"),
+    language: Optional[str] = Query(None, description="Preferred language code e.g. hi, gu, mr, pa, bn")
 ):
     """
     Deterministic decision support (FAVORABLE_TO_SELL, POSSIBLE_UPSIDE, STABLE, INSUFFICIENT_EVIDENCE).
     """
+    from app.core.language import get_current_language
+    req_lang = language or get_current_language()
     try:
         return await MandiIntelligenceService.get_sell_wait_advisory(
             commodity=commodity,
             market=market,
-            days=days
+            days=days,
+            language=req_lang
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating mandi advisory: {str(e)}")

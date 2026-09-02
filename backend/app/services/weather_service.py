@@ -11,61 +11,45 @@ class WeatherService:
     @staticmethod
     async def get_current_weather(
         lat: float,
-        lon: float
+        lon: float,
+        language: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Get current weather for location
-
-        Args:
-            lat: Latitude
-            lon: Longitude
-
-        Returns:
-            Current weather data with farming advice
+        Get current weather for location with localized farming advice
         """
-        return await weather_agent.get_current_weather(lat, lon)
+        from app.core.language import get_current_language
+        return await weather_agent.get_current_weather(lat, lon, language=language or get_current_language())
 
     @staticmethod
     async def get_forecast(
         lat: float,
         lon: float,
-        days: int = 5
+        days: int = 5,
+        language: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Get weather forecast
-
-        Args:
-            lat: Latitude
-            lon: Longitude
-            days: Number of days to forecast
-
-        Returns:
-            Forecast data with farming advice
+        Get weather forecast with localized farming advice
         """
-        return await weather_agent.get_forecast(lat, lon, days)
+        from app.core.language import get_current_language
+        return await weather_agent.get_forecast(lat, lon, days, language=language or get_current_language())
 
     @staticmethod
     async def get_farming_weather(
         lat: float,
         lon: float,
-        days: int = 7
+        days: int = 7,
+        language: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get comprehensive weather data for farming decisions
-
-        Args:
-            lat: Latitude
-            lon: Longitude
-            days: Number of days
-
-        Returns:
-            Combined current and forecast data
         """
-        current = await weather_agent.get_current_weather(lat, lon)
+        from app.core.language import get_current_language
+        lang = language or get_current_language()
+        current = await weather_agent.get_current_weather(lat, lon, language=lang)
         if not current.get("success"):
             return current
 
-        forecast = await weather_agent.get_forecast(lat, lon, days)
+        forecast = await weather_agent.get_forecast(lat, lon, days, language=lang)
         if not forecast.get("success"):
             return forecast
 

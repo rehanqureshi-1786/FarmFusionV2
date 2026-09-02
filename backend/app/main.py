@@ -65,6 +65,19 @@ app.add_middleware(
 
 
 @app.middleware("http")
+async def language_context_middleware(request: Request, call_next):
+    from app.core.language import resolve_language_code, set_current_language
+    user_lang = request.headers.get("x-user-language") or request.headers.get("accept-language")
+    if not user_lang:
+        user_lang = request.query_params.get("language") or request.query_params.get("preferred_language")
+    ctx = resolve_language_code(user_lang)
+    set_current_language(ctx.canonical_code, ctx.dialect_name if ctx.is_dialect else None)
+    response = await call_next(request)
+    response.headers["X-Resolved-Language"] = ctx.canonical_code
+    return response
+
+
+@app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
     response = await call_next(request)

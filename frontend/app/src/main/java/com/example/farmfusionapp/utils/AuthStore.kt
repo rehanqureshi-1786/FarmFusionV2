@@ -12,6 +12,9 @@ object AuthStore {
     private const val KEY_LANGUAGE = "selected_language"
     private const val KEY_DIALECT = "selected_dialect"
 
+    @Volatile
+    var activeLanguage: String = "hi"
+
     /**
      * Save login state and token
      */
@@ -28,6 +31,7 @@ object AuthStore {
      * Save selected language and optional dialect
      */
     fun saveLanguage(context: Context, languageCode: String) {
+        activeLanguage = languageCode
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_LANGUAGE, languageCode)
@@ -35,6 +39,7 @@ object AuthStore {
     }
 
     fun saveLanguageAndDialect(context: Context, languageCode: String, dialectCode: String?) {
+        activeLanguage = languageCode
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_LANGUAGE, languageCode)
@@ -46,8 +51,12 @@ object AuthStore {
      * Get saved language (default "en" or "hi")
      */
     fun getLanguage(context: Context): String? {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val lang = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .getString(KEY_LANGUAGE, null)
+        if (lang != null) {
+            activeLanguage = lang
+        }
+        return lang
     }
 
     /**
@@ -64,7 +73,8 @@ object AuthStore {
     fun clearLoginSession(context: Context) {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         with(prefs.edit()) {
-            clear()
+            putBoolean(KEY_IS_LOGGED_IN, false)
+            remove(KEY_AUTH_TOKEN)
             apply()
         }
     }
@@ -73,15 +83,15 @@ object AuthStore {
      * Check if user is logged in
      */
     fun isLoggedIn(context: Context): Boolean {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(KEY_IS_LOGGED_IN, false)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_IS_LOGGED_IN, false)
     }
 
     /**
      * Get saved auth token
      */
     fun getAuthToken(context: Context): String? {
-        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getString(KEY_AUTH_TOKEN, null)
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getString(KEY_AUTH_TOKEN, null)
     }
 }

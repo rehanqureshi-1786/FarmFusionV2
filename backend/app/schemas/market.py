@@ -190,6 +190,8 @@ class AdvisoryDetail(BaseModel):
     signal: str  # FAVORABLE_TO_SELL, POSSIBLE_UPSIDE, STABLE, INSUFFICIENT_EVIDENCE
     recommendation_hi: str
     recommendation_en: str
+    localized_recommendation: Optional[str] = None
+    language: Optional[str] = "hi"
     reasoning_factors: List[str]
 
 
@@ -199,6 +201,7 @@ class MandiAdvisoryResponse(BaseModel):
     observed: AdvisoryObserved
     forecast: AdvisoryForecast
     advisory: AdvisoryDetail
+    language: Optional[str] = "hi"
     disclaimer: str = (
         "मॉडल केवल ऐतिहासिक रुझानों और सांख्यिकीय संकेतों के आधार पर अनुमान प्रस्तुत करता है। "
         "यह कोई निश्चित वित्तीय गारंटी नहीं है।"

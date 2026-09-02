@@ -292,12 +292,35 @@ class NoSoilCropService:
 
         ph_desc = f"SoilGrids estimated pH (~{ph_val:.1f})" if ph_val is not None else "farmer-selected soil"
 
+        from app.core.language import get_current_language
+        lang_code = get_current_language()
+
+        if lang_code == "gu":
+            msg_text = "જીપીએસ, વાતાવરણ અને જમીન ડેટાના આધારે પાકની અનુકૂળતા નક્કી કરવામાં આવી છે."
+            exp_text = f"વાસ્તવિક સ્થાન ({loc_display}), ઋતુ ({season}), હવામાન (તાપમાન: {temp_val or '--'}°C, ભેજ: {hum_val or '--'}%), અને વરસાદ ({annual_rain_val or '--'} mm) ના આધારે ઉપરોક્ત પાક તમારા ખેતર માટે ઉત્તમ છે."
+        elif lang_code == "mr":
+            msg_text = "जीपीएस, हवामान आणि जमिनीच्या माहितीनुसार पिकांची निवड केली आहे."
+            exp_text = f"स्थान ({loc_display}), हंगाम ({season}), हवामान (तापमान: {temp_val or '--'}°C, आर्द्रता: {hum_val or '--'}%), आणि पाऊस ({annual_rain_val or '--'} mm) नुसार वरील पिके तुमच्या शेतीसाठी अत्यंत योग्य आहेत."
+        elif lang_code == "pa":
+            msg_text = "ਜੀਪੀਐਸ, ਮੌਸਮ ਅਤੇ ਜ਼ਮੀਨੀ ਡੇਟਾ ਦੇ ਆਧਾਰ 'ਤੇ ਫਸਲ ਅਨੁਕੂਲਤਾ ਤਿਆਰ ਕੀਤੀ ਗਈ ਹੈ।"
+            exp_text = f"ਟਿਕਾਣਾ ({loc_display}), ਮੌਸਮ ({season}), ਤਾਪਮਾਨ ({temp_val or '--'}°C), ਅਤੇ ਬਾਰਿਸ਼ ({annual_rain_val or '--'} mm) ਅਨੁਸਾਰ ਉਪਰੋਕਤ ਫਸਲਾਂ ਤੁਹਾਡੇ ਖੇਤ ਲਈ ਢੁਕਵੀਆਂ ਹਨ।"
+        elif lang_code == "bn":
+            msg_text = "জিপিএস, আবহাওয়া এবং মাটির তথ্যের ভিত্তিতে ফসলের উপযোগিতা যাচাই করা হয়েছে।"
+            exp_text = f"অবস্থান ({loc_display}), মরসুম ({season}), আবহাওয়া (তাপমাত্রা: {temp_val or '--'}°C, আর্দ্রতা: {hum_val or '--'}%), এবং বৃষ্টিপাত ({annual_rain_val or '--'} mm) অনুযায়ী উল্লিখিত ফসলগুলি উপযোগী।"
+        elif lang_code == "en":
+            msg_text = "Environmental suitability assessed from real GPS, weather, and soil data."
+            exp_text = f"Based on real location ({loc_display}), current season ({season}), Open-Meteo weather (Temp: {temp_val or '--'}°C, Humidity: {hum_val or '--'}%), ERA5-Land rainfall ({annual_rain_val or '--'} mm), and {ph_desc}, the above crops are environmentally well-suited."
+        else:
+            # Default Hindi
+            msg_text = "जीपीएस, मौसम एवं मिट्टी के आंकड़ों के आधार पर फसलों की उपयुक्तता का मूल्यांकन किया गया है।"
+            exp_text = f"आपके क्षेत्र ({loc_display}), चालू मौसम ({season}), तापमान ({temp_val or '--'}°C, आर्द्रता: {hum_val or '--'}%), एवं वर्षा ({annual_rain_val or '--'} mm) के आधार पर उपरोक्त फसलें आपके खेत के लिए सबसे उपयुक्त हैं।"
+
         return NoSoilReportResponse(
             success=True,
             recommendation_available=len(recommendations) > 0,
             recommendation_mode="ENVIRONMENTAL_SUITABILITY",
             reason=None if len(recommendations) > 0 else "INSUFFICIENT_ENVIRONMENTAL_DATA",
-            message="Environmental suitability assessed from real GPS, weather, and soil data." if len(recommendations) > 0 else "Insufficient environmental data to assess suitability.",
+            message=msg_text if len(recommendations) > 0 else "Insufficient environmental data to assess suitability.",
             location=loc_prov,
             weather=weather_prov,
             rainfall=rainfall_prov,
@@ -310,7 +333,7 @@ class NoSoilCropService:
             season=season,
             season_window=season_window,
             soil_source="SoilGrids (ISRIC)" if soil_available else "Not Available",
-            explanation=f"Based on real location ({loc_display}), current season ({season}), Open-Meteo weather (Temp: {temp_val or '--'}°C, Humidity: {hum_val or '--'}%), ERA5-Land rainfall ({annual_rain_val or '--'} mm), and {ph_desc}, the above crops are environmentally well-suited. (Note: N/P/K are unavailable without a soil test report).",
+            explanation=exp_text,
             warnings=warnings,
         )
 
