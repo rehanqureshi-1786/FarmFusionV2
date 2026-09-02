@@ -1,24 +1,12 @@
 """
-Weather tool fetching real-time and forecast weather data from Open-Meteo API.
+Weather tool fetching real-time and forecast weather data through unified WeatherService.
 """
-from typing import Any
-import httpx
+from typing import Any, List
 import structlog
 from pydantic import BaseModel, Field
+from app.services.weather_service import WeatherService
 
 logger = structlog.get_logger(__name__)
-
-# Weather code descriptions from WMO standard
-WMO_WEATHER_CODES = {
-    0: "Clear sky",
-    1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
-    45: "Fog", 48: "Depositing rime fog",
-    51: "Light drizzle", 53: "Moderate drizzle", 55: "Dense drizzle",
-    61: "Slight rain", 63: "Moderate rain", 65: "Heavy rain",
-    71: "Slight snow fall", 73: "Moderate snow fall", 75: "Heavy snow fall",
-    80: "Slight rain showers", 81: "Moderate rain showers", 82: "Violent rain showers",
-    95: "Thunderstorm", 96: "Thunderstorm with light hail", 99: "Thunderstorm with heavy hail",
-}
 
 
 class WeatherInput(BaseModel):
@@ -47,61 +35,53 @@ class WeatherOutput(BaseModel):
 
 async def weather_tool(input_data: WeatherInput) -> WeatherOutput:
     """
-    Purpose: Fetch real-time weather and 7-day daily forecast from Open-Meteo API.
+    Purpose: Fetch real-time weather and 7-day daily forecast via WeatherService (Single Source of Truth).
     Inputs: WeatherInput with latitude, longitude, optional location_name.
     Outputs: WeatherOutput with temperature, condition, daily forecast.
     Side effects: Logs request via structlog.
-    Error cases: Catches network errors or bad responses and returns WeatherOutput with error set.
+    Error cases: Returns WeatherOutput with error set if backend call fails.
     """
     location_str = input_data.location_name or f"{input_data.latitude:.2f}, {input_data.longitude:.2f}"
-    url = "https://api.open-meteo.com/v1/forecast"
-    params = {
-        "latitude": input_data.latitude,
-        "longitude": input_data.longitude,
-        "current_weather": "true",
-        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode",
-        "timezone": "auto"
-    }
 
     try:
-        logger.info("weather_tool_fetching", location=location_str, lat=input_data.latitude, lon=input_data.longitude)
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url, params=params)
-            response.raise_for_status()
-            data = response.json()
+        logger.info("weather_tool_invoked", location=location_str, lat=input_data.latitude, lon=input_data.longitude)
+        current = await WeatherService.get_current_weather(
+            lat=input_data.latitude,
+            lon=input_data.longitude,
+            location_name=input_data.location_name
+        )
+        if not current.get("success"):
+            raise ValueError(current.get("error", "Weather service unavailable"))
 
-        current = data.get("current_weather", {})
-        daily_raw = data.get("daily", {})
-        
-        weather_code = int(current.get("weathercode", 0))
-        condition = WMO_WEATHER_CODES.get(weather_code, "Unknown weather condition")
-        
-        forecast_list: list[DailyForecast] = []
-        dates = daily_raw.get("time", [])
-        max_temps = daily_raw.get("temperature_2m_max", [])
-        min_temps = daily_raw.get("temperature_2m_min", [])
-        precip = daily_raw.get("precipitation_sum", [])
-        codes = daily_raw.get("weathercode", [])
+        forecast_res = await WeatherService.get_forecast(
+            lat=input_data.latitude,
+            lon=input_data.longitude,
+            days=7,
+            location_name=input_data.location_name
+        )
+        if not forecast_res.get("success"):
+            raise ValueError(forecast_res.get("error", "Forecast service unavailable"))
 
-        for i in range(min(len(dates), 7)):
-            code = int(codes[i]) if i < len(codes) else 0
+        forecast_list: List[DailyForecast] = []
+        for day in forecast_res.get("forecast", []):
             forecast_list.append(DailyForecast(
-                date=dates[i],
-                temp_max=float(max_temps[i]) if i < len(max_temps) else 0.0,
-                temp_min=float(min_temps[i]) if i < len(min_temps) else 0.0,
-                precipitation_mm=float(precip[i]) if i < len(precip) else 0.0,
-                condition=WMO_WEATHER_CODES.get(code, "Clear")
+                date=day.get("date", ""),
+                temp_max=float(day.get("temperature_max_c", 0.0)),
+                temp_min=float(day.get("temperature_min_c", 0.0)),
+                precipitation_mm=float(day.get("precipitation_mm", 0.0)),
+                condition=day.get("condition", day.get("weather", "Clear"))
             ))
 
         return WeatherOutput(
-            location=location_str,
-            temperature_c=float(current.get("temperature", 0.0)),
-            windspeed_kmh=float(current.get("windspeed", 0.0)),
-            weather_code=weather_code,
-            condition=condition,
+            location=current.get("location_name") or current.get("location") or location_str,
+            temperature_c=float(current.get("temperature_c", 0.0)),
+            windspeed_kmh=float(current.get("wind_speed_kmh", 0.0)),
+            weather_code=int(current.get("weather_code", 0)),
+            condition=str(current.get("condition") or current.get("weather") or "Clear"),
             daily_forecast=forecast_list,
             error=None
         )
+
     except Exception as e:
         logger.error("weather_tool_failed", location=location_str, error=str(e))
         return WeatherOutput(

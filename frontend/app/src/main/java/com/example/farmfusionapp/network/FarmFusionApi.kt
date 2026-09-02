@@ -122,8 +122,24 @@ interface FarmFusionApi {
     suspend fun getWeatherForecast(
         @Query("lat") latitude: Double,
         @Query("lon") longitude: Double,
-        @Query("days") days: Int = 5
+        @Query("days") days: Int = 7
     ): Response<WeatherForecastResponse>
+
+    @GET("api/v1/weather/alerts")
+    suspend fun getWeatherAlerts(
+        @Query("lat") latitude: Double,
+        @Query("lon") longitude: Double,
+        @Query("days") days: Int = 7,
+        @Query("language") language: String? = null
+    ): Response<WeatherAlertsResponse>
+
+    @GET("api/v1/weather/advisory")
+    suspend fun getAgriculturalAdvisory(
+        @Query("lat") latitude: Double,
+        @Query("lon") longitude: Double,
+        @Query("crop_name") cropName: String? = null,
+        @Query("language") language: String? = null
+    ): Response<AgriculturalAdvisoryResponse>
 
     @GET("api/v1/weather/farming")
     suspend fun getFarmingWeather(
