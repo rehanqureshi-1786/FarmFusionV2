@@ -53,6 +53,15 @@ class Settings(BaseSettings):
     bhashini_api_key: Optional[str] = Field(None, validation_alias="BHASHINI_API_KEY")
     bhashini_pipeline_id: Optional[str] = Field(None, validation_alias="BHASHINI_PIPELINE_ID")
 
+    # Calling Agent & Public Tunnel
+    base_url: str = Field("http://localhost:8000", validation_alias="BASE_URL")
+    base_ws_url: str = Field("wss://farmfusion.app", validation_alias="BASE_WS_URL")
+    vobiz_account_id: Optional[str] = Field(None, validation_alias="VOBIZ_ACCOUNT_ID")
+    vobiz_api_key: Optional[str] = Field(None, validation_alias="VOBIZ_API_KEY")
+    vobiz_phone_number: str = Field("+918065354620", validation_alias="VOBIZ_PHONE_NUMBER")
+    deepgram_api_key: Optional[str] = Field(None, validation_alias="DEEPGRAM_API_KEY")
+    sarvam_api_key: Optional[str] = Field(None, validation_alias="SARVAM_API_KEY")
+
     # Cache & Vector Search
     redis_url: str = Field("redis://localhost:6379/0", validation_alias="REDIS_URL")
     embedding_model_name: str = Field("BAAI/bge-m3", validation_alias="EMBEDDING_MODEL_NAME")

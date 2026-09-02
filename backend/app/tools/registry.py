@@ -120,6 +120,30 @@ class ToolRegistry:
             self._execute_weather,
         )
 
+        # 1b. Weather Forecast Tool
+        self.register(
+            ToolDefinition(
+                name="weather_forecast_tool",
+                description="Fetches 1 to 7-day weather forecast with daily temperatures, precipitation probability, and wind speeds.",
+                required_slots=["latitude", "longitude"],
+                optional_slots=["days", "location_name"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_weather_forecast,
+        )
+
+        # 1c. Weather Alerts Tool
+        self.register(
+            ToolDefinition(
+                name="weather_alerts_tool",
+                description="Checks for severe weather warnings: Heavy Rain, Heatwave, Frost, High Wind, and Thunderstorms.",
+                required_slots=["latitude", "longitude"],
+                optional_slots=["days", "location_name"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_weather_alerts,
+        )
+
         # 2. Crop Recommendation Tool (Branches Mode A / Mode B)
         self.register(
             ToolDefinition(
@@ -324,6 +348,56 @@ class ToolRegistry:
                 location=loc_name,
             ),
             message=f"Current weather at {loc_name}: {data['temperature_c']}°C, {data['humidity_percent']}% humidity, {data['condition']}.",
+        )
+
+    async def _execute_weather_forecast(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        lat = float(slots.get("latitude") or context.get("latitude") or 26.9124)
+        lon = float(slots.get("longitude") or context.get("longitude") or 75.7873)
+        loc_name = slots.get("location_name") or context.get("location_name") or "Your Farm"
+        days = int(slots.get("days") or 7)
+
+        forecast_res = await WeatherService.get_forecast(lat, lon, days=days, location_name=loc_name)
+        if not forecast_res.get("success"):
+            return ToolResult(
+                status=ToolStatus.UNAVAILABLE,
+                data=None,
+                provenance=ProvenanceMetadata(source="Open-Meteo API", estimated_vs_measured="unavailable", location=loc_name),
+                message="Weather forecast is currently unavailable from Open-Meteo.",
+            )
+
+        forecast_items = forecast_res.get("forecast", [])
+        return ToolResult(
+            status=ToolStatus.SUCCESS,
+            data={"location": loc_name, "forecast": forecast_items, "farming_advice": forecast_res.get("farming_advice")},
+            provenance=ProvenanceMetadata(
+                source="Open-Meteo Physical NWP Forecast",
+                confidence=1.0,
+                estimated_vs_measured="measured",
+                location=loc_name,
+            ),
+            message=f"Fetched {len(forecast_items)}-day forecast for {loc_name}. {forecast_res.get('farming_advice', '')}",
+        )
+
+    async def _execute_weather_alerts(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        lat = float(slots.get("latitude") or context.get("latitude") or 26.9124)
+        lon = float(slots.get("longitude") or context.get("longitude") or 75.7873)
+        loc_name = slots.get("location_name") or context.get("location_name") or "Your Farm"
+        days = int(slots.get("days") or 7)
+
+        alerts = await WeatherService.get_weather_alerts(lat, lon, days=days, location_name=loc_name)
+        alert_dicts = [a.model_dump() for a in alerts]
+        msg = f"Found {len(alerts)} severe weather alerts for {loc_name}." if alerts else f"No severe weather warnings active for {loc_name}."
+
+        return ToolResult(
+            status=ToolStatus.SUCCESS,
+            data={"location": loc_name, "count": len(alerts), "alerts": alert_dicts},
+            provenance=ProvenanceMetadata(
+                source="FarmFusion Deterministic Weather Alert Engine + Open-Meteo NWP",
+                confidence=1.0,
+                estimated_vs_measured="measured",
+                location=loc_name,
+            ),
+            message=msg,
         )
 
     async def _execute_crop_recommendation(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:

@@ -157,9 +157,9 @@ fun WeatherScreen(navController: NavController) {
                             FieldGuidanceCard(weatherData!!)
                         }
                         item {
-                            NeoSectionTitle("Outlook", "Short view for quick farm planning")
+                            NeoSectionTitle("Outlook", "Real 7-day forecast for farm planning")
                         }
-                        items(sampleForecast(weatherData!!)) { forecast ->
+                        items(weatherData!!.forecast) { forecast ->
                             ForecastRow(forecast)
                         }
                     }
@@ -974,13 +974,6 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
     }
 }
 
-private fun sampleForecast(weatherData: DisplayWeatherData): List<DailyForecast> = listOf(
-    DailyForecast("Today", weatherData.temperature + 2, weatherData.temperature - 3, weatherData.description),
-    DailyForecast("Tomorrow", weatherData.temperature + 1, weatherData.temperature - 4, "Partly cloudy"),
-    DailyForecast("Thu", weatherData.temperature, weatherData.temperature - 2, "Clear"),
-    DailyForecast("Fri", weatherData.temperature - 1, weatherData.temperature - 4, "Windy"),
-)
-
 suspend fun fetchWeatherFromLocation(
     context: android.content.Context,
     onResult: (DisplayWeatherData?, String?) -> Unit
@@ -1013,13 +1006,43 @@ suspend fun fetchWeatherFromLocation(
                     else -> "Location unavailable"
                 }
 
+                // Fetch real 7-day forecast from backend
+                val realForecastList = mutableListOf<DailyForecast>()
+                try {
+                    val forecastResponse = farmFusionApi.getWeatherForecast(latitude, longitude, days = 7)
+                    if (forecastResponse.isSuccessful && forecastResponse.body() != null) {
+                        val fBody = forecastResponse.body()!!
+                        val dailyList = fBody.data?.forecast ?: emptyList()
+                        dailyList.forEachIndexed { index, item ->
+                            val dayLabel = when (index) {
+                                0 -> "Today"
+                                1 -> "Tomorrow"
+                                else -> {
+                                    try {
+                                        java.time.LocalDate.parse(item.date).dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() }
+                                    } catch (e: Exception) {
+                                        item.date
+                                    }
+                                }
+                            }
+                            val high = (item.temperature_max_c ?: (item.temperature_c + 2)).toInt()
+                            val low = (item.temperature_min_c ?: (item.temperature_c - 2)).toInt()
+                            val conditionText = item.weather.ifBlank { "Clear" }
+                            realForecastList.add(DailyForecast(dayLabel, high, low, conditionText))
+                        }
+                    }
+                } catch (fe: Exception) {
+                    // Fallback to empty forecast list if network glitch occurs during forecast leg
+                }
+
                 val data = DisplayWeatherData(
                     temperature = backendData.temperature_c.toInt(),
                     description = backendData.weather,
                     humidity = backendData.humidity_percent,
                     windSpeed = backendData.wind_speed_ms,
                     city = city,
-                    advice = backendData.farming_advice
+                    advice = backendData.farming_advice,
+                    forecast = realForecastList
                 )
                 WeatherSnapshotStore.latestWeather = data
                 WeatherSnapshotStore.latestError = null

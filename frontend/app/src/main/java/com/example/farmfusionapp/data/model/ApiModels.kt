@@ -281,11 +281,14 @@ data class ForecastData(
 
 data class DailyForecast(
     val date: String,
-    val temperature_c: Double,
-    val humidity_percent: Int,
-    val weather: String,
-    val wind_speed_ms: Double,
-    val rain_chance: Double
+    val temperature_c: Double = 0.0,
+    val humidity_percent: Int = 0,
+    val weather: String = "",
+    val wind_speed_ms: Double = 0.0,
+    val rain_chance: Double = 0.0,
+    val temperature_max_c: Double? = null,
+    val temperature_min_c: Double? = null,
+    val precipitation_mm: Double? = null
 )
 
 data class FarmingWeatherResponse(

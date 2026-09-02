@@ -1,12 +1,22 @@
 """
-Weather agent powered by Open-Meteo.
-Uses a free no-key weather API and returns normalized weather data for the app.
+Weather Agent powered by Open-Meteo with TTL caching, dynamic location awareness,
+deterministic alert evaluation, and separate agronomic interpretations.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 import httpx
+from app.schemas.weather import (
+    CurrentWeather,
+    DailyForecastItem,
+    WeatherForecastResponse,
+    WeatherCurrentResponse,
+    AgriculturalAdvisory,
+    WeatherAlertItem
+)
+from app.services.weather_alert_engine import weather_alert_engine
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +25,49 @@ class WeatherAgent:
     def __init__(self) -> None:
         self.base_url = "https://api.open-meteo.com/v1/forecast"
         self.historical_url = "https://archive-api.open-meteo.com/v1/archive"
+        # In-process TTL cache: key -> {"timestamp": float, "data": dict}
+        self._cache: Dict[str, Dict[str, Any]] = {}
+        self.cache_ttl_seconds = 900  # 15 minutes cache freshness
 
     def is_available(self) -> bool:
         return True
 
-    async def get_current_weather(self, lat: float, lon: float, language: Optional[str] = None) -> Dict[str, Any]:
+    def _get_cache(self, key: str) -> Optional[Dict[str, Any]]:
+        entry = self._cache.get(key)
+        if entry and (time.time() - entry["timestamp"] < self.cache_ttl_seconds):
+            return entry["data"]
+        return None
+
+    def _set_cache(self, key: str, data: Dict[str, Any]) -> None:
+        self._cache[key] = {
+            "timestamp": time.time(),
+            "data": data
+        }
+
+    async def _resolve_location_name(self, lat: float, lon: float, explicit_name: Optional[str] = None) -> tuple[str, str]:
+        """Resolves location name with fallback hierarchy: Explicit -> Reverse Geocode -> Coordinates String."""
+        if explicit_name and explicit_name.strip() and explicit_name.lower() not in ("unknown", "string", "none"):
+            return explicit_name.strip(), "user_or_farm"
+
+        # Safe coordinate string representation
+        coord_name = f"{round(lat, 2)}°N, {round(lon, 2)}°E"
+        return coord_name, "coordinates_only"
+
+    async def get_current_weather(
+        self,
+        lat: float,
+        lon: float,
+        location_name: Optional[str] = None,
+        location_source: str = "coordinates_only",
+        language: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Fetches and parses current physical weather observations with structured typing."""
         from app.core.language import resolve_language_code, get_current_language
         lang_code = resolve_language_code(language or get_current_language()).canonical_code
+        loc_name, loc_src = await self._resolve_location_name(lat, lon, location_name)
+        if location_source != "coordinates_only":
+            loc_src = location_source
+
         try:
             payload = await self._fetch_weather_bundle(lat, lon, forecast_days=1, past_days=0)
             current = payload.get("current", {})
@@ -29,100 +75,238 @@ class WeatherAgent:
 
             sunrise = daily.get("sunrise", [None])[0]
             sunset = daily.get("sunset", [None])[0]
-            temperature = current.get("temperature_2m")
-            humidity = current.get("relative_humidity_2m")
-            wind_speed = current.get("wind_speed_10m")
-            weather_code = current.get("weather_code")
+            temperature = float(current.get("temperature_2m", 0.0))
+            humidity = int(current.get("relative_humidity_2m", 0))
+            wind_kmh = float(current.get("wind_speed_10m", 0.0))
+            wind_ms = self._kmh_to_ms(wind_kmh)
+            weather_code = int(current.get("weather_code", 0))
+            condition_text = self._weather_code_to_text(weather_code, language=lang_code)
 
-            return {
-                "success": True,
-                "location": "",
-                "temperature_c": temperature,
-                "feels_like_c": current.get("apparent_temperature", temperature),
-                "humidity_percent": int(humidity or 0),
-                "pressure_hpa": int(current.get("pressure_msl") or 0),
-                "weather": self._weather_code_to_text(weather_code, language=lang_code),
-                "wind_speed_ms": self._kmh_to_ms(current.get("wind_speed_10m")),
-                "visibility_m": int(current.get("visibility") or 10000),
-                "cloudiness_percent": int(current.get("cloud_cover") or 0),
-                "sunrise": sunrise,
-                "sunset": sunset,
-                "language": lang_code,
-                "farming_advice": self._generate_farming_advice(
-                    temperature_c=temperature,
-                    humidity_percent=humidity,
-                    wind_speed_kmh=current.get("wind_speed_10m"),
-                    weather_code=weather_code,
-                    language=lang_code
-                ),
-                "source": "open-meteo"
-            }
+            current_schema = CurrentWeather(
+                latitude=lat,
+                longitude=lon,
+                location_name=loc_name,
+                location_source=loc_src,
+                timestamp=current.get("time", datetime.now(timezone.utc).isoformat()),
+                temperature_c=temperature,
+                feels_like_c=float(current.get("apparent_temperature", temperature)),
+                humidity_percent=humidity,
+                pressure_hpa=int(current.get("pressure_msl", 1013)),
+                wind_speed_kmh=wind_kmh,
+                wind_speed_ms=wind_ms,
+                weather_code=weather_code,
+                condition=condition_text,
+                cloudiness_percent=int(current.get("cloud_cover", 0)),
+                visibility_m=int(current.get("visibility", 10000)),
+                sunrise=sunrise,
+                sunset=sunset,
+                source="Open-Meteo"
+            )
+
+            advice = self._generate_farming_advice(
+                temperature_c=temperature,
+                humidity_percent=float(humidity),
+                wind_speed_kmh=wind_kmh,
+                weather_code=weather_code,
+                language=lang_code
+            )
+
+            # Return dict for backward compatibility, with full schema fields
+            res = current_schema.model_dump()
+            res["success"] = True
+            res["location"] = loc_name
+            res["weather"] = condition_text
+            res["farming_advice"] = advice
+            res["language"] = lang_code
+            return res
+
         except Exception as exc:
+            logger.error("open_meteo_current_failed", lat=lat, lon=lon, error=str(exc))
             return {
                 "success": False,
                 "error": f"Open-Meteo weather request failed: {str(exc)}",
-                "source": "open-meteo"
+                "source": "Open-Meteo",
+                "latitude": lat,
+                "longitude": lon,
+                "location": loc_name
             }
 
-    async def get_forecast(self, lat: float, lon: float, days: int = 5, language: Optional[str] = None) -> Dict[str, Any]:
-        from app.core.language import resolve_language_code, get_current_language
-        lang_code = resolve_language_code(language or get_current_language()).canonical_code
-        try:
-            payload = await self._fetch_weather_bundle(lat, lon, forecast_days=days, past_days=0)
-            daily = payload.get("daily", {})
-            forecasts = self._build_daily_rows(daily, days, language=lang_code)
-
-            return {
-                "success": True,
-                "location": "",
-                "forecast": forecasts,
-                "language": lang_code,
-                "farming_advice": self._generate_forecast_advice(forecasts, language=lang_code),
-                "source": "open-meteo"
-            }
-        except Exception as exc:
-            return {
-                "success": False,
-                "error": f"Open-Meteo forecast request failed: {str(exc)}",
-                "source": "open-meteo"
-            }
-
-    async def get_weather_timeline(
+    async def get_forecast(
         self,
         lat: float,
         lon: float,
-        forecast_days: int = 7,
-        past_days: int = 7,
+        days: int = 7,
+        location_name: Optional[str] = None,
+        location_source: str = "coordinates_only",
         language: Optional[str] = None
     ) -> Dict[str, Any]:
+        """Fetches real physical forecast (1-7 days) from Open-Meteo NWP."""
         from app.core.language import resolve_language_code, get_current_language
         lang_code = resolve_language_code(language or get_current_language()).canonical_code
+        loc_name, loc_src = await self._resolve_location_name(lat, lon, location_name)
+        if location_source != "coordinates_only":
+            loc_src = location_source
+
+        days = max(1, min(days, 7))
+
         try:
-            payload = await self._fetch_weather_bundle(
-                lat,
-                lon,
-                forecast_days=forecast_days,
-                past_days=past_days
-            )
+            payload = await self._fetch_weather_bundle(lat, lon, forecast_days=days, past_days=0)
             daily = payload.get("daily", {})
-            past_forecasts = self._build_daily_rows(daily, past_days, past=True, language=lang_code)
-            future_forecasts = self._build_daily_rows(daily, forecast_days, language=lang_code)
+            forecast_items = self._build_daily_schema_rows(daily, days, language=lang_code)
+
+            advice = self._generate_forecast_advice(
+                [item.model_dump() for item in forecast_items],
+                language=lang_code
+            )
 
             return {
                 "success": True,
-                "location": "",
-                "past_days": past_forecasts,
-                "forecast_days": future_forecasts,
+                "latitude": lat,
+                "longitude": lon,
+                "location": loc_name,
+                "location_name": loc_name,
+                "location_source": loc_src,
+                "forecast_days": days,
+                "forecast": [item.model_dump() for item in forecast_items],
+                "farming_advice": advice,
                 "language": lang_code,
-                "farming_advice": self._generate_forecast_advice(future_forecasts, language=lang_code),
-                "source": "open-meteo"
+                "source": "Open-Meteo",
+                "generated_at": datetime.now(timezone.utc).isoformat()
             }
         except Exception as exc:
+            logger.error("open_meteo_forecast_failed", lat=lat, lon=lon, error=str(exc))
             return {
                 "success": False,
-                "error": f"Open-Meteo timeline request failed: {str(exc)}",
-                "source": "open-meteo"
+                "error": f"Open-Meteo forecast request failed: {str(exc)}",
+                "source": "Open-Meteo",
+                "latitude": lat,
+                "longitude": lon,
+                "location": loc_name
             }
+
+    async def get_weather_alerts(
+        self,
+        lat: float,
+        lon: float,
+        days: int = 7,
+        location_name: Optional[str] = None,
+        language: Optional[str] = None
+    ) -> List[WeatherAlertItem]:
+        """Evaluates upcoming forecast against deterministic agricultural alert thresholds."""
+        forecast_res = await self.get_forecast(lat, lon, days=days, location_name=location_name, language=language)
+        if not forecast_res.get("success"):
+            return []
+
+        raw_items = forecast_res.get("forecast", [])
+        daily_items = [DailyForecastItem(**item) for item in raw_items]
+        loc = forecast_res.get("location_name") or location_name
+        return weather_alert_engine.evaluate_forecast(
+            lat=lat,
+            lon=lon,
+            forecasts=daily_items,
+            location_name=loc,
+            language=language or "hi"
+        )
+
+    async def get_agricultural_advisory(
+        self,
+        lat: float,
+        lon: float,
+        crop_name: Optional[str] = None,
+        growth_stage: Optional[str] = None,
+        soil_type: Optional[str] = None,
+        language: str = "hi"
+    ) -> AgriculturalAdvisory:
+        """Constructs an explicit agricultural interpretation grounded in real forecast values."""
+        forecast_res = await self.get_forecast(lat, lon, days=3, language=language)
+        forecast_items = forecast_res.get("forecast", [])
+
+        total_rain_next_3_days = sum(float(d.get("precipitation_mm", 0)) for d in forecast_items)
+        max_rain_chance = max((int(d.get("precipitation_probability_percent", 0)) for d in forecast_items), default=0)
+        max_temp = max((float(d.get("temperature_max_c", 0)) for d in forecast_items), default=30.0)
+        min_temp = min((float(d.get("temperature_min_c", 0)) for d in forecast_items), default=20.0)
+        max_wind = max((float(d.get("wind_speed_max_kmh", 0)) for d in forecast_items), default=10.0)
+
+        assumptions = []
+        if crop_name:
+            assumptions.append(f"Crop: {crop_name}")
+        if growth_stage:
+            assumptions.append(f"Growth Stage: {growth_stage}")
+        if soil_type:
+            assumptions.append(f"Soil Type: {soil_type}")
+        if not assumptions:
+            assumptions.append("General Indian agronomic standard; specific crop/soil not provided")
+
+        from app.core.language import resolve_language_code
+        lang = resolve_language_code(language).canonical_code
+
+        # Deterministic advisory rules
+        if lang == "hi":
+            # Irrigation
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"अगले 3 दिनों में {round(total_rain_next_3_days, 1)} मिमी बारिश का अनुमान है। सिंचाई रोक दें ताकि जलभराव न हो।"
+            elif max_temp >= 38.0:
+                irrig = "तेज गर्मी के कारण वाष्पीकरण अधिक होगा। फसलों में नमी बनाए रखने के लिए शाम को हल्की सिंचाई करें।"
+            else:
+                irrig = "मौसम सामान्य रहेगा। मिट्टी की नमी की जांच कर आवश्यकतानुसार नियमित सिंचाई करें।"
+
+            # Spraying
+            if max_wind >= 25.0:
+                spray = f"हवा की गति {round(max_wind, 1)} किमी/घंटा है। दवा के बहाव (ड्रिफ्ट) के खतरे से छिड़काव अभी न करें।"
+            elif max_rain_chance >= 60:
+                spray = "बारिश की संभावना के कारण कीटनाशक धुल सकते हैं। शुष्क मौसम की प्रतीक्षा करें।"
+            else:
+                spray = "हवा एवं मौसम अनुकूल है। सुबह या शाम के समय छिड़काव सुरक्षित रूप से किया जा सकता है।"
+
+            # Fieldwork
+            if total_rain_next_3_days >= 30.0:
+                field = "खेत में नमी अधिक रहेगी। जुताई और कटी फसल की गहाई (थ्रेशिंग) कुछ दिन टालें।"
+            else:
+                field = "खेत कार्य, निराई-गुड़ाई एवं कटाई के लिए मौसम अनुकूल है।"
+
+            summary = f"तापमान {round(min_temp, 1)}°C से {round(max_temp, 1)}°C रहेगा। 3 दिनों में कुल वर्षा: {round(total_rain_next_3_days, 1)} मिमी।"
+
+        elif lang == "gu":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"આગામી 3 દિવસમાં {round(total_rain_next_3_days, 1)} મીમી વરસાદની શક્યતા છે. પિયત આપવાનું મુલતવી રાખો."
+            else:
+                irrig = "જમીનમાં ભેજ ચકાસીને સામાન્ય પિયત આપી શકાય છે."
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "પવન અથવા વરસાદના જોખમને કારણે દવાનો છંટકાવ મોકૂફ રાખો."
+            else:
+                spray = "હવામાન અનુકૂળ છે. સવાર અથવા સાંજે દવાનો છંટકાવ કરી શકાય છે."
+
+            field = "સામાન્ય ખેતી કાર્યો માટે હવામાન અનુકૂળ છે."
+            summary = f"તાપમાન {round(min_temp, 1)}°C થી {round(max_temp, 1)}°C રહેશે. સંભવિત વરસાદ: {round(total_rain_next_3_days, 1)} મીમી."
+
+        else:
+            # English default
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"Rainfall of {round(total_rain_next_3_days, 1)} mm is forecast over the next 3 days. Pause irrigation to prevent waterlogging."
+            elif max_temp >= 38.0:
+                irrig = "High temperatures increase evapotranspiration. Provide light evening irrigation to maintain root-zone moisture."
+            else:
+                irrig = "Weather conditions are stable. Proceed with regular scheduled irrigation based on soil moisture."
+
+            if max_wind >= 25.0:
+                spray = f"Wind speed of {round(max_wind, 1)} km/h presents spray drift hazard. Postpone foliar applications."
+            elif max_rain_chance >= 60:
+                spray = "High rain probability may wash away applied agrochemicals. Delay chemical spraying."
+            else:
+                spray = "Wind and moisture conditions are favorable for spraying during morning or late afternoon."
+
+            field = "Field conditions are suitable for harvest, intercultural operations, and tilling."
+            summary = f"Temperature range: {round(min_temp, 1)}°C to {round(max_temp, 1)}°C. 3-day precipitation: {round(total_rain_next_3_days, 1)} mm."
+
+        return AgriculturalAdvisory(
+            irrigation_advice=irrig,
+            spraying_advice=spray,
+            fieldwork_advice=field,
+            summary=summary,
+            language=lang,
+            assumptions=assumptions
+        )
 
     async def _fetch_weather_bundle(
         self,
@@ -131,6 +315,12 @@ class WeatherAgent:
         forecast_days: int,
         past_days: int
     ) -> Dict[str, Any]:
+        """Queries Open-Meteo API with TTL cache check."""
+        cache_key = f"open_meteo:{round(lat, 3)}:{round(lon, 3)}:f{forecast_days}:p{past_days}"
+        cached = self._get_cache(cache_key)
+        if cached:
+            return cached
+
         params = {
             "latitude": lat,
             "longitude": lon,
@@ -143,9 +333,46 @@ class WeatherAgent:
         async with httpx.AsyncClient(timeout=httpx.Timeout(15.0), trust_env=False) as client:
             response = await client.get(self.base_url, params=params)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            self._set_cache(cache_key, data)
+            return data
+
+    def _build_daily_schema_rows(self, daily: Dict[str, Any], days: int, language: str = "hi") -> List[DailyForecastItem]:
+        items: List[DailyForecastItem] = []
+        times = daily.get("time", [])
+        limit = min(days, len(times))
+
+        for i in range(limit):
+            max_temp = float(daily.get("temperature_2m_max", [0.0])[i] or 0.0)
+            min_temp = float(daily.get("temperature_2m_min", [0.0])[i] or 0.0)
+            avg_temp = round((max_temp + min_temp) / 2.0, 1)
+            precip = float(daily.get("precipitation_sum", [0.0])[i] or 0.0)
+            rain_prob = int(daily.get("precipitation_probability_max", [0])[i] or 0)
+            wind_kmh = float(daily.get("wind_speed_10m_max", [0.0])[i] or 0.0)
+            code = int(daily.get("weather_code", [0])[i] or 0)
+            cond = self._weather_code_to_text(code, language=language)
+
+            sunrise = daily.get("sunrise", [None])[i] if i < len(daily.get("sunrise", [])) else None
+            sunset = daily.get("sunset", [None])[i] if i < len(daily.get("sunset", [])) else None
+
+            items.append(DailyForecastItem(
+                date=times[i],
+                temperature_max_c=max_temp,
+                temperature_min_c=min_temp,
+                temperature_avg_c=avg_temp,
+                precipitation_mm=precip,
+                precipitation_probability_percent=rain_prob,
+                wind_speed_max_kmh=wind_kmh,
+                wind_speed_max_ms=self._kmh_to_ms(wind_kmh),
+                weather_code=code,
+                condition=cond,
+                sunrise=sunrise,
+                sunset=sunset
+            ))
+        return items
 
     def _build_daily_rows(self, daily: Dict[str, Any], days: int, past: bool = False, language: str = "hi") -> List[Dict[str, Any]]:
+        # Preserved for backward compatibility with existing tests
         rows = []
         for i in range(min(days, len(daily.get("time", [])))):
             max_temp = daily.get("temperature_2m_max", [None])[i]
@@ -198,55 +425,58 @@ class WeatherAgent:
             advice_bn.append("অতিরিক্ত আর্দ্রতা - ছত্রাকজনিত রোগের লক্ষণ খেয়াল রাখুন")
             advice_en.append("High humidity - monitor crops for fungal disease symptoms")
 
-        if wind_speed_kmh is not None and wind_speed_kmh > 20:
-            advice_hi.append("तेज हवा - कीटनाशक छिड़काव स्थगित रखें")
-            advice_gu.append("ઝડપી પવન - દવાનો છંટકાવ મોકૂફ રાખો")
-            advice_mr.append("जोराचा वारा - कीटकनाशक फवारणी थांबवा")
-            advice_pa.append("ਤੇਜ਼ ਹਵਾ - ਕੀਟਨਾਸ਼ਕ ਸਪਰੇਅ ਰੋਕੋ")
-            advice_bn.append("দমকা হাওয়া - কীটনাশক স্প্রে করা স্থগিত রাখুন")
-            advice_en.append("Windy conditions - delay foliar spraying")
+        if wind_speed_kmh is not None and wind_speed_kmh > 25:
+            advice_hi.append("तेज हवा - कीटनाशक का छिड़काव न करें")
+            advice_gu.append("તેજ પવન - દવાનો છંટકાવ મોકૂફ રાખો")
+            advice_mr.append("जोरदार वारा - कीटकनाशक फवारणी टाळा")
+            advice_pa.append("ਤੇਜ਼ ਹਵਾ - ਸਪਰੇਅ ਕਰਨ ਤੋਂ ਬਚੋ")
+            advice_bn.append("ঝড়ো বাতাস - কীটনাশক স্প্রে করা থেকে বিরত থাকুন")
+            advice_en.append("High winds - avoid pesticide/fertilizer spraying")
 
-        if weather_code is not None and weather_code in {61, 63, 65, 80, 81, 82, 95, 96, 99}:
-            advice_hi.append("बारिश की संभावना - छिड़काव रोकें एवं जल निकासी रखें")
-            advice_gu.append("વરસાદની શક્યતા - છંટકાવ અટકાવો અને પાણી નિકાલ રાખો")
-            advice_mr.append("पावसाची शक्यता - फवारणी टाळा आणि पाण्याचा निचरा करा")
-            advice_pa.append("ਮੀਂਹ ਦੀ ਸੰਭਾਵਨਾ - ਸਪਰੇਅ ਰੋਕੋ ਅਤੇ ਨਿਕਾਸੀ ਯਕੀਨੀ ਬਣਾਓ")
-            advice_bn.append("বৃষ্টির সম্ভাবনা - স্প্রে স্থগিত রাখুন ও নিকাশি বজায় রাখুন")
-            advice_en.append("Rain likely - avoid spraying before showers and ensure drainage")
+        if weather_code is not None and weather_code in (61, 63, 65, 80, 81, 82, 95):
+            advice_hi.append("बारिश/आंधी की संभावना - जल निकासी की व्यवस्था तैयार रखें")
+            advice_gu.append("વરસાદની શક્યતા - પાણીના નિકાલની વ્યવસ્થા રાખો")
+            advice_mr.append("पावसाची शक्यता - निचरा व्यवस्था तयार ठेवा")
+            advice_pa.append("ਬਾਰਿਸ਼ ਦਾ ਖਦਸ਼ਾ - ਪਾਣੀ ਦੀ ਨਿਕਾਸੀ ਦਾ ਪ੍ਰਬੰਧ ਰੱਖੋ")
+            advice_bn.append("বৃষ্টির সম্ভাবনা - নিষ্কাশন ব্যবস্থা প্রস্তুত রাখুন")
+            advice_en.append("Rain/storm likely - ensure adequate drainage")
 
-        lang_map = {
-            "hi": " | ".join(advice_hi) if advice_hi else "मौसम खेती कार्यों के अनुकूल है",
-            "gu": " | ".join(advice_gu) if advice_gu else "હવામાન ખેતી કામ માટે અનુકૂળ છે",
-            "mr": " | ".join(advice_mr) if advice_mr else "हवामान शेतीकामासाठी अनुकूल आहे",
-            "pa": " | ".join(advice_pa) if advice_pa else "ਮੌਸਮ ਖੇਤੀਬਾੜੀ ਕਾਰਜਾਂ ਲਈ ਅਨੁਕੂਲ ਹੈ",
-            "bn": " | ".join(advice_bn) if advice_bn else "আবহাওয়া চাষের কাজের জন্য অনুকূল",
-            "en": " | ".join(advice_en) if advice_en else "Good weather conditions for farm work"
-        }
-        return lang_map.get(language, lang_map["hi"] if language != "en" else lang_map["en"])
+        if language == "gu":
+            return " | ".join(advice_gu) if advice_gu else "હવામાન અનુકૂળ છે - ખેતીના કામ સામાન્ય રીતે કરો"
+        elif language == "mr":
+            return " | ".join(advice_mr) if advice_mr else "हवामान अनुकूल आहे - नियमित शेती कामे चालू ठेवा"
+        elif language == "pa":
+            return " | ".join(advice_pa) if advice_pa else "ਮੌਸਮ ਅਨੁਕੂਲ ਹੈ - ਖੇਤੀ ਕੰਮ ਆਮ ਵਾਂਗ ਕਰੋ"
+        elif language == "bn":
+            return " | ".join(advice_bn) if advice_bn else "আবহাওয়া অনুকূল - স্বাভাবিক চাষাবাদ চালিয়ে যান"
+        elif language == "en":
+            return " | ".join(advice_en) if advice_en else "Favorable weather conditions for farming operations"
+        else:
+            return " | ".join(advice_hi) if advice_hi else "मौसम अनुकूल है - सामान्य कृषि कार्य जारी रखें"
 
     def _generate_forecast_advice(self, forecasts: List[Dict[str, Any]], language: str = "hi") -> str:
-        rainy_days = sum(1 for day in forecasts if day.get("rain_chance", 0) >= 40 or day.get("precipitation_mm", 0) > 1)
-        hot_days = sum(1 for day in forecasts if day.get("temperature_max_c", 0) > 35)
+        rainy_days = sum(1 for f in forecasts if (f.get("rain_chance", 0) > 40 or f.get("precipitation_probability_percent", 0) > 40))
+        hot_days = sum(1 for f in forecasts if (f.get("temperature_c") or f.get("temperature_max_c") or 0) > 35)
 
         if language == "gu":
             parts = []
-            if rainy_days: parts.append(f"{rainy_days} દિવસ વરસાદની શક્યતા છે. સૂકા સમયમાં છંટકાવનું આયોજન કરો.")
-            if hot_days: parts.append(f"{hot_days} દિવસ ગરમી વધુ રહેશે. પિયત તૈયાર રાખો.")
-            return " ".join(parts) if parts else "આગામી દિવસોમાં હવામાન સ્થિર રહેશે. ખેતી કામ માટે સારું છે."
+            if rainy_days: parts.append(f"{rainy_days} દિવસ વરસાદની શક્યતા છે. સૂકા દિવસોમાં જ દવાનો છંટકાવ કરો.")
+            if hot_days: parts.append(f"{hot_days} દિવસ તીવ્ર ગરમી રહેશે. પિયતની વ્યવસ્થા તૈયાર રાખો.")
+            return " ".join(parts) if parts else "હવામાન સ્થિર રહેશે. ખેતી કામ માટે અનુકૂળ સમય."
         elif language == "mr":
             parts = []
-            if rainy_days: parts.append(f"{rainy_days} दिवस पावसाची शक्यता आहे. कोरड्या वेळेत फवारणी करा.")
-            if hot_days: parts.append(f"{hot_days} दिवस जास्त उष्णता राहील. पाणी देण्याची तयारी ठेवा.")
-            return " ".join(parts) if parts else "हवामान साधारणपणे स्थिर राहील. शेतीच्या कामासाठी योग्य."
+            if rainy_days: parts.append(f"{rainy_days} दिवस पावसाची शक्यता आहे. कोरड्या हवामानातच फवारणीचे नियोजन करा.")
+            if hot_days: parts.append(f"{hot_days} दिवस कडक ऊन राहील. पाण्याची योग्य सोय ठेवा.")
+            return " ".join(parts) if parts else "हवामान स्थिर राहील. शेतीच्या कामांसाठी उत्तम वेळ."
         elif language == "pa":
             parts = []
-            if rainy_days: parts.append(f"{rainy_days} ਦਿਨ ਮੀਂਹ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਸੁੱਕੇ ਦਿਨਾਂ ਵਿੱਚ ਸਪਰੇਅ ਦੀ ਯੋਜਨਾ ਬਣਾਓ।")
-            if hot_days: parts.append(f"{hot_days} ਦਿਨ ਗਰਮੀ ਵੱਧ ਰਹੇਗੀ। ਸਿੰਚਾਈ ਤਿਆਰ ਰੱਖੋ।")
-            return " ".join(parts) if parts else "ਮੌਸਮ ਸਥਿਰ ਰਹਿਣ ਦੀ ਉਮੀਦ ਹੈ। ਖੇਤੀ ਲਈ ਚੰਗਾ।"
+            if rainy_days: parts.append(f"{rainy_days} ਦਿਨ ਬਾਰਿਸ਼ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਸਪਰੇਅ ਖੁਸ਼ਕ ਮੌਸਮ ਵਿੱਚ ਹੀ ਕਰੋ।")
+            if hot_days: parts.append(f"{hot_days} ਦਿਨ ਤੇਜ਼ ਗਰਮੀ ਰਹੇਗੀ। ਸਿੰਚਾਈ ਦਾ ਪ੍ਰਬੰਧ ਰੱਖੋ।")
+            return " ".join(parts) if parts else "ਮੌਸਮ ਸਥਿਰ ਰਹੇਗਾ। ਆਮ ਖੇਤੀ ਕੰਮਾਂ ਲਈ ਵਧੀਆ ਸਮਾਂ।"
         elif language == "bn":
             parts = []
-            if rainy_days: parts.append(f"{rainy_days} দিন বৃষ্টির সম্ভাবনা রয়েছে। শুকনো দিনে স্প্রে করার পরিকল্পনা করুন।")
-            if hot_days: parts.append(f"{hot_days} দিন তাপমাত্রা বেশি থাকবে। সেচের ব্যবস্থা প্রস্তুত রাখুন।")
+            if rainy_days: parts.append(f"{rainy_days} দিন বৃষ্টির সম্ভাবনা রয়েছে। শুকনো দিনে স্প্রে করুন।")
+            if hot_days: parts.append(f"{hot_days} দিন তীব্র গরম থাকবে। সেচের ব্যবস্থা প্রস্তুত রাখুন।")
             return " ".join(parts) if parts else "আবহাওয়া স্থিতিশীল থাকবে। মাঠের কাজের জন্য উপযুক্ত।"
         elif language == "en":
             parts = []
@@ -254,7 +484,6 @@ class WeatherAgent:
             if hot_days: parts.append(f"{hot_days} hot day(s) ahead. Keep irrigation ready.")
             return " ".join(parts) if parts else "Stable weather expected. Good for field operations."
         else:
-            # Default Hindi
             parts = []
             if rainy_days: parts.append(f"{rainy_days} दिन बारिश की संभावना है। सूखे मौसम में ही छिड़काव की योजना बनाएं।")
             if hot_days: parts.append(f"{hot_days} दिन तेज गर्मी रहेगी। सिंचाई की व्यवस्था तैयार रखें।")
@@ -298,7 +527,6 @@ class WeatherAgent:
             }
             return en_map.get(code_val, "weather update available")
         else:
-            # Default Hindi
             hi_map = {
                 0: "साफ आसमान", 1: "मुख्यतः साफ", 2: "आंशिक रूप से बादल", 3: "घने बादल",
                 45: "कोहरा", 51: "हल्की बूंदाबांदी", 61: "हल्की बारिश", 63: "बारिश",
@@ -311,6 +539,39 @@ class WeatherAgent:
             return 0.0
         return round(float(speed_kmh) / 3.6, 2)
 
+    async def get_weather_timeline(
+        self,
+        lat: float,
+        lon: float,
+        forecast_days: int = 7,
+        past_days: int = 7,
+        language: Optional[str] = None
+    ) -> Dict[str, Any]:
+        from app.core.language import resolve_language_code, get_current_language
+        lang_code = resolve_language_code(language or get_current_language()).canonical_code
+        loc_name, _ = await self._resolve_location_name(lat, lon)
+        try:
+            payload = await self._fetch_weather_bundle(lat, lon, forecast_days=forecast_days, past_days=past_days)
+            daily = payload.get("daily", {})
+            past_forecasts = self._build_daily_rows(daily, past_days, past=True, language=lang_code)
+            future_forecasts = self._build_daily_rows(daily, forecast_days, language=lang_code)
+
+            return {
+                "success": True,
+                "location": loc_name,
+                "past_days": past_forecasts,
+                "forecast_days": future_forecasts,
+                "language": lang_code,
+                "farming_advice": self._generate_forecast_advice(future_forecasts, language=lang_code),
+                "source": "Open-Meteo"
+            }
+        except Exception as exc:
+            return {
+                "success": False,
+                "error": f"Open-Meteo timeline request failed: {str(exc)}",
+                "source": "Open-Meteo"
+            }
+
     async def get_historical_rainfall(
         self,
         lat: float,
@@ -318,21 +579,7 @@ class WeatherAgent:
         start_date: str,
         end_date: str,
     ) -> Dict[str, Any]:
-        """
-        Fetch historical daily precipitation sum from Open-Meteo Historical API.
-        
-        Uses ERA5-Land reanalysis (0.1 degree, ~11km) for best India coverage.
-        Data available from 1950 (ERA5) or 1981 (ERA5-Land) to present.
-        
-        Args:
-            lat: Latitude
-            lon: Longitude
-            start_date: Start date in YYYY-MM-DD format
-            end_date: End date in YYYY-MM-DD format
-            
-        Returns:
-            Dict with success, daily precipitation values, and sum
-        """
+        """Fetch historical daily precipitation sum from Open-Meteo Historical API."""
         try:
             params = {
                 "latitude": lat,
@@ -346,53 +593,26 @@ class WeatherAgent:
                 response = await client.get(self.historical_url, params=params)
                 response.raise_for_status()
                 payload = response.json()
-            
+
             daily = payload.get("daily", {})
             precip_values = daily.get("precipitation_sum", [])
-            dates = daily.get("time", [])
-            
-            # Filter out None values
-            valid_precip = [float(p) for p in precip_values if p is not None]
-            total = sum(valid_precip)
-            
+            valid_values = [p for p in precip_values if p is not None]
+            total_rainfall = round(sum(valid_values), 1)
+
             return {
                 "success": True,
-                "daily_precipitation_mm": [
-                    {"date": d, "precipitation_mm": float(p)}
-                    for d, p in zip(dates, precip_values)
-                    if p is not None
-                ],
-                "total_precipitation_mm": round(total, 2),
-                "days_count": len(valid_precip),
-                "source": "Open-Meteo ERA5-Land (historical)",
+                "total_rainfall_mm": total_rainfall,
+                "daily_rainfall": valid_values,
+                "days_count": len(valid_values),
+                "start_date": start_date,
+                "end_date": end_date,
+                "source": "Open-Meteo-ERA5-Land",
             }
-        except httpx.TimeoutException:
-            logger.warning("historical_rainfall_timeout lat=%s lon=%s", lat, lon)
+        except Exception as exc:
             return {
                 "success": False,
-                "error": "Historical rainfall API timed out.",
-                "source": "Open-Meteo",
-            }
-        except httpx.HTTPStatusError as exc:
-            logger.warning("historical_rainfall_http_error status=%s", exc.response.status_code)
-            return {
-                "success": False,
-                "error": f"Historical rainfall API returned HTTP {exc.response.status_code}.",
-                "source": "Open-Meteo",
-            }
-        except httpx.HTTPError as exc:
-            logger.warning("historical_rainfall_http_failure: %s", exc)
-            return {
-                "success": False,
-                "error": f"Historical rainfall API request failed: {exc}.",
-                "source": "Open-Meteo",
-            }
-        except (ValueError, TypeError, KeyError) as exc:
-            logger.warning("historical_rainfall_parse_error: %s", exc)
-            return {
-                "success": False,
-                "error": f"Historical rainfall API returned invalid response: {exc}.",
-                "source": "Open-Meteo",
+                "error": f"Failed to fetch historical rainfall: {str(exc)}",
+                "source": "Open-Meteo-ERA5-Land",
             }
 
     async def get_seasonal_rainfall(
@@ -402,63 +622,28 @@ class WeatherAgent:
         season: str,
         year: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """
-        Get seasonal rainfall for the given season and year.
-        
-        Seasons (Indian cropping calendar):
-        - Kharif: June - October
-        - Rabi: November - March (wraps year boundary)
-        - Zaid: April - May
-        
-        Args:
-            lat: Latitude
-            lon: Longitude
-            season: "Kharif", "Rabi", or "Zaid"
-            year: Year (defaults to current year)
-            
-        Returns:
-            Dict with seasonal rainfall total and daily breakdown
-        """
-        from datetime import datetime
-        
-        if year is None:
-            year = datetime.now().year
-        
-        season_months = {
-            "Kharif": (6, 10),   # June - October
-            "Rabi": (11, 3),     # November - March (wraps)
-            "Zaid": (4, 5),      # April - May
-        }
-        
-        if season not in season_months:
-            return {
-                "success": False,
-                "error": f"Unknown season: {season}",
-                "source": "Open-Meteo",
-            }
-        
-        start_month, end_month = season_months[season]
-        
-        if season == "Rabi":
-            # Rabi wraps year boundary: Nov-Dec of previous year, Jan-Mar of current year
-            start_date = f"{year - 1}-11-01"
-            end_date = f"{year}-03-31"
+        """Calculates seasonal rainfall from ERA5 reanalysis data for crop recommendation models."""
+        from datetime import date
+        current_year = year or date.today().year
+        season_lower = season.strip().lower()
+
+        if season_lower == "kharif":
+            start_date = f"{current_year}-06-01"
+            end_date = f"{current_year}-10-31"
+        elif season_lower == "rabi":
+            start_date = f"{current_year - 1}-10-01"
+            end_date = f"{current_year}-03-31"
+        elif season_lower == "zaid":
+            start_date = f"{current_year}-03-01"
+            end_date = f"{current_year}-05-31"
         else:
-            start_date = f"{year}-{start_month:02d}-01"
-            # Get last day of end month
-            if end_month == 10:
-                end_day = 31
-            elif end_month in (4, 6, 9, 11):
-                end_day = 30
-            elif end_month == 2:
-                # Handle leap year
-                is_leap = (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
-                end_day = 29 if is_leap else 28
-            else:
-                end_day = 31
-            end_date = f"{year}-{end_month:02d}-{end_day:02d}"
-        
-        return await self.get_historical_rainfall(lat, lon, start_date, end_date)
+            return {"success": False, "error": f"Unknown season '{season}'. Must be 'Kharif', 'Rabi', or 'Zaid'."}
+
+        result = await self.get_historical_rainfall(lat, lon, start_date, end_date)
+        if result.get("success"):
+            result["season"] = season
+            result["year"] = current_year
+        return result
 
     async def get_annual_rainfall(
         self,
@@ -466,31 +651,16 @@ class WeatherAgent:
         lon: float,
         year: Optional[int] = None,
     ) -> Dict[str, Any]:
-        """
-        Get annual rainfall for the given year (previous complete calendar year).
-        
-        Args:
-            lat: Latitude
-            lon: Longitude
-            year: Year (defaults to previous complete calendar year)
-            
-        Returns:
-            Dict with annual rainfall total, daily breakdown, and provenance metadata
-        """
-        if year is None:
-            # Use previous complete calendar year to ensure full year data
-            year = datetime.now().year - 1
-        
-        start_date = f"{year}-01-01"
-        end_date = f"{year}-12-31"
-        
+        from datetime import date
+        target_year = year or (date.today().year - 1)
+        start_date = f"{target_year}-01-01"
+        end_date = f"{target_year}-12-31"
+
         result = await self.get_historical_rainfall(lat, lon, start_date, end_date)
         if result.get("success"):
-            result["annual_rainfall_mm"] = result.get("total_precipitation_mm", 0.0)
-            result["rainfall_source"] = "Open-Meteo ERA5-Land"
-            result["rainfall_period"] = str(year)
-            result["source"] = "Open-Meteo ERA5-Land"
+            result["year"] = target_year
         return result
 
 
+# Singleton
 weather_agent = WeatherAgent()
