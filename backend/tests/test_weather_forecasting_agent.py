@@ -286,3 +286,44 @@ def test_09_android_regression_no_sample_forecast():
 
     # 3. Ensure getWeatherForecast is called
     assert "getWeatherForecast" in content, "WeatherScreen.kt must call getWeatherForecast to get real forecasts"
+
+
+def test_10_android_weather_forecasting_ui_elements():
+    """
+    Verify WeatherScreen.kt integrates all required forecasting UI capabilities:
+    - WeatherAlertsBanner connected to getWeatherAlerts
+    - AgriculturalAdvisoryCard connected to getAgriculturalAdvisory
+    - Rain probability & precipitation mm displayed in ForecastRow
+    - Backend timestamp displayed in WeatherHero
+    - Independent try/catch failure isolation for alerts & advisory
+    """
+    weather_screen_path = Path("/home/rdj/FarmFusionFinal/frontend/app/src/main/java/com/example/farmfusionapp/ui/screens/WeatherScreen.kt")
+    assert weather_screen_path.exists(), "WeatherScreen.kt must exist"
+    content = weather_screen_path.read_text(encoding="utf-8")
+
+    # 1. Weather alerts integration
+    assert "getWeatherAlerts" in content, "WeatherScreen.kt must call getWeatherAlerts"
+    assert "WeatherAlertsBanner" in content, "WeatherScreen.kt must declare and render WeatherAlertsBanner"
+    assert "EMERGENCY" in content, "Alerts banner must handle EMERGENCY severity"
+    assert "farming_recommendation" in content, "Alerts banner must display farming_recommendation"
+
+    # 2. Agricultural advisory integration
+    assert "getAgriculturalAdvisory" in content, "WeatherScreen.kt must call getAgriculturalAdvisory"
+    assert "AgriculturalAdvisoryCard" in content, "WeatherScreen.kt must declare and render AgriculturalAdvisoryCard"
+    assert "irrigation_advice" in content, "Advisory must display irrigation_advice"
+    assert "spraying_advice" in content, "Advisory must display spraying_advice"
+    assert "fieldwork_advice" in content, "Advisory must display fieldwork_advice"
+
+    # 3. Rain probability & precipitation metrics
+    assert "rainProbability" in content, "DailyForecast must have rainProbability"
+    assert "precipitationMm" in content, "DailyForecast must have precipitationMm"
+    assert "forecast.precipitationMm" in content, "ForecastRow must render precipitation mm"
+
+    # 4. Last updated timestamp
+    assert "weatherData.timestamp" in content, "WeatherHero must check backend timestamp"
+    assert "Updated at" in content or "Updated" in content, "WeatherHero must display updated timestamp"
+
+    # 5. Independent failure handling (each API has its own try/catch)
+    assert content.count("farmFusionApi.") >= 3, "Must call getCurrentWeather, getWeatherForecast, and getWeatherAlerts/Advisory"
+    assert content.count("catch") >= 4, "Must have isolated catch blocks for each section"
+

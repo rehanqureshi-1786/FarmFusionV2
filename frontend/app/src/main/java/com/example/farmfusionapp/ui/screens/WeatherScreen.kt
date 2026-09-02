@@ -40,6 +40,9 @@ import com.example.farmfusionapp.ui.components.*
 import com.example.farmfusionapp.utils.*
 import kotlinx.coroutines.launch
 
+import com.example.farmfusionapp.data.model.WeatherAlertItemUi
+import com.example.farmfusionapp.data.model.AgriculturalAdvisoryResponse
+
 data class DisplayWeatherData(
     val temperature: Int,
     val description: String,
@@ -47,14 +50,19 @@ data class DisplayWeatherData(
     val windSpeed: Double,
     val city: String,
     val advice: String,
-    val forecast: List<DailyForecast> = emptyList()
+    val timestamp: String? = null,
+    val forecast: List<DailyForecast> = emptyList(),
+    val alerts: List<WeatherAlertItemUi> = emptyList(),
+    val advisory: AgriculturalAdvisoryResponse? = null
 )
 
 data class DailyForecast(
     val day: String,
     val high: Int,
     val low: Int,
-    val condition: String
+    val condition: String,
+    val rainProbability: Int = 0,
+    val precipitationMm: Double = 0.0
 )
 
 object WeatherSnapshotStore {
@@ -140,6 +148,11 @@ fun WeatherScreen(navController: NavController) {
                         }
                     }
                     weatherData != null -> {
+                        if (weatherData!!.alerts.isNotEmpty()) {
+                            item {
+                                WeatherAlertsBanner(weatherData!!.alerts)
+                            }
+                        }
                         item { WeatherHero(weatherData!!) }
                         item {
                             Row(
@@ -150,11 +163,20 @@ fun WeatherScreen(navController: NavController) {
                                 WeatherInfoCard("Wind", "${weatherData!!.windSpeed.toInt()} km/h", Icons.Rounded.Air, Modifier.weight(1f))
                             }
                         }
-                        item {
-                            NeoSectionTitle("Field guidance", "Actionable farm operations & suitability for today")
-                        }
-                        item {
-                            FieldGuidanceCard(weatherData!!)
+                        if (weatherData!!.advisory != null) {
+                            item {
+                                NeoSectionTitle("Agricultural Advisory", "Actionable agronomic guidance for field operations")
+                            }
+                            item {
+                                AgriculturalAdvisoryCard(weatherData!!.advisory!!)
+                            }
+                        } else {
+                            item {
+                                NeoSectionTitle("Field guidance", "Actionable farm operations & suitability for today")
+                            }
+                            item {
+                                FieldGuidanceCard(weatherData!!)
+                            }
                         }
                         item {
                             NeoSectionTitle("Outlook", "Real 7-day forecast for farm planning")
@@ -262,10 +284,25 @@ private fun WeatherHero(weatherData: DisplayWeatherData) {
                                 )
                             )
                         }
+                        val timeLabel = remember(weatherData.timestamp) {
+                            if (!weatherData.timestamp.isNullOrBlank()) {
+                                try {
+                                    if (weatherData.timestamp.contains("T")) {
+                                        "Updated at " + weatherData.timestamp.substringAfter("T").take(5)
+                                    } else {
+                                        "Updated " + weatherData.timestamp
+                                    }
+                                } catch (e: Exception) {
+                                    "Current Conditions"
+                                }
+                            } else {
+                                "Current Conditions"
+                            }
+                        }
                         Text(
-                            text = "Current Conditions",
+                            text = timeLabel,
                             style = MaterialTheme.typography.labelMedium.copy(
-                                color = Color.White.copy(alpha = 0.8f)
+                                color = Color.White.copy(alpha = 0.85f)
                             )
                         )
                     }
@@ -400,6 +437,26 @@ private fun ForecastRow(forecast: DailyForecast) {
                 Column {
                     Text(forecast.day, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                     Text(forecast.condition, style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray))
+                    if (forecast.rainProbability > 0 || forecast.precipitationMm > 0.0) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(
+                                Icons.Rounded.WaterDrop,
+                                contentDescription = null,
+                                tint = Color(0xFF0288D1),
+                                modifier = Modifier.size(12.dp)
+                            )
+                            val precipText = if (forecast.precipitationMm > 0.0) {
+                                " · ${String.format(java.util.Locale.US, "%.1f", forecast.precipitationMm)} mm"
+                            } else ""
+                            Text(
+                                text = "${forecast.rainProbability}%$precipText",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF0288D1),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
                 }
             }
             Text(
@@ -408,6 +465,203 @@ private fun ForecastRow(forecast: DailyForecast) {
                     fontWeight = FontWeight.ExtraBold,
                     color = MaterialTheme.colorScheme.primary
                 )
+            )
+        }
+    }
+}
+
+@Composable
+private fun WeatherAlertsBanner(alerts: List<WeatherAlertItemUi>) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        alerts.forEach { alert ->
+            val isEmergency = alert.severity.equals("EMERGENCY", ignoreCase = true)
+            val isWarning = alert.severity.equals("WARNING", ignoreCase = true)
+
+            val bgColor = when {
+                isEmergency -> Color(0xFFFFEBEE)
+                isWarning -> Color(0xFFFFF8E1)
+                else -> Color(0xFFE3F2FD)
+            }
+            val borderColor = when {
+                isEmergency -> Color(0xFFEF5350)
+                isWarning -> Color(0xFFFFCA28)
+                else -> Color(0xFF90CAF9)
+            }
+            val textColor = when {
+                isEmergency -> Color(0xFFC62828)
+                isWarning -> Color(0xFFE65100)
+                else -> Color(0xFF1565C0)
+            }
+            val icon = when {
+                isEmergency -> Icons.Rounded.Warning
+                isWarning -> Icons.Rounded.WarningAmber
+                else -> Icons.Rounded.Info
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = bgColor,
+                border = BorderStroke(1.dp, borderColor),
+                shadowElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(icon, contentDescription = null, tint = textColor, modifier = Modifier.size(20.dp))
+                        Text(
+                            text = alert.title.ifBlank { "${alert.alert_type} Warning" },
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = textColor),
+                            modifier = Modifier.weight(1f)
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = textColor
+                        ) {
+                            Text(
+                                text = alert.severity.uppercase(),
+                                style = MaterialTheme.typography.labelSmall.copy(color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 10.sp),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    if (alert.message.isNotBlank()) {
+                        Text(
+                            text = alert.message,
+                            style = MaterialTheme.typography.bodyMedium.copy(color = textColor)
+                        )
+                    }
+
+                    if (alert.farming_recommendation.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White.copy(alpha = 0.7f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = alert.farming_recommendation,
+                                    style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF1B5E20), fontWeight = FontWeight.SemiBold)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AgriculturalAdvisoryCard(advisory: AgriculturalAdvisoryResponse) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        shadowElevation = 3.dp,
+        border = BorderStroke(1.dp, Color(0xFFECEFF1))
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            if (advisory.summary.isNotBlank()) {
+                Text(
+                    text = advisory.summary,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold, color = Color(0xFF37474F))
+                )
+            }
+
+            if (advisory.irrigation_advice.isNotBlank()) {
+                AdvisoryPillarRow(
+                    icon = Icons.Rounded.WaterDrop,
+                    iconTint = Color(0xFF0288D1),
+                    title = "Irrigation Guidance",
+                    content = advisory.irrigation_advice,
+                    containerColor = Color(0xFFE1F5FE),
+                    borderColor = Color(0xFFB3E5FC)
+                )
+            }
+
+            if (advisory.spraying_advice.isNotBlank()) {
+                AdvisoryPillarRow(
+                    icon = Icons.Rounded.Spa,
+                    iconTint = Color(0xFF689F38),
+                    title = "Spraying Window",
+                    content = advisory.spraying_advice,
+                    containerColor = Color(0xFFF1F8E9),
+                    borderColor = Color(0xFFDCEDC8)
+                )
+            }
+
+            if (advisory.fieldwork_advice.isNotBlank()) {
+                AdvisoryPillarRow(
+                    icon = Icons.Rounded.Agriculture,
+                    iconTint = Color(0xFFE65100),
+                    title = "Field Operations & Harvest",
+                    content = advisory.fieldwork_advice,
+                    containerColor = Color(0xFFFFF3E0),
+                    borderColor = Color(0xFFFFE0B2)
+                )
+            }
+
+            if (advisory.assumptions.isNotEmpty()) {
+                Text(
+                    text = "Assumptions: ${advisory.assumptions.joinToString(" • ")}",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Color.Gray,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                    ),
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdvisoryPillarRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconTint: Color,
+    title: String,
+    content: String,
+    containerColor: Color,
+    borderColor: Color
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = containerColor,
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = iconTint)
+                )
+            }
+            Text(
+                text = content,
+                style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF263238), lineHeight = 18.sp)
             )
         }
     }
@@ -1028,11 +1282,35 @@ suspend fun fetchWeatherFromLocation(
                             val high = (item.temperature_max_c ?: (item.temperature_c + 2)).toInt()
                             val low = (item.temperature_min_c ?: (item.temperature_c - 2)).toInt()
                             val conditionText = item.weather.ifBlank { "Clear" }
-                            realForecastList.add(DailyForecast(dayLabel, high, low, conditionText))
+                            val rainProb = item.rain_chance.toInt()
+                            val precipMm = item.precipitation_mm ?: 0.0
+                            realForecastList.add(DailyForecast(dayLabel, high, low, conditionText, rainProbability = rainProb, precipitationMm = precipMm))
                         }
                     }
                 } catch (fe: Exception) {
                     // Fallback to empty forecast list if network glitch occurs during forecast leg
+                }
+
+                // Fetch real weather alerts from backend
+                val alertList = mutableListOf<WeatherAlertItemUi>()
+                try {
+                    val alertsResponse = farmFusionApi.getWeatherAlerts(latitude, longitude, days = 7, language = appLanguage)
+                    if (alertsResponse.isSuccessful && alertsResponse.body() != null) {
+                        alertList.addAll(alertsResponse.body()!!.alerts)
+                    }
+                } catch (ae: Exception) {
+                    // Fallback: alerts remain empty, does not break current weather
+                }
+
+                // Fetch structured agricultural advisory from backend
+                var advisoryObj: AgriculturalAdvisoryResponse? = null
+                try {
+                    val advResponse = farmFusionApi.getAgriculturalAdvisory(latitude, longitude, language = appLanguage)
+                    if (advResponse.isSuccessful && advResponse.body() != null) {
+                        advisoryObj = advResponse.body()
+                    }
+                } catch (ave: Exception) {
+                    // Fallback: advisory remains null, does not break current weather
                 }
 
                 val data = DisplayWeatherData(
@@ -1042,7 +1320,10 @@ suspend fun fetchWeatherFromLocation(
                     windSpeed = backendData.wind_speed_ms,
                     city = city,
                     advice = backendData.farming_advice,
-                    forecast = realForecastList
+                    timestamp = backendData.timestamp,
+                    forecast = realForecastList,
+                    alerts = alertList,
+                    advisory = advisoryObj
                 )
                 WeatherSnapshotStore.latestWeather = data
                 WeatherSnapshotStore.latestError = null

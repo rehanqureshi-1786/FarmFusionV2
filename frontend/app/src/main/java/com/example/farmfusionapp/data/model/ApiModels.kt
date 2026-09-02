@@ -264,8 +264,41 @@ data class WeatherData(
     val sunrise: String?,
     val sunset: String?,
     val farming_advice: String,
-    val source: String?
+    val source: String?,
+    val timestamp: String? = null
 )
+
+data class WeatherAlertsResponse(
+    val success: Boolean,
+    val count: Int = 0,
+    val alerts: List<WeatherAlertItemUi> = emptyList(),
+    val checked_at: String? = null
+)
+
+data class WeatherAlertItemUi(
+    val alert_id: String = "",
+    val alert_type: String = "",
+    val severity: String = "INFO",
+    val title: String = "",
+    val message: String = "",
+    val farming_recommendation: String = "",
+    val start_time: String? = null,
+    val end_time: String? = null,
+    val trigger_value: Double? = null,
+    val threshold_value: Double? = null,
+    val unit: String? = null,
+    val location_name: String? = null
+)
+
+data class AgriculturalAdvisoryResponse(
+    val irrigation_advice: String = "",
+    val spraying_advice: String = "",
+    val fieldwork_advice: String = "",
+    val summary: String = "",
+    val language: String = "en",
+    val assumptions: List<String> = emptyList()
+)
+
 
 data class WeatherForecastResponse(
     val success: Boolean,
