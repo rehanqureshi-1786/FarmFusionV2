@@ -228,7 +228,7 @@ fun ProfileScreen(navController: NavController) {
                     icon = Icons.Rounded.Translate,
                     title = stringResource(R.string.profile_language),
                     subtitle = langLabel,
-                    onClick = { navController.navigate("language") }
+                    onClick = { navController.navigate(NavRoutes.LanguageSelection) }
                 )
                 SettingPremiumRow(
                     icon = Icons.Rounded.Notifications,
@@ -240,7 +240,7 @@ fun ProfileScreen(navController: NavController) {
                     icon = Icons.Rounded.Mic,
                     title = stringResource(R.string.profile_voice),
                     subtitle = stringResource(R.string.profile_voice_sub),
-                    onClick = { navController.navigate("voice_assistant") }
+                    onClick = { navController.navigate(NavRoutes.VoiceAssistant) }
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -249,8 +249,8 @@ fun ProfileScreen(navController: NavController) {
                 Button(
                     onClick = {
                         authViewModel.logout(context)
-                        navController.navigate("login") {
-                            popUpTo(0) { inclusive = true }
+                        navController.navigate(NavRoutes.Login) {
+                            popUpTo(navController.graph.id) { inclusive = true }
                         }
                     },
                     modifier = Modifier
