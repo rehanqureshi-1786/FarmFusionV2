@@ -1,5 +1,6 @@
 package com.example.farmfusionapp.ui.screens
 
+import androidx.navigation.NavController
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
@@ -44,6 +45,14 @@ private val FarmBackground = Color(0xFFF3F8F1)
 private val FarmTextGray = Color(0xFF6B7280)
 
 enum class UserRole { FARMER, BUYER }
+
+@Composable
+fun LoginScreen(navController: NavController) {
+    LoginScreen(
+        onNavigateToPhoneSignUp = { navController.navigate(NavRoutes.Register) },
+        onGoogleIdTokenReceived = { token -> navController.navigate(NavRoutes.Dashboard) }
+    )
+}
 
 @Composable
 fun LoginScreen(
@@ -91,7 +100,7 @@ fun LoginScreen(
                     .height(440.dp)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.farm_header_bg),
+                    painter = painterResource(id = R.drawable.ill_header_bg),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()

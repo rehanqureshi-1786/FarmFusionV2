@@ -1250,7 +1250,7 @@ suspend fun fetchWeatherFromLocation(
             val body = response.body()!!
             val backendData = body.data
             if (body.success && backendData != null) {
-                val backendLocation = backendData.location.trim()
+                val backendLocation = (backendData.location ?: backendData.location_name ?: "").trim()
                 val currentStableCity = WeatherSnapshotStore.latestWeather?.city ?: LocationSnapshotStore.latestCity
                 val resolvedBroadCity = getCityFromLocation(context, latitude, longitude, appLanguage)
                 val city = when {
@@ -1313,13 +1313,20 @@ suspend fun fetchWeatherFromLocation(
                     // Fallback: advisory remains null, does not break current weather
                 }
 
+                val weatherDesc = (backendData.weather ?: backendData.condition ?: "").trim()
+                val windSpeed = if (backendData.wind_speed_ms > 0.0) {
+                    backendData.wind_speed_ms
+                } else {
+                    (backendData.wind_speed_kmh ?: 0.0) / 3.6
+                }
+
                 val data = DisplayWeatherData(
                     temperature = backendData.temperature_c.toInt(),
-                    description = backendData.weather,
+                    description = weatherDesc.ifBlank { "Clear" },
                     humidity = backendData.humidity_percent,
-                    windSpeed = backendData.wind_speed_ms,
+                    windSpeed = windSpeed,
                     city = city,
-                    advice = backendData.farming_advice,
+                    advice = backendData.farming_advice ?: "",
                     timestamp = backendData.timestamp,
                     forecast = realForecastList,
                     alerts = alertList,

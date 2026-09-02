@@ -252,19 +252,22 @@ data class WeatherResponse(
 )
 
 data class WeatherData(
-    val location: String,
-    val temperature_c: Double,
-    val feels_like_c: Double,
-    val humidity_percent: Int,
-    val pressure_hpa: Int,
-    val weather: String,
-    val wind_speed_ms: Double,
-    val visibility_m: Int,
-    val cloudiness_percent: Int,
-    val sunrise: String?,
-    val sunset: String?,
-    val farming_advice: String,
-    val source: String?,
+    val location: String? = null,
+    val location_name: String? = null,
+    val temperature_c: Double = 0.0,
+    val feels_like_c: Double = 0.0,
+    val humidity_percent: Int = 0,
+    val pressure_hpa: Int = 0,
+    val weather: String? = null,
+    val condition: String? = null,
+    val wind_speed_ms: Double = 0.0,
+    val wind_speed_kmh: Double? = null,
+    val visibility_m: Int = 0,
+    val cloudiness_percent: Int = 0,
+    val sunrise: String? = null,
+    val sunset: String? = null,
+    val farming_advice: String? = null,
+    val source: String? = null,
     val timestamp: String? = null
 )
 

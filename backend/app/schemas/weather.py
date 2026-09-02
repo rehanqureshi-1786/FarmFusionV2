@@ -4,7 +4,7 @@ Strictly separates machine-readable numeric observations from human-facing agric
 """
 
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class CurrentWeather(BaseModel):
@@ -12,6 +12,9 @@ class CurrentWeather(BaseModel):
     longitude: float = Field(..., description="Longitude coordinate")
     location_name: Optional[str] = Field(None, description="Resolved city/village/region name, or None if unavailable")
     location_source: str = Field("coordinates_only", description="Source: 'gps', 'saved_farm', 'user_selected', or 'coordinates_only'")
+    location: Optional[str] = Field(None, description="Backward compatibility alias for location_name")
+    weather: Optional[str] = Field(None, description="Backward compatibility alias for condition")
+    farming_advice: Optional[str] = Field(None, description="Backward compatibility single string")
     timestamp: str = Field(..., description="ISO observation timestamp")
     temperature_c: float = Field(..., description="Current temperature in Celsius")
     feels_like_c: float = Field(..., description="Apparent temperature in Celsius")
@@ -26,6 +29,14 @@ class CurrentWeather(BaseModel):
     sunrise: Optional[str] = Field(None, description="Sunrise ISO timestamp")
     sunset: Optional[str] = Field(None, description="Sunset ISO timestamp")
     source: str = Field("Open-Meteo", description="Underlying NWP weather data provider")
+
+    @model_validator(mode="after")
+    def populate_compatibility_fields(self):
+        if not self.location:
+            self.location = self.location_name or f"{round(self.latitude, 2)}°N, {round(self.longitude, 2)}°E"
+        if not self.weather:
+            self.weather = self.condition
+        return self
 
 
 class DailyForecastItem(BaseModel):
