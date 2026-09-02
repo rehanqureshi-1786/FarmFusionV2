@@ -11,9 +11,11 @@ import urllib.parse
 import structlog
 import httpx
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response, HTTPException, BackgroundTasks
+from fastapi.responses import JSONResponse
 from app.schemas.calling import KisanCallRequest, KisanCallResponse, KisanCallSummaryResponse, CallTranscriptTurn
 from app.calling_agent.service import kisan_calling_service
 from app.calling_agent.orchestrator import KisanVoiceOrchestrator
+from app.core.config import settings
 
 logger = structlog.get_logger()
 router = APIRouter(prefix="/calling", tags=["Kisan Calling Agent"])
@@ -96,7 +98,7 @@ async def telephony_inbound_webhook(request: Request):
     Returns XML instructions to establish a bidirectional audio stream via WebSocket.
     """
     query_params = dict(request.query_params)
-    base_ws = os.getenv("BASE_WS_URL", "wss://farmfusion.app")
+    base_ws = settings.base_ws_url or os.getenv("BASE_WS_URL", "wss://farmfusion.app")
     ws_query = urllib.parse.urlencode(query_params)
     stream_url = f"{base_ws.rstrip('/')}/ws/calling/stream?{ws_query}"
 
@@ -104,6 +106,39 @@ async def telephony_inbound_webhook(request: Request):
 <Response>
     <Speak>Connecting to Kisan Mitra.</Speak>
     <Stream bidirectional="true" keepCallAlive="true">{stream_url}</Stream>
+</Response>"""
+    return Response(content=xml_response, media_type="application/xml")
+
+@router.api_route("/webhook/hangup", methods=["GET", "POST"])
+async def telephony_hangup_webhook(request: Request):
+    """
+    Webhook called by Vobiz when a call ends/hangs up.
+    Captures call termination reason, duration, and status.
+    """
+    try:
+        data = {}
+        if request.method == "POST":
+            try:
+                data = await request.json()
+            except Exception:
+                data = dict(await request.form())
+        else:
+            data = dict(request.query_params)
+        logger.info("telephony_call_hangup_logged", data=data)
+        return JSONResponse(content={"status": "hangup_logged"})
+    except Exception as e:
+        logger.warning("hangup_logging_error", error=str(e))
+        return JSONResponse(content={"status": "error", "message": str(e)})
+
+@router.api_route("/webhook/fallback", methods=["GET", "POST"])
+async def telephony_fallback_webhook(request: Request):
+    """
+    Fallback webhook called by Vobiz if the primary answer URL fails.
+    """
+    logger.warning("telephony_fallback_answer_invoked")
+    xml_response = """<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Speak>Kisan Mitra service is reconnecting. Please stay on the line.</Speak>
 </Response>"""
     return Response(content=xml_response, media_type="application/xml")
 
