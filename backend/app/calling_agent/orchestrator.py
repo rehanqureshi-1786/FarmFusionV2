@@ -199,8 +199,9 @@ class KisanVoiceOrchestrator:
         if pcm_audio and not self.is_interrupted:
             try:
                 b64_audio = base64.b64encode(pcm_audio).decode("utf-8")
+                # Official current Vobiz streaming protocol uses event="playAudio"
                 payload = {
-                    "event": "media",
+                    "event": "playAudio",
                     "media": {
                         "payload": b64_audio
                     }

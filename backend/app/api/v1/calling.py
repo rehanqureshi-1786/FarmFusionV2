@@ -1,15 +1,16 @@
 """
 FastAPI router for FarmFusion Kisan Voice Calling Agent.
+Verified against Vobiz Webhook & WebSocket Media Stream specifications.
 """
 
 import os
 import json
 import base64
 import asyncio
+import urllib.parse
 import structlog
 import httpx
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response, HTTPException, BackgroundTasks, Depends
-from fastapi.responses import JSONResponse, Response
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Request, Response, HTTPException, BackgroundTasks
 from app.schemas.calling import KisanCallRequest, KisanCallResponse, KisanCallSummaryResponse, CallTranscriptTurn
 from app.calling_agent.service import kisan_calling_service
 from app.calling_agent.orchestrator import KisanVoiceOrchestrator
@@ -21,8 +22,16 @@ router = APIRouter(prefix="/calling", tags=["Kisan Calling Agent"])
 async def initiate_kisan_call(request: KisanCallRequest):
     """
     Initiates an AI outbound phone call to a farmer for mandi alerts, weather warnings, or advisory.
+    Validates E.164 phone numbers and enforces 5-minute duplicate-call cooldown.
     """
-    return await kisan_calling_service.trigger_call(request)
+    try:
+        return await kisan_calling_service.trigger_call(request)
+    except ValueError as e:
+        status_code = 429 if "cooldown active" in str(e).lower() else 400
+        raise HTTPException(status_code=status_code, detail=str(e))
+    except Exception as e:
+        logger.error("call_initiation_unexpected_error", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Failed to initiate call: {str(e)}")
 
 @router.post("/trigger-mandi-alert", response_model=KisanCallResponse)
 async def trigger_mandi_alert_call(
@@ -48,7 +57,11 @@ async def trigger_mandi_alert_call(
         target_price=target_price,
         agent_instruction=f"Notify the farmer that {crop_name} in {mandi_name} mandi has reached ₹{int(current_price)}/quintal. Ask if they want to sell today or wait."
     )
-    return await kisan_calling_service.trigger_call(req)
+    try:
+        return await kisan_calling_service.trigger_call(req)
+    except ValueError as e:
+        status_code = 429 if "cooldown active" in str(e).lower() else 400
+        raise HTTPException(status_code=status_code, detail=str(e))
 
 @router.post("/trigger-weather-alert", response_model=KisanCallResponse)
 async def trigger_weather_alert_call(
@@ -70,17 +83,20 @@ async def trigger_weather_alert_call(
         weather_summary=weather_warning,
         agent_instruction=f"Warn the farmer about upcoming weather: {weather_warning}. Advise crop protection measures."
     )
-    return await kisan_calling_service.trigger_call(req)
+    try:
+        return await kisan_calling_service.trigger_call(req)
+    except ValueError as e:
+        status_code = 429 if "cooldown active" in str(e).lower() else 400
+        raise HTTPException(status_code=status_code, detail=str(e))
 
-@router.post("/webhook/inbound")
+@router.api_route("/webhook/inbound", methods=["GET", "POST"])
 async def telephony_inbound_webhook(request: Request):
     """
-    Inbound webhook called by Vobiz/Plivo when farmer answers the call.
+    Inbound webhook called by Vobiz / Plivo when the farmer answers the call.
     Returns XML instructions to establish a bidirectional audio stream via WebSocket.
     """
     query_params = dict(request.query_params)
     base_ws = os.getenv("BASE_WS_URL", "wss://farmfusion.app")
-    import urllib.parse
     ws_query = urllib.parse.urlencode(query_params)
     stream_url = f"{base_ws.rstrip('/')}/ws/calling/stream?{ws_query}"
 
@@ -95,6 +111,7 @@ async def telephony_inbound_webhook(request: Request):
 async def telephony_audio_stream_endpoint(websocket: WebSocket):
     """
     Bi-directional audio WebSocket connecting telephony network to KisanVoiceOrchestrator.
+    Supports Vobiz events: start, media, playAudio, clearAudio, clearedAudio, and stop/close.
     """
     await websocket.accept()
     query_params = dict(websocket.query_params)
@@ -137,14 +154,24 @@ async def telephony_audio_stream_endpoint(websocket: WebSocket):
             data = json.loads(raw_text)
             event = data.get("event")
 
-            if event == "media":
-                media_payload = data.get("media", {}).get("payload")
+            # 1. Connection initiation metadata event
+            if event == "start":
+                logger.info("telephony_stream_metadata_received", call_id=call_id, format=data.get("mediaFormat"))
+
+            # 2. Inbound audio chunk from phone (supports both "media" and "playAudio" frame envelopes)
+            elif event in ("media", "playAudio"):
+                media_payload = data.get("media", {}).get("payload") or data.get("payload")
                 if media_payload:
                     audio_bytes = base64.b64decode(media_payload)
                     await orchestrator.process_inbound_audio(audio_bytes)
 
+            # 3. Barge-in playback queue flush acknowledgement from Vobiz
+            elif event == "clearedAudio":
+                logger.info("telephony_audio_cleared_ack", farmer=farmer_name, call_id=call_id)
+
+            # 4. Call hung up or terminated
             elif event in ("stop", "close"):
-                logger.info("telephony_call_hangup_received", farmer=farmer_name)
+                logger.info("telephony_call_hangup_received", farmer=farmer_name, call_id=call_id)
                 break
 
     except WebSocketDisconnect:
@@ -164,12 +191,12 @@ async def telephony_audio_stream_endpoint(websocket: WebSocket):
                     payload = {
                         "call_id": call_id,
                         "farmer_name": farmer_name,
-                        "status": "completed",
+                        "call_type": call_type,
                         "summary": summary,
                         "transcript": orchestrator.transcript_history
                     }
-                    async with httpx.AsyncClient(timeout=10.0) as client:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
                         await client.post(callback_url, json=payload)
                 except Exception as ex:
-                    logger.warning("post_call_webhook_failed", error=str(ex))
+                    logger.warning("callback_dispatch_failed", error=str(ex))
             asyncio.create_task(send_callback())
