@@ -241,13 +241,17 @@ fun LanguageSelectionScreen(
                             } catch (_: Exception) {}
                             finally {
                                 isSaving = false
-                                // NOTE: popBackStack() did nothing because this is the first
-                                // screen shown — there's no prior screen to pop back to.
-                                // Navigate to home explicitly instead, and clear this screen
-                                // (and anything before it) off the back stack so the user
-                                // can't press "back" and land here again.
-                                navController.navigate("home") {
-                                    popUpTo(0) { inclusive = true }
+                                // popBackStack() fails silently when there's nothing behind
+                                // this screen (true on first launch), so navigate forward
+                                // explicitly instead. NavRoutes.Splash is a real destination
+                                // in AppNav.kt's graph (unlike "home", which crashed).
+                                // popUpTo(navController.graph.id) clears the whole back
+                                // stack so the user can never navigate back into language
+                                // selection.
+                                navController.navigate(NavRoutes.Splash) {
+                                    popUpTo(navController.graph.id) {
+                                        inclusive = true
+                                    }
                                     launchSingleTop = true
                                 }
                             }
