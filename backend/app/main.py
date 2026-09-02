@@ -21,6 +21,7 @@ from app.api.v1.lifecycle import router as lifecycle_router
 from app.api.v1.disease import router as disease_router
 from app.api.v1.knowledge import router as knowledge_router
 from app.api.v1.crop_recommendation import router as crop_recommendation_router
+from app.api.v1.calling import router as calling_router
 from app.routes.crop import router as legacy_crop_router
 from app.routes.weather import router as weather_router
 
@@ -105,6 +106,7 @@ app.include_router(lifecycle_router, prefix=settings.api_v1_prefix)
 app.include_router(disease_router, prefix=settings.api_v1_prefix)
 app.include_router(knowledge_router, prefix=settings.api_v1_prefix)
 app.include_router(crop_recommendation_router, prefix=settings.api_v1_prefix)
+app.include_router(calling_router, prefix=settings.api_v1_prefix)
 app.include_router(weather_router, prefix=settings.api_v1_prefix)
 app.include_router(legacy_crop_router)
 
