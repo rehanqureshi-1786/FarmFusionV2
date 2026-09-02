@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -170,59 +172,79 @@ fun MandiPricesScreen(
                     }
                 }
 
-                // High-Value Guided Farmer Action Chips
+                // High-Value Guided Farmer Action Cards (2x2 Prominent Grid)
                 item {
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        // 1. Best Nearby
-                        ActionChip(
-                            label = "Best Nearby",
-                            icon = Icons.Rounded.NearMe,
-                            color = Color(0xFF10B981),
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                showNearbyDialog = true
-                            }
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // 1. Best Nearby
+                            MandiIntelligenceCard(
+                                title = "Best Nearby",
+                                subtitle = "Highest net price market",
+                                icon = Icons.Rounded.NearMe,
+                                bgGradient = listOf(Color(0xFFECFDF5), Color(0xFFD1FAE5)),
+                                iconTint = Color(0xFF047857),
+                                borderStrokeColor = Color(0xFFA7F3D0),
+                                modifier = Modifier.weight(1f),
+                                onClick = { showNearbyDialog = true }
+                            )
 
-                        // 2. Compare Mandis
-                        ActionChip(
-                            label = "Compare",
-                            icon = Icons.AutoMirrored.Rounded.CompareArrows,
-                            color = Color(0xFF3B82F6),
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                compareError = null
-                                showCompareDialog = true
-                            }
-                        )
+                            // 2. Compare Mandis
+                            MandiIntelligenceCard(
+                                title = "Compare",
+                                subtitle = "Side-by-side mandi rates",
+                                icon = Icons.AutoMirrored.Rounded.CompareArrows,
+                                bgGradient = listOf(Color(0xFFEFF6FF), Color(0xFFDBEAFE)),
+                                iconTint = Color(0xFF1D4ED8),
+                                borderStrokeColor = Color(0xFFBFDBFE),
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    compareError = null
+                                    showCompareDialog = true
+                                }
+                            )
+                        }
 
-                        // 3. Sell vs Wait Advisory
-                        ActionChip(
-                            label = "Sell vs Wait",
-                            icon = Icons.AutoMirrored.Rounded.TrendingUp,
-                            color = Color(0xFF8B5CF6),
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                advisoryError = null
-                                showAdvisoryDialog = true
-                            }
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // 3. Sell vs Wait Advisory
+                            MandiIntelligenceCard(
+                                title = "Sell vs Wait",
+                                subtitle = "7-day price trajectory",
+                                icon = Icons.AutoMirrored.Rounded.TrendingUp,
+                                bgGradient = listOf(Color(0xFFF5F3FF), Color(0xFFEDE9FE)),
+                                iconTint = Color(0xFF6D28D9),
+                                borderStrokeColor = Color(0xFFDDD6FE),
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    advisoryError = null
+                                    showAdvisoryDialog = true
+                                }
+                            )
 
-                        // 4. Set Alert
-                        ActionChip(
-                            label = "Set Alert",
-                            icon = Icons.Rounded.NotificationsActive,
-                            color = Color(0xFFF59E0B),
-                            modifier = Modifier.weight(1f),
-                            onClick = {
-                                alertError = null
-                                alertSuccessMsg = null
-                                showAlertModal = true
-                            }
-                        )
+                            // 4. Set Alert
+                            MandiIntelligenceCard(
+                                title = "Set Alert",
+                                subtitle = "Notify on target prices",
+                                icon = Icons.Rounded.NotificationsActive,
+                                bgGradient = listOf(Color(0xFFFFFBEB), Color(0xFFFEF3C7)),
+                                iconTint = Color(0xFFB45309),
+                                borderStrokeColor = Color(0xFFFDE68A),
+                                modifier = Modifier.weight(1f),
+                                onClick = {
+                                    alertError = null
+                                    alertSuccessMsg = null
+                                    showAlertModal = true
+                                }
+                            )
+                        }
                     }
                 }
 
@@ -888,32 +910,85 @@ fun MandiPricesScreen(
 }
 
 @Composable
-private fun ActionChip(
-    label: String,
+private fun MandiIntelligenceCard(
+    title: String,
+    subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: Color,
+    bgGradient: List<Color>,
+    iconTint: Color,
+    borderStrokeColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = color.copy(alpha = 0.1f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.3f)),
-        modifier = modifier
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, borderStrokeColor),
+        shadowElevation = 2.dp,
+        modifier = modifier.height(92.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    androidx.compose.ui.graphics.Brush.linearGradient(
+                        colors = bgGradient
+                    )
+                )
+                .padding(12.dp)
         ) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp, color = color),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color.White.copy(alpha = 0.9f), CircleShape)
+                            .border(1.dp, borderStrokeColor.copy(alpha = 0.5f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+                    }
+
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack, // Or small forward indicator
+                        contentDescription = null,
+                        tint = iconTint.copy(alpha = 0.6f),
+                        modifier = Modifier
+                            .size(16.dp)
+                            .graphicsLayer(rotationZ = 180f)
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF1F2937)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 11.sp,
+                            color = Color(0xFF4B5563)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
         }
     }
 }

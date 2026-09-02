@@ -115,9 +115,11 @@ fun CropRecommendationScreen(
     val recommendations by viewModel.recommendations
     val aiInsights by viewModel.aiInsights
     val isSuccess by viewModel.isSuccess
+    val isNoSoilSuccess by viewModel.isNoSoilReportSuccess
+    val noSoilResult by viewModel.noSoilReportResult
 
-    LaunchedEffect(isSuccess) {
-        if (isSuccess && currentStep == RecommendationStep.AUTO_ANALYSIS) {
+    LaunchedEffect(isSuccess, isNoSoilSuccess) {
+        if ((isSuccess || isNoSoilSuccess) && currentStep == RecommendationStep.AUTO_ANALYSIS) {
             delay(500)
             currentStep = RecommendationStep.RESULT
         }
@@ -185,10 +187,11 @@ fun CropRecommendationScreen(
                                     RecommendationStep.REPORT_CHECK -> currentStep = RecommendationStep.SOIL_SELECTION
                                     RecommendationStep.FARM_DETAILS -> currentStep = RecommendationStep.REPORT_CHECK
                                     RecommendationStep.REPORT_PHOTO_INPUT -> currentStep = RecommendationStep.FARM_DETAILS
-                                    RecommendationStep.AUTO_ANALYSIS -> currentStep = RecommendationStep.FARM_DETAILS
+                                    RecommendationStep.AUTO_ANALYSIS -> currentStep = if (isAdvancedMode) RecommendationStep.FARM_DETAILS else RecommendationStep.REPORT_CHECK
                                     RecommendationStep.RESULT -> {
                                         currentStep = RecommendationStep.SOIL_SELECTION
                                         viewModel.resetState()
+                                        viewModel.resetNoSoilReportState()
                                         selectedSoil = null
                                         formInputs = CropRecommendationFormInputs()
                                     }
@@ -254,14 +257,48 @@ fun CropRecommendationScreen(
                 ) { step ->
                     when (step) {
                         RecommendationStep.SOIL_SELECTION -> SoilSelectionStep(soilTypes, selectedSoil) { selectedSoil = it; currentStep = RecommendationStep.REPORT_CHECK }
-                        RecommendationStep.REPORT_CHECK -> CropRecommendationReportCheckStep { isAdvancedMode = it; currentStep = RecommendationStep.FARM_DETAILS }
-                        RecommendationStep.FARM_DETAILS -> FarmDetailsStep(selectedSoil?.name.orEmpty(), formInputs, { formInputs = it }) { currentStep = if (isAdvancedMode) RecommendationStep.REPORT_PHOTO_INPUT else RecommendationStep.AUTO_ANALYSIS }
+                        RecommendationStep.REPORT_CHECK -> CropRecommendationReportCheckStep { hasReport ->
+                            isAdvancedMode = hasReport
+                            if (hasReport) {
+                                currentStep = RecommendationStep.FARM_DETAILS
+                            } else {
+                                // "NO, USE AUTO ANALYSIS" immediately analyzes using backend Mode B
+                                currentStep = RecommendationStep.AUTO_ANALYSIS
+                            }
+                        }
+                        RecommendationStep.FARM_DETAILS -> FarmDetailsStep(selectedSoil?.name.orEmpty(), formInputs, { formInputs = it }) {
+                            currentStep = RecommendationStep.REPORT_PHOTO_INPUT
+                        }
                         RecommendationStep.REPORT_PHOTO_INPUT -> PhotoInputStep { currentStep = RecommendationStep.AUTO_ANALYSIS }
-                        RecommendationStep.AUTO_ANALYSIS -> AutoAnalysisStep(formInputs, selectedSoil?.name ?: "", viewModel)
-                        RecommendationStep.RESULT -> RecommendationResultStep(selectedSoil, recommendations, aiInsights, { currentStep = RecommendationStep.SOIL_SELECTION; viewModel.resetState(); selectedSoil = null; formInputs = CropRecommendationFormInputs() }, {
-                            val top = recommendations.maxByOrNull { it.confidence_score }
-                            if (top != null) { AgriStoreContext.setForCrop(top.crop_name); navController.navigate(NavRoutes.ProductStore) }
-                        })
+                        RecommendationStep.AUTO_ANALYSIS -> AutoAnalysisStep(formInputs, selectedSoil?.name ?: "Black Soil", viewModel, isAdvancedMode)
+                        RecommendationStep.RESULT -> {
+                            val activeRecs = if (noSoilResult != null && !noSoilResult!!.recommendations.isNullOrEmpty()) {
+                                noSoilResult!!.recommendations!!.map { item ->
+                                    CropRecommendationItem(
+                                        crop_name = item.crop_name,
+                                        confidence_score = item.suitability_score,
+                                        expected_yield_tons = 3.5,
+                                        market_demand = item.suitability_level,
+                                        estimated_profit_usd = 850.0,
+                                        growing_duration_months = 4,
+                                        water_requirement = item.water_requirement ?: "Medium"
+                                    )
+                                }
+                            } else {
+                                recommendations
+                            }
+                            val activeInsights = noSoilResult?.explanation ?: noSoilResult?.message ?: aiInsights
+                            RecommendationResultStep(selectedSoil, activeRecs, activeInsights, {
+                                currentStep = RecommendationStep.SOIL_SELECTION
+                                viewModel.resetState()
+                                viewModel.resetNoSoilReportState()
+                                selectedSoil = null
+                                formInputs = CropRecommendationFormInputs()
+                            }, {
+                                val top = activeRecs.maxByOrNull { it.confidence_score }
+                                if (top != null) { AgriStoreContext.setForCrop(top.crop_name); navController.navigate(NavRoutes.ProductStore) }
+                            })
+                        }
                     }
                 }
             }
@@ -609,23 +646,76 @@ fun PhotoInputStep(onComplete: () -> Unit) {
 }
 
 @Composable
-fun AutoAnalysisStep(formInputs: CropRecommendationFormInputs, soilType: String, viewModel: CropRecommendationViewModel) {
+fun AutoAnalysisStep(
+    formInputs: CropRecommendationFormInputs,
+    soilType: String,
+    viewModel: CropRecommendationViewModel,
+    isAdvancedMode: Boolean
+) {
     val context = LocalContext.current
+    val isLoading by viewModel.isLoading
+    val isNoSoilLoading by viewModel.isNoSoilReportLoading
+    val error by viewModel.error
+    val noSoilError by viewModel.noSoilReportError
+
     LaunchedEffect(Unit) {
         val lang = LocaleHelper.apiLanguageCode(LanguagePreferences.getSelectedLanguage(context) ?: "en")
-        viewModel.fetchRecommendations(
-            location = formInputs.location,
-            soilType = soilType,
-            rainfallMm = formInputs.rainfallMm.toDoubleOrNull() ?: 1000.0,
-            temperatureC = formInputs.temperatureC.toDoubleOrNull() ?: 25.0,
-            farmSizeAcres = formInputs.farmSizeAcres.toDoubleOrNull() ?: 1.0,
-            preferredLanguage = lang
-        )
+        val location = getDeviceLocation(context)
+        val lat = location?.first
+        val lon = location?.second
+        val city = if (lat != null && lon != null) getCityFromLocation(context, lat, lon, lang) else null
+        val resolvedLocation = formInputs.location.ifBlank { city ?: LocationSnapshotStore.latestCity ?: "India" }
+
+        if (!isAdvancedMode) {
+            // Mode B: "No Soil Report / Auto Analysis" flow
+            viewModel.fetchNoSoilReportRecommendations(
+                latitude = lat ?: 20.5937,
+                longitude = lon ?: 78.9629,
+                state = null,
+                soilType = soilType,
+                locationName = resolvedLocation
+            )
+        } else {
+            // Mode A: "I Have a Soil Report" flow
+            viewModel.fetchRecommendations(
+                location = resolvedLocation,
+                soilType = soilType,
+                rainfallMm = formInputs.rainfallMm.toDoubleOrNull() ?: -1.0,
+                temperatureC = formInputs.temperatureC.toDoubleOrNull() ?: 25.0,
+                farmSizeAcres = formInputs.farmSizeAcres.toDoubleOrNull() ?: 1.0,
+                latitude = lat,
+                longitude = lon,
+                preferredLanguage = lang
+            )
+        }
     }
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        CircularProgressIndicator(modifier = Modifier.size(64.dp))
-        Spacer(Modifier.height(24.dp))
-        Text("AI is analyzing...", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+
+    val activeError = error ?: noSoilError
+
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        if (activeError != null) {
+            Icon(Icons.Rounded.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(56.dp))
+            Spacer(Modifier.height(16.dp))
+            Text(activeError!!, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center)
+        } else {
+            CircularProgressIndicator(modifier = Modifier.size(64.dp), color = Color(0xFF1B5E20))
+            Spacer(Modifier.height(24.dp))
+            Text(
+                "AI is analyzing your soil & weather...",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)),
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Fetching live weather and soil characteristics automatically",
+                style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
