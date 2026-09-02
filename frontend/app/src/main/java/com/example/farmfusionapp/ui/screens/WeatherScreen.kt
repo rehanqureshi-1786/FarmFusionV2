@@ -151,15 +151,10 @@ fun WeatherScreen(navController: NavController) {
                             }
                         }
                         item {
-                            NeoSectionTitle("Field guidance", "AI-friendly weather summary for today")
+                            NeoSectionTitle("Field guidance", "Actionable farm operations & suitability for today")
                         }
                         item {
-                            GlassPanel {
-                                Text(
-                                    text = weatherData!!.advice,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                            }
+                            FieldGuidanceCard(weatherData!!)
                         }
                         item {
                             NeoSectionTitle("Outlook", "Short view for quick farm planning")
@@ -414,6 +409,567 @@ private fun ForecastRow(forecast: DailyForecast) {
                     color = MaterialTheme.colorScheme.primary
                 )
             )
+        }
+    }
+}
+
+data class FieldGuidance(
+    val headline: String,
+    val summary: String,
+    val badge: String,
+    val badgeColor: Color,
+    val badgeTextColor: Color,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val notSuitableFor: List<String>,
+    val suitableFor: List<String>,
+    val precautions: List<String>
+)
+
+fun generateFieldGuidance(weather: DisplayWeatherData): FieldGuidance {
+    val desc = weather.description.lowercase().trim()
+    val temp = weather.temperature
+    val humidity = weather.humidity
+    val wind = weather.windSpeed
+
+    return when {
+        // 1. Extreme Storm / Thunderstorm / Hail
+        desc.contains("thunder") || desc.contains("storm") || desc.contains("hail") || desc.contains("squall") || desc.contains("lightning") -> {
+            FieldGuidance(
+                headline = "Thunderstorm & Severe Weather Alert",
+                summary = "Severe storm conditions active. High risk of crop lodging, physical damage, and field safety hazards.",
+                badge = "DANGER / PAUSE OPERATIONS",
+                badgeColor = Color(0xFFFFEBEE),
+                badgeTextColor = Color(0xFFC62828),
+                icon = Icons.Rounded.Thunderstorm,
+                notSuitableFor = listOf(
+                    "All open-field manual & tractor operations",
+                    "Chemical spraying or top-dress fertilization",
+                    "Working with metallic machinery or standing under isolated trees"
+                ),
+                suitableFor = listOf(
+                    "Sheltering farm livestock & equipment",
+                    "Inspecting indoor grain storage & seeds"
+                ),
+                precautions = listOf(
+                    "Provide physical staking for tall crops (banana, tomato, sugarcane)",
+                    "Secure greenhouse panels, polytunnels, and nursery shade netting"
+                )
+            )
+        }
+
+        // 2. Heavy Rain
+        desc.contains("heavy rain") || desc.contains("torrential") || desc.contains("heavy shower") || desc.contains("dense drizzle") -> {
+            FieldGuidance(
+                headline = "Heavy Rain Advisory",
+                summary = "Heavy rainfall occurring. Soil saturation is critical with severe runoff and leaching risks.",
+                badge = "HEAVY RAIN / RESTRICTED",
+                badgeColor = Color(0xFFFFEBEE),
+                badgeTextColor = Color(0xFFC62828),
+                icon = Icons.Rounded.BeachAccess,
+                notSuitableFor = listOf(
+                    "Chemical pesticide & fertilizer spraying (immediate wash-off)",
+                    "Grain harvesting and open-air drying",
+                    "Heavy tractor tilling (causes severe soil compaction & tractor stuck)",
+                    "Nitrogen fertilizer broadcasting (causes leaching into groundwater)"
+                ),
+                suitableFor = listOf(
+                    "Rainwater harvesting in farm ponds and recharge pits",
+                    "Checking nursery drainage outlets"
+                ),
+                precautions = listOf(
+                    "Clear field drainage channels immediately to prevent waterlogging & root rot",
+                    "Inspect field bunds to avoid breach and topsoil erosion"
+                )
+            )
+        }
+
+        // 3. Moderate / Light Rain / Drizzle / Showers / Wet Weather
+        desc.contains("rain") || desc.contains("drizzle") || desc.contains("shower") || desc.contains("precipitation") || desc.contains("wet") -> {
+            FieldGuidance(
+                headline = "Rainy Conditions Guidance",
+                summary = "Wet weather and rain showers present. Topsoil is damp with high ambient moisture.",
+                badge = "RAINY / SPRAYING DELAYED",
+                badgeColor = Color(0xFFE3F2FD),
+                badgeTextColor = Color(0xFF1565C0),
+                icon = Icons.Rounded.BeachAccess,
+                notSuitableFor = listOf(
+                    "Foliar pesticide & fungicide spraying (wash-off risk)",
+                    "Harvesting mature grains or fodder hay",
+                    "Applying dry urea or soluble chemical fertilizers"
+                ),
+                suitableFor = listOf(
+                    "Transplanting paddy and rainfed Kharif seedlings",
+                    "Planting tree saplings & agroforestry borders",
+                    "Maintaining farm drainage furrows"
+                ),
+                precautions = listOf(
+                    "Allow foliage to dry for at least 24 hours before scheduling foliar sprays",
+                    "Ensure nursery beds have raised slopes to drain excess water"
+                )
+            )
+        }
+
+        // 4. High Wind / Gale
+        desc.contains("wind") || desc.contains("gale") || desc.contains("breeze") || wind >= 18.0 -> {
+            FieldGuidance(
+                headline = "High Wind Warning",
+                summary = "Elevated wind speeds (${wind.toInt()} km/h). Air turbulence causes chemical drift and uneven droplet deposition.",
+                badge = "HIGH WIND / NO SPRAY",
+                badgeColor = Color(0xFFFFF3E0),
+                badgeTextColor = Color(0xFFE65100),
+                icon = Icons.Rounded.Air,
+                notSuitableFor = listOf(
+                    "Foliar spraying & dusting (causes severe drift to non-target crops)",
+                    "Crop residue burning (extreme wildfire hazard)",
+                    "Sprinkler irrigation (uneven distribution patterns)"
+                ),
+                suitableFor = listOf(
+                    "Soil plowing and manual weeding at ground level",
+                    "Repairing drip irrigation lines and ground pipes"
+                ),
+                precautions = listOf(
+                    "Provide earthing-up and staking for vulnerable standing crops",
+                    "Check and tie down polyhouse plastic sheets & nursery netting"
+                )
+            )
+        }
+
+        // 5. Heatwave / Extreme High Temperature
+        desc.contains("heat") || desc.contains("hot") || temp >= 35 -> {
+            FieldGuidance(
+                headline = "High Heat & Evaporation Stress",
+                summary = "High temperature ($temp°C). Rapid evapotranspiration stress on soil and plant tissues.",
+                badge = "HEAT STRESS / IRRIGATE",
+                badgeColor = Color(0xFFFFF3E0),
+                badgeTextColor = Color(0xFFE65100),
+                icon = Icons.Rounded.WbSunny,
+                notSuitableFor = listOf(
+                    "Midday chemical spraying (rapid evaporation & chemical leaf scorching)",
+                    "Midday seedling transplanting (severe transplant shock)",
+                    "Heavy physical fieldwork during peak noon hours"
+                ),
+                suitableFor = listOf(
+                    "Early morning or late evening drip irrigation",
+                    "Applying organic straw mulching to conserve root moisture",
+                    "Deep summer plowing (soil solarization for pest control)"
+                ),
+                precautions = listOf(
+                    "Irrigate in split doses during cooler morning/evening hours",
+                    "Provide shade covers and clean water for farm livestock"
+                )
+            )
+        }
+
+        // 6. Cold / Frost / Snow / Freezing
+        desc.contains("cold") || desc.contains("frost") || desc.contains("snow") || desc.contains("freeze") || desc.contains("ice") || temp <= 10 -> {
+            FieldGuidance(
+                headline = "Cold Wave & Frost Advisory",
+                summary = "Low temperature ($temp°C). Horticultural and vegetable crops are at risk of frost injury.",
+                badge = "FROST RISK / PROTECT CROPS",
+                badgeColor = Color(0xFFE1F5FE),
+                badgeTextColor = Color(0xFF0277BD),
+                icon = Icons.Rounded.AcUnit,
+                notSuitableFor = listOf(
+                    "Nitrogen fertilizer application (spurs tender growth susceptible to frost)",
+                    "Heavy cold water flooding late at night",
+                    "Exposing tender nursery saplings without cover"
+                ),
+                suitableFor = listOf(
+                    "Light evening irrigation (raises soil thermal mass against frost)",
+                    "Covering vegetable beds with straw/plastic thatch",
+                    "Pruning dormant orchard trees"
+                ),
+                precautions = listOf(
+                    "Generate light smoke on orchard windward boundaries during freezing nights",
+                    "Harvest mature vegetable produce early before night frost"
+                )
+            )
+        }
+
+        // 7. Fog / High Humidity / Mist / Dew
+        desc.contains("fog") || desc.contains("mist") || desc.contains("haze") || humidity >= 80 -> {
+            FieldGuidance(
+                headline = "Fog & High Humidity Advisory",
+                summary = "High relative humidity ($humidity%). Prolonged leaf wetness promotes rapid fungal & bacterial pathogen sporulation.",
+                badge = "HIGH HUMIDITY / DISEASE WATCH",
+                badgeColor = Color(0xFFEDE7F6),
+                badgeTextColor = Color(0xFF512DA8),
+                icon = Icons.Rounded.WaterDrop,
+                notSuitableFor = listOf(
+                    "Overhead sprinkler irrigation (further prolongs canopy wetness)",
+                    "Early morning spraying while heavy dew is dripping",
+                    "Dense storage of damp harvested produce"
+                ),
+                suitableFor = listOf(
+                    "Scouting crops for fungal leaf spots, blights, and powdery mildew",
+                    "Applying prophylactic bio-fungicides (Trichoderma / Pseudomonas)",
+                    "Pruning lower diseased leaves to improve inter-row ventilation"
+                ),
+                precautions = listOf(
+                    "Scout undersides of leaves and crop crowns daily for early disease signs",
+                    "Allow morning dew to completely evaporate before starting harvest"
+                )
+            )
+        }
+
+        // 8. Cloudy / Overcast
+        desc.contains("cloud") || desc.contains("overcast") -> {
+            FieldGuidance(
+                headline = "Cloudy & Overcast Weather",
+                summary = "Diffused sunlight and mild transpiration. Favorable conditions for root establishment.",
+                badge = "MILD / GOOD FOR PLANTING",
+                badgeColor = Color(0xFFF1F8E9),
+                badgeTextColor = Color(0xFF33691E),
+                icon = Icons.Rounded.WbCloudy,
+                notSuitableFor = listOf(
+                    "Sun-drying harvested grains and seeds (slow drying & mold risk)",
+                    "Solar soil disinfestation"
+                ),
+                suitableFor = listOf(
+                    "Transplanting seedlings with minimal wilting shock",
+                    "Inter-cultivation, manual weeding, and hoeing",
+                    "Fertilizer side-dressing and incorporation"
+                ),
+                precautions = listOf(
+                    "Monitor sucking pests (aphids, jassids) which proliferate under overcast skies",
+                    "Maintain proper row spacing for light penetration"
+                )
+            )
+        }
+
+        // 9. Clear / Sunny / Optimal
+        desc.contains("clear") || desc.contains("sun") || desc.contains("bright") -> {
+            FieldGuidance(
+                headline = "Optimal Sunny Conditions",
+                summary = "Clear skies with abundant solar radiation. Ideal day for chemical protection and harvesting.",
+                badge = "OPTIMAL / IDEAL FOR SPRAYING",
+                badgeColor = Color(0xFFE8F5E9),
+                badgeTextColor = Color(0xFF1B5E20),
+                icon = Icons.Rounded.WbSunny,
+                notSuitableFor = listOf(
+                    "Broadcasting uncovered volatile nitrogen fertilizers in peak sunlight",
+                    "Flood irrigation during hot noon hours"
+                ),
+                suitableFor = listOf(
+                    "Foliar pesticide, herbicide, and micronutrient spraying",
+                    "Harvesting and sun-drying agricultural produce",
+                    "Tractor plowing, harrowing, and field bed preparation"
+                ),
+                precautions = listOf(
+                    "Schedule field irrigation in the early morning to minimize evaporation loss",
+                    "Inspect soil moisture depth before scheduling next irrigation"
+                )
+            )
+        }
+
+        // 10. Default General Farm Guidance
+        else -> {
+            FieldGuidance(
+                headline = "General Field Operations Guidance",
+                summary = "Stable seasonal weather conditions. Suitable for routine farm maintenance and crop care.",
+                badge = "FAVORABLE FOR FARM WORK",
+                badgeColor = Color(0xFFE8F5E9),
+                badgeTextColor = Color(0xFF1B5E20),
+                icon = Icons.Rounded.Grass,
+                notSuitableFor = listOf(
+                    "Over-irrigating without assessing soil moisture level"
+                ),
+                suitableFor = listOf(
+                    "Routine crop scouting and pest monitoring",
+                    "Weed removal and intercultural operations",
+                    "Scheduled nutrient management and irrigation"
+                ),
+                precautions = listOf(
+                    "Maintain clear irrigation and drainage channels across the field",
+                    "Keep farm tools clean and disinfected between plots"
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
+    val guidance = remember(weatherData) { generateFieldGuidance(weatherData) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        shadowElevation = 3.dp,
+        border = BorderStroke(1.dp, Color(0xFFECEFF1))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header Row: Icon + Title + Status Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .background(guidance.badgeColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = guidance.icon,
+                            contentDescription = null,
+                            tint = guidance.badgeTextColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = guidance.headline,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1B1B1B)
+                            )
+                        )
+                        Text(
+                            text = "Condition: ${weatherData.description.replaceFirstChar { it.uppercase() }}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color.Gray
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Status Badge Chip
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = guidance.badgeColor
+            ) {
+                Text(
+                    text = guidance.badge,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Black,
+                        color = guidance.badgeTextColor
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+
+            // Summary text
+            Text(
+                text = guidance.summary,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color(0xFF37474F),
+                    lineHeight = 20.sp
+                )
+            )
+
+            // Block 1: NOT SUITABLE TODAY
+            if (guidance.notSuitableFor.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFFFF5F5),
+                    border = BorderStroke(1.dp, Color(0xFFFFCDD2))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Cancel,
+                                contentDescription = null,
+                                tint = Color(0xFFD32F2F),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Not Suitable For Today:",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFC62828)
+                                )
+                            )
+                        }
+                        guidance.notSuitableFor.forEach { item ->
+                            Row(
+                                modifier = Modifier.padding(start = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = "•",
+                                    color = Color(0xFFD32F2F),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = item,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF424242)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Block 2: RECOMMENDED & SUITABLE FOR TODAY
+            if (guidance.suitableFor.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFF1F8E9),
+                    border = BorderStroke(1.dp, Color(0xFFC8E6C9))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF2E7D32),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Recommended & Suitable:",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1B5E20)
+                                )
+                            )
+                        }
+                        guidance.suitableFor.forEach { item ->
+                            Row(
+                                modifier = Modifier.padding(start = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = "•",
+                                    color = Color(0xFF2E7D32),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = item,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF2E7D32)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Block 3: KEY PRECAUTIONS
+            if (guidance.precautions.isNotEmpty()) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFF0F7FF),
+                    border = BorderStroke(1.dp, Color(0xFFBBDEFB))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Info,
+                                contentDescription = null,
+                                tint = Color(0xFF1976D2),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = "Key Precautions:",
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF0D47A1)
+                                )
+                            )
+                        }
+                        guidance.precautions.forEach { item ->
+                            Row(
+                                modifier = Modifier.padding(start = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Text(
+                                    text = "•",
+                                    color = Color(0xFF1976D2),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Text(
+                                    text = item,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF1565C0)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Block 4: AI Backend Advisory Note
+            if (weatherData.advice.isNotBlank() && !weatherData.advice.equals("Good weather conditions for farm work", ignoreCase = true)) {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color(0xFFFAFAFA),
+                    border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Lightbulb,
+                            contentDescription = null,
+                            tint = Color(0xFFFFA000),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "AI Agro Advisory Note",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF5D4037)
+                                )
+                            )
+                            Text(
+                                text = weatherData.advice,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF616161)
+                                )
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

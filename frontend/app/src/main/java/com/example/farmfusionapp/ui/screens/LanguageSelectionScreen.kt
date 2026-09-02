@@ -66,10 +66,10 @@ fun LanguageSelectionScreen(
             else -> true
         }
         val matchesSearch = searchQuery.isBlank() ||
-            lang.name.contains(searchQuery, ignoreCase = true) ||
-            lang.nativeName.contains(searchQuery, ignoreCase = true) ||
-            lang.code.contains(searchQuery, ignoreCase = true) ||
-            lang.regions.any { it.contains(searchQuery, ignoreCase = true) }
+                lang.name.contains(searchQuery, ignoreCase = true) ||
+                lang.nativeName.contains(searchQuery, ignoreCase = true) ||
+                lang.code.contains(searchQuery, ignoreCase = true) ||
+                lang.regions.any { it.contains(searchQuery, ignoreCase = true) }
         matchesCategory && matchesSearch
     }
 
@@ -241,7 +241,15 @@ fun LanguageSelectionScreen(
                             } catch (_: Exception) {}
                             finally {
                                 isSaving = false
-                                navController.popBackStack()
+                                // NOTE: popBackStack() did nothing because this is the first
+                                // screen shown — there's no prior screen to pop back to.
+                                // Navigate to home explicitly instead, and clear this screen
+                                // (and anything before it) off the back stack so the user
+                                // can't press "back" and land here again.
+                                navController.navigate("home") {
+                                    popUpTo(0) { inclusive = true }
+                                    launchSingleTop = true
+                                }
                             }
                         }
                     },

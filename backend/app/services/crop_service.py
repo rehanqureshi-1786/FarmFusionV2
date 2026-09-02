@@ -51,6 +51,12 @@ class CropService:
             budget_usd=request.budget_usd,
             language=request.preferred_language,
             state=state_candidate,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            nitrogen=request.nitrogen,
+            phosphorus=request.phosphorus,
+            potassium=request.potassium,
+            ph=request.ph,
         )
 
         from datetime import datetime

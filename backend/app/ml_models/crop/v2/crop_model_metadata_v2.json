@@ -1,75 +1,43 @@
 {
   "model_name": "FarmFusion Crop Recommendation Model V2",
   "architecture": "XGBClassifier (Gradient Boosted Decision Trees)",
-  "version": "2.0.0-57k-production",
-  "training_date": "2026-08-27T17:14:45.682604+00:00",
+  "version": "2.0.0",
+  "training_date": "2026-09-02T17:34:21.036438+00:00",
   "random_seed": 42,
-  "stcr_data_used": false,
-  "synthetic_stcr_data_used": false,
-  "dataset_name": "AgriAdvisor Indian Agro-Ecological Crop Recommendation Dataset (57k rows)",
-  "dataset_total_samples": 57000,
-  "train_samples": 39900,
-  "validation_samples": 8550,
-  "test_samples": 8550,
-  "n_classes": 57,
+  "n_classes": 32,
   "classes": [
-    "Apple Gourd (Tinda)",
-    "Ash Gourd (Petha)",
-    "Barnyard Millet (Kudiraivali)",
-    "Beetroot (Chukandar)",
-    "Bitter Gourd (Karela)",
-    "Blackgram (Urad)",
-    "Bottle Gourd (Lauki)",
-    "Brinjal (Eggplant/Baingan)",
-    "Cabbage",
-    "Capsicum (Bell Pepper)",
-    "Carrot (Gajar)",
-    "Castor",
-    "Cauliflower (Phool Gobhi)",
-    "Chayote (Chow Chow)",
-    "Chickpea (Gram)",
-    "Chilli (Mirch)",
-    "Cluster Bean (Guar)",
-    "Cotton",
-    "Cowpea (Lobia)",
-    "Cucumber (Kheera)",
-    "Drumstick (Moringa)",
-    "Elephant Foot Yam (Suran/Jimikand)",
-    "Finger Millet (Ragi)",
-    "Foxtail Millet (Thinai)",
-    "French Bean",
-    "Green Peas (Matar)",
-    "Groundnut (Peanut)",
-    "Horsegram (Kollu)",
-    "Jute",
-    "Kodo Millet (Varagu)",
-    "Little Millet (Samai)",
-    "Maize",
-    "Mungbean (Moong)",
-    "Muskmelon",
-    "Okra (Bhendi)",
-    "Onion",
-    "Pearl Millet (Bajra)",
-    "Pigeonpea (Arhar/Tur)",
-    "Proso Millet (Panivaragu)",
-    "Pumpkin (Kaddu)",
-    "Radish (Mooli)",
-    "Rice",
-    "Ridge Gourd (Torai)",
-    "Sesame (Gingelly/Til)",
-    "Small Onion (Shallots)",
-    "Snake Gourd (Chichinda)",
-    "Sorghum (Jowar)",
-    "Soybean",
-    "Sugarbeet",
-    "Sugarcane",
-    "Sunflower",
-    "Sweet Potato (Shakarkand)",
-    "Tapioca (Cassava)",
-    "Tomato",
-    "Vegetable Cowpea",
-    "Watermelon",
-    "Wheat"
+    "apple",
+    "banana",
+    "blackgram",
+    "chickpea",
+    "coconut",
+    "coffee",
+    "cotton",
+    "finger_millet",
+    "grapes",
+    "groundnut",
+    "jute",
+    "lentil",
+    "maize",
+    "mango",
+    "mothbeans",
+    "mungbean",
+    "muskmelon",
+    "mustard",
+    "onion",
+    "orange",
+    "papaya",
+    "pearl_millet",
+    "pigeonpeas",
+    "pomegranate",
+    "potato",
+    "rice",
+    "sorghum",
+    "soybean",
+    "sugarcane",
+    "tomato",
+    "watermelon",
+    "wheat"
   ],
   "n_features": 10,
   "feature_names": [
@@ -88,17 +56,23 @@
     "N": "kg/ha (plant-available soil nitrogen)",
     "P": "kg/ha (plant-available soil phosphorus)",
     "K": "kg/ha (plant-available soil potassium)",
-    "temperature": "degree_celsius (seasonal growing temperature)",
+    "temperature": "degree_celsius (seasonal mean)",
     "humidity": "percent (relative humidity)",
     "ph": "soil_pH (0-14 scale)",
-    "rainfall": "mm_seasonal (cumulative seasonal crop water requirement)",
+    "rainfall": "mm_seasonal (cumulative crop season precipitation)",
     "NPK_sum": "kg/ha (engineered sum: N + P + K)",
     "N_to_P_ratio": "ratio (engineered: N / (P + 1e-6))",
     "temp_humidity_interaction": "index (engineered: temp * humidity / 100)"
   },
+  "dataset_name": "FarmFusion Indian Agro-Ecological Crop Dataset V2 (ICAR/FAO Grounded)",
+  "dataset_total_samples": 4800,
+  "train_samples": 3360,
+  "validation_samples": 720,
+  "test_samples": 720,
+  "split_methodology": "Stratified 70/15/15 train/val/test without leakage",
   "hyperparameters": {
-    "n_estimators": 350,
-    "max_depth": 6,
+    "n_estimators": 250,
+    "max_depth": 5,
     "learning_rate": 0.08,
     "subsample": 0.85,
     "colsample_bytree": 0.85,
@@ -108,94 +82,219 @@
     "n_jobs": -1
   },
   "test_metrics": {
-    "accuracy": 0.9398,
-    "balanced_accuracy": 0.9398,
-    "macro_f1": 0.9396,
-    "weighted_f1": 0.9396,
-    "top_3_accuracy": 0.998,
-    "top_5_accuracy": 1.0
+    "accuracy": 0.6875,
+    "balanced_accuracy": 0.6871,
+    "macro_f1": 0.6835,
+    "weighted_f1": 0.6838,
+    "top_3_accuracy": 0.9236,
+    "top_5_accuracy": 0.9722
   },
-  "ood_distribution_bounds": {
-    "N": {
-      "min": 20.0,
-      "max": 199.9,
-      "p01": 23.6,
-      "p99": 175.1,
-      "mean": 81.29,
-      "std": 33.84
+  "feature_importance": {
+    "N": 0.1427,
+    "P": 0.0607,
+    "K": 0.1245,
+    "temperature": 0.1133,
+    "humidity": 0.0621,
+    "ph": 0.0467,
+    "rainfall": 0.0984,
+    "NPK_sum": 0.1908,
+    "N_to_P_ratio": 0.0829,
+    "temp_humidity_interaction": 0.0778
+  },
+  "per_class_metrics": {
+    "apple": {
+      "precision": 0.8571,
+      "recall": 0.8182,
+      "f1-score": 0.8372,
+      "support": 22
     },
-    "P": {
-      "min": 20.0,
-      "max": 100.0,
-      "p01": 20.5,
-      "p99": 94.2,
-      "mean": 48.2,
-      "std": 17.15
+    "banana": {
+      "precision": 0.9048,
+      "recall": 0.8261,
+      "f1-score": 0.8636,
+      "support": 23
     },
-    "K": {
-      "min": 20.0,
-      "max": 149.9,
-      "p01": 20.5,
-      "p99": 132.7,
-      "mean": 56.57,
-      "std": 27.4
+    "blackgram": {
+      "precision": 0.6111,
+      "recall": 0.4783,
+      "f1-score": 0.5366,
+      "support": 23
     },
-    "temperature": {
-      "min": 5.0,
-      "max": 47.0,
-      "p01": 10.6,
-      "p99": 40.1,
-      "mean": 24.76,
-      "std": 5.86
+    "chickpea": {
+      "precision": 0.7368,
+      "recall": 0.6087,
+      "f1-score": 0.6667,
+      "support": 23
     },
-    "humidity": {
-      "min": 15.0,
-      "max": 100.0,
-      "p01": 15.5,
-      "p99": 99.5,
-      "mean": 71.2,
-      "std": 23.15
+    "coconut": {
+      "precision": 0.913,
+      "recall": 0.9545,
+      "f1-score": 0.9333,
+      "support": 22
     },
-    "ph": {
-      "min": 5.0,
-      "max": 9.0,
-      "p01": 5.3,
-      "p99": 8.7,
-      "mean": 6.63,
-      "std": 0.65
+    "coffee": {
+      "precision": 0.95,
+      "recall": 0.8636,
+      "f1-score": 0.9048,
+      "support": 22
     },
-    "rainfall": {
-      "min": 330.0,
-      "max": 2499.8,
-      "p01": 341.4,
-      "p99": 2166.11,
-      "mean": 887.52,
-      "std": 356.51
+    "cotton": {
+      "precision": 0.5172,
+      "recall": 0.6522,
+      "f1-score": 0.5769,
+      "support": 23
     },
-    "NPK_sum": {
-      "min": 63.3,
-      "max": 442.5,
-      "p01": 76.8,
-      "p99": 383.9,
-      "mean": 186.06,
-      "std": 72.16
+    "finger_millet": {
+      "precision": 0.5556,
+      "recall": 0.6522,
+      "f1-score": 0.6,
+      "support": 23
     },
-    "N_to_P_ratio": {
-      "min": 0.51,
-      "max": 3.96,
-      "p01": 0.77,
-      "p99": 3.11,
-      "mean": 1.71,
-      "std": 0.48
+    "grapes": {
+      "precision": 0.8,
+      "recall": 0.7273,
+      "f1-score": 0.7619,
+      "support": 22
     },
-    "temp_humidity_interaction": {
-      "min": 1.62,
-      "max": 42.11,
-      "p01": 2.99,
-      "p99": 32.24,
-      "mean": 17.43,
-      "std": 6.72
+    "groundnut": {
+      "precision": 0.5652,
+      "recall": 0.5909,
+      "f1-score": 0.5778,
+      "support": 22
+    },
+    "jute": {
+      "precision": 0.88,
+      "recall": 0.9565,
+      "f1-score": 0.9167,
+      "support": 23
+    },
+    "lentil": {
+      "precision": 0.6786,
+      "recall": 0.8636,
+      "f1-score": 0.76,
+      "support": 22
+    },
+    "maize": {
+      "precision": 0.3684,
+      "recall": 0.3182,
+      "f1-score": 0.3415,
+      "support": 22
+    },
+    "mango": {
+      "precision": 0.5238,
+      "recall": 0.5,
+      "f1-score": 0.5116,
+      "support": 22
+    },
+    "mothbeans": {
+      "precision": 0.9583,
+      "recall": 1.0,
+      "f1-score": 0.9787,
+      "support": 23
+    },
+    "mungbean": {
+      "precision": 0.6,
+      "recall": 0.6818,
+      "f1-score": 0.6383,
+      "support": 22
+    },
+    "muskmelon": {
+      "precision": 0.5238,
+      "recall": 0.5,
+      "f1-score": 0.5116,
+      "support": 22
+    },
+    "mustard": {
+      "precision": 0.9091,
+      "recall": 0.9091,
+      "f1-score": 0.9091,
+      "support": 22
+    },
+    "onion": {
+      "precision": 0.5357,
+      "recall": 0.6522,
+      "f1-score": 0.5882,
+      "support": 23
+    },
+    "orange": {
+      "precision": 0.2941,
+      "recall": 0.2174,
+      "f1-score": 0.25,
+      "support": 23
+    },
+    "papaya": {
+      "precision": 0.75,
+      "recall": 0.7826,
+      "f1-score": 0.766,
+      "support": 23
+    },
+    "pearl_millet": {
+      "precision": 0.7895,
+      "recall": 0.6522,
+      "f1-score": 0.7143,
+      "support": 23
+    },
+    "pigeonpeas": {
+      "precision": 0.85,
+      "recall": 0.7391,
+      "f1-score": 0.7907,
+      "support": 23
+    },
+    "pomegranate": {
+      "precision": 0.4667,
+      "recall": 0.3182,
+      "f1-score": 0.3784,
+      "support": 22
+    },
+    "potato": {
+      "precision": 0.8571,
+      "recall": 0.8182,
+      "f1-score": 0.8372,
+      "support": 22
+    },
+    "rice": {
+      "precision": 0.8182,
+      "recall": 0.8182,
+      "f1-score": 0.8182,
+      "support": 22
+    },
+    "sorghum": {
+      "precision": 0.4815,
+      "recall": 0.5652,
+      "f1-score": 0.52,
+      "support": 23
+    },
+    "soybean": {
+      "precision": 0.68,
+      "recall": 0.7391,
+      "f1-score": 0.7083,
+      "support": 23
+    },
+    "sugarcane": {
+      "precision": 0.9167,
+      "recall": 0.9565,
+      "f1-score": 0.9362,
+      "support": 23
+    },
+    "tomato": {
+      "precision": 0.625,
+      "recall": 0.6818,
+      "f1-score": 0.6522,
+      "support": 22
+    },
+    "watermelon": {
+      "precision": 0.3333,
+      "recall": 0.3182,
+      "f1-score": 0.3256,
+      "support": 22
+    },
+    "wheat": {
+      "precision": 0.7037,
+      "recall": 0.8261,
+      "f1-score": 0.76,
+      "support": 23
     }
   },
-  "provenance_statement": "STCR experimental microdata was not used because it was not available. Model V2 is trained on the verified 57k Indian agro-ecological dataset derived from SAU/ICAR crop recommendation guidelines."
+  "provenance_statement": "Model V2 is trained on biophysical response distributions derived directly from published ICAR (Handbook of Agriculture) and FAO Ecocrop agronomic benchmarks across 32 Indian crops.",
+  "scientific_disclaimer": "ML model probabilities indicate agro-climatic alignment within modeled feature spaces. They must be combined with the multi-factor agronomic ranking engine and do not guarantee biological crop yield."
 }

@@ -117,7 +117,7 @@ fun MarketplaceScreen(navController: NavController) {
             item {
                 Column(modifier = Modifier.padding(bottom = 8.dp)) {
                     Text(
-                        text = "Recommended for You",
+                        text = "Recently Bought Items",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF112A1F)
@@ -130,7 +130,7 @@ fun MarketplaceScreen(navController: NavController) {
                             .background(Color(0xFF2E7D32), RoundedCornerShape(50))
                     )
                     Text(
-                        text = "Top picks based on your farm and trends",
+                        text = "Your go-to essentials, all in one place",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = Color(0xFF616161)
                         )

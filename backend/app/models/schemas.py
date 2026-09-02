@@ -20,13 +20,19 @@ class SoilType(str, Enum):
 
 class CropRecommendRequest(BaseModel):
     """Data sent FROM Android app TO backend when requesting crop recommendation"""
-    location: str  # e.g., "Nairobi, Kenya"
-    soil_type: SoilType
-    rainfall_mm: float  # Annual rainfall in millimeters
-    temperature_c: float  # Average temperature in Celsius
-    farm_size_acres: float
+    location: str  # e.g., "Nairobi, Kenya" or "Jaipur, Rajasthan"
+    soil_type: str = "loamy"
+    rainfall_mm: float = -1.0  # Annual rainfall in millimeters (-1 for auto-fetch)
+    temperature_c: float = 25.0  # Average temperature in Celsius
+    farm_size_acres: float = 1.0
     budget_usd: Optional[float] = None
     preferred_language: str = "en"
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    nitrogen: Optional[float] = None
+    phosphorus: Optional[float] = None
+    potassium: Optional[float] = None
+    ph: Optional[float] = None
 
 
 class CropRecommendation(BaseModel):

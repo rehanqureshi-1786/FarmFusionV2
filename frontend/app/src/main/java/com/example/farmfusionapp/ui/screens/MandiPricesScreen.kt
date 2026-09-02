@@ -6,6 +6,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -14,6 +15,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.CompareArrows
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.*
@@ -21,17 +23,23 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.DialogWindowProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.SubcomposeAsyncImage
@@ -55,10 +63,10 @@ fun MandiPricesScreen(
     val coroutineScope = rememberCoroutineScope()
     var selectedCategory by remember { mutableStateOf("ALL CROPS") }
     var searchQuery by remember { mutableStateOf("") }
-    
+
     val pricesState by viewModel.pricesState
     val categories = listOf("ALL CROPS", "GRAINS", "VEGETABLES", "PULSES", "FRUITS", "SPICES")
-    
+
     // Comprehensive default crop list (covers 30+ high-volume Agmarknet crops)
     val defaultCrops = listOf(
         "Wheat", "Gram", "Mustard", "Soybean", "Cotton", "Groundnut", "Paddy (Dhan)",
@@ -109,6 +117,14 @@ fun MandiPricesScreen(
     var alertError by remember { mutableStateOf<String?>(null) }
     var isAlertLoading by remember { mutableStateOf(false) }
 
+    // Dynamic blur based on any dialog open state
+    val isAnyDialogOpen = showNearbyDialog || showCompareDialog || showAdvisoryDialog || showAlertModal
+    val blurRadius by animateDpAsState(
+        targetValue = if (isAnyDialogOpen) 16.dp else 0.dp,
+        animationSpec = tween(durationMillis = 300),
+        label = "dialog_blur"
+    )
+
     LaunchedEffect(Unit) {
         viewModel.getMarketPrices()
         productViewModel.loadProducts(null)
@@ -122,31 +138,53 @@ fun MandiPricesScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Mandi Prices & Intelligence", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+    NeoScaffoldBackground(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = Color.Transparent,
+            modifier = Modifier.blur(radius = blurRadius), // Applies true blur to the screen content
+            topBar = {
+                CenterAlignedTopAppBar(
+                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = Color.Transparent,
+                        scrolledContainerColor = Color.Transparent
+                    ),
+                    title = {
+                        Text(
+                            "Market Prices & Intelligence",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1A1A1A)
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color(0xFF1A1A1A))
+                        }
                     }
-                }
-            )
-        }
-    ) { padding ->
-        NeoScaffoldBackground(modifier = Modifier.fillMaxSize().padding(padding)) {
+                )
+            }
+        ) { padding ->
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(top = 12.dp, bottom = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
                 // Search Bar
                 item {
                     Surface(
                         shape = RoundedCornerShape(24.dp),
-                        color = Color.White.copy(alpha = 0.9f),
-                        modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(24.dp)),
-                        border = BorderStroke(1.dp, Color(0xFFEEEEEE))
+                        color = Color.White.copy(alpha = 0.95f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .shadow(
+                                elevation = 12.dp,
+                                shape = RoundedCornerShape(24.dp),
+                                spotColor = Color.Black.copy(alpha = 0.04f),
+                                ambientColor = Color.Transparent
+                            ),
+                        border = null
                     ) {
                         TextField(
                             value = searchQuery,
@@ -175,21 +213,22 @@ fun MandiPricesScreen(
                 // High-Value Guided Farmer Action Cards (2x2 Prominent Grid)
                 item {
                     Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             // 1. Best Nearby
                             MandiIntelligenceCard(
                                 title = "Best Nearby",
                                 subtitle = "Highest net price market",
                                 icon = Icons.Rounded.NearMe,
-                                bgGradient = listOf(Color(0xFFECFDF5), Color(0xFFD1FAE5)),
+                                bgColor = Color(0xFFD3F8E5),
                                 iconTint = Color(0xFF047857),
-                                borderStrokeColor = Color(0xFFA7F3D0),
                                 modifier = Modifier.weight(1f),
                                 onClick = { showNearbyDialog = true }
                             )
@@ -199,9 +238,8 @@ fun MandiPricesScreen(
                                 title = "Compare",
                                 subtitle = "Side-by-side mandi rates",
                                 icon = Icons.AutoMirrored.Rounded.CompareArrows,
-                                bgGradient = listOf(Color(0xFFEFF6FF), Color(0xFFDBEAFE)),
+                                bgColor = Color(0xFFE2EAFB),
                                 iconTint = Color(0xFF1D4ED8),
-                                borderStrokeColor = Color(0xFFBFDBFE),
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     compareError = null
@@ -212,16 +250,15 @@ fun MandiPricesScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             // 3. Sell vs Wait Advisory
                             MandiIntelligenceCard(
                                 title = "Sell vs Wait",
                                 subtitle = "7-day price trajectory",
                                 icon = Icons.AutoMirrored.Rounded.TrendingUp,
-                                bgGradient = listOf(Color(0xFFF5F3FF), Color(0xFFEDE9FE)),
+                                bgColor = Color(0xFFF1EAFF),
                                 iconTint = Color(0xFF6D28D9),
-                                borderStrokeColor = Color(0xFFDDD6FE),
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     advisoryError = null
@@ -234,9 +271,8 @@ fun MandiPricesScreen(
                                 title = "Set Alert",
                                 subtitle = "Notify on target prices",
                                 icon = Icons.Rounded.NotificationsActive,
-                                bgGradient = listOf(Color(0xFFFFFBEB), Color(0xFFFEF3C7)),
-                                iconTint = Color(0xFFB45309),
-                                borderStrokeColor = Color(0xFFFDE68A),
+                                bgColor = Color(0xFFFFF4D9),
+                                iconTint = Color(0xFFD97706),
                                 modifier = Modifier.weight(1f),
                                 onClick = {
                                     alertError = null
@@ -248,23 +284,26 @@ fun MandiPricesScreen(
                     }
                 }
 
-                // Category Tabs
+                // Category Tabs (Edge-to-Edge Scroll)
                 item {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        contentPadding = PaddingValues(horizontal = 20.dp)
+                    ) {
                         items(categories) { category ->
                             val isSelected = category == selectedCategory
                             Surface(
                                 onClick = { selectedCategory = category },
-                                shape = RoundedCornerShape(16.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.White,
-                                border = if (!isSelected) BorderStroke(1.dp, Color(0xFFEEEEEE)) else null
+                                shape = RoundedCornerShape(50),
+                                color = if (isSelected) Color(0xFF1B4332) else Color.White,
+                                shadowElevation = if (!isSelected) 2.dp else 0.dp
                             ) {
                                 Text(
                                     text = category,
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
                                     style = MaterialTheme.typography.labelLarge.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isSelected) Color.White else Color.Black
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) Color.White else Color(0xFF1B1B1B)
                                     )
                                 )
                             }
@@ -275,12 +314,12 @@ fun MandiPricesScreen(
                 // Mandi Price List
                 when (val state = pricesState) {
                     is MarketViewModel.MarketPricesState.Loading -> {
-                        item { Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+                        item { Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFF1B4332)) } }
                     }
                     is MarketViewModel.MarketPricesState.Success -> {
                         val filtered = state.response.data.filter {
                             (searchQuery.isEmpty() || it.commodity.contains(searchQuery, true) || it.market.contains(searchQuery, true) || it.district.contains(searchQuery, true)) &&
-                            (selectedCategory == "ALL CROPS" || isCropInCategory(it.commodity, selectedCategory))
+                                    (selectedCategory == "ALL CROPS" || isCropInCategory(it.commodity, selectedCategory))
                         }
 
                         if (filtered.isEmpty()) {
@@ -288,6 +327,7 @@ fun MandiPricesScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
                                         .height(140.dp)
                                         .padding(top = 20.dp),
                                     contentAlignment = Alignment.Center
@@ -303,17 +343,31 @@ fun MandiPricesScreen(
                             }
                         } else {
                             items(filtered.take(30)) { item ->
-                                PriceCard(item)
+                                PriceCard(
+                                    item = item,
+                                    modifier = Modifier.padding(horizontal = 20.dp)
+                                )
                             }
                         }
                     }
                     is MarketViewModel.MarketPricesState.Error -> {
                         item {
-                            Text(
-                                text = "Unable to load mandi prices: ${state.message}",
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(16.dp)
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp)
+                                    .height(140.dp)
+                                    .padding(top = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Unable to load mandi prices: ${state.message}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
                         }
                     }
                     else -> {}
@@ -326,7 +380,7 @@ fun MandiPricesScreen(
     // 1. GUIDED BEST PRACTICAL MANDI DIALOG
     // =========================================================================
     if (showNearbyDialog) {
-        AlertDialog(
+        PremiumBlurDialog(
             onDismissRequest = { showNearbyDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -334,7 +388,7 @@ fun MandiPricesScreen(
                     Text("Best Nearby Mandi", fontWeight = FontWeight.Bold)
                 }
             },
-            text = {
+            content = {
                 Column(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -344,7 +398,7 @@ fun MandiPricesScreen(
                     // Crop Search / Input Field
                     OutlinedTextField(
                         value = nearbyCropInput,
-                        onValueChange = { 
+                        onValueChange = {
                             nearbyCropInput = it
                             nearbySelectedCrop = it
                         },
@@ -355,8 +409,8 @@ fun MandiPricesScreen(
                     )
 
                     // Matching Crop Suggestions & Popular Chips
-                    val matchingNearbyCrops = allAvailableCrops.filter { 
-                        nearbyCropInput.isBlank() || it.contains(nearbyCropInput, ignoreCase = true) 
+                    val matchingNearbyCrops = allAvailableCrops.filter {
+                        nearbyCropInput.isBlank() || it.contains(nearbyCropInput, ignoreCase = true)
                     }.take(10)
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -528,7 +582,7 @@ fun MandiPricesScreen(
     // 2. GUIDED MANDI COMPARISON DIALOG
     // =========================================================================
     if (showCompareDialog) {
-        AlertDialog(
+        PremiumBlurDialog(
             onDismissRequest = { showCompareDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -536,7 +590,7 @@ fun MandiPricesScreen(
                     Text("Compare Mandi Prices", fontWeight = FontWeight.Bold)
                 }
             },
-            text = {
+            content = {
                 Column(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -545,9 +599,9 @@ fun MandiPricesScreen(
                     Text("Step 1: Crop / फसल (Search or Select)", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                     OutlinedTextField(
                         value = compareCrop,
-                        onValueChange = { 
+                        onValueChange = {
                             compareCrop = it
-                            compareResult = null 
+                            compareResult = null
                         },
                         placeholder = { Text("e.g. Gram, Wheat, Mustard, Soybean...") },
                         leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
@@ -556,8 +610,8 @@ fun MandiPricesScreen(
                     )
 
                     // Quick Crop Chips
-                    val matchingCompareCrops = allAvailableCrops.filter { 
-                        compareCrop.isBlank() || it.contains(compareCrop, ignoreCase = true) 
+                    val matchingCompareCrops = allAvailableCrops.filter {
+                        compareCrop.isBlank() || it.contains(compareCrop, ignoreCase = true)
                     }.take(8)
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -666,7 +720,7 @@ fun MandiPricesScreen(
     // 3. GUIDED SELL VS WAIT ADVISORY DIALOG
     // =========================================================================
     if (showAdvisoryDialog) {
-        AlertDialog(
+        PremiumBlurDialog(
             onDismissRequest = { showAdvisoryDialog = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -674,7 +728,7 @@ fun MandiPricesScreen(
                     Text("Sell vs Wait Advisory", fontWeight = FontWeight.Bold)
                 }
             },
-            text = {
+            content = {
                 Column(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -690,8 +744,8 @@ fun MandiPricesScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    val matchingAdvisoryCrops = allAvailableCrops.filter { 
-                        advisoryCrop.isBlank() || it.contains(advisoryCrop, ignoreCase = true) 
+                    val matchingAdvisoryCrops = allAvailableCrops.filter {
+                        advisoryCrop.isBlank() || it.contains(advisoryCrop, ignoreCase = true)
                     }.take(8)
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -787,7 +841,7 @@ fun MandiPricesScreen(
     // 4. GUIDED SET PRICE ALERT DIALOG
     // =========================================================================
     if (showAlertModal) {
-        AlertDialog(
+        PremiumBlurDialog(
             onDismissRequest = { showAlertModal = false },
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -795,7 +849,7 @@ fun MandiPricesScreen(
                     Text("Set Price Opportunity Alert", fontWeight = FontWeight.Bold)
                 }
             },
-            text = {
+            content = {
                 Column(
                     modifier = Modifier.fillMaxWidth().heightIn(max = 500.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -811,8 +865,8 @@ fun MandiPricesScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    val matchingAlertCrops = allAvailableCrops.filter { 
-                        alertCrop.isBlank() || it.contains(alertCrop, ignoreCase = true) 
+                    val matchingAlertCrops = allAvailableCrops.filter {
+                        alertCrop.isBlank() || it.contains(alertCrop, ignoreCase = true)
                     }.take(8)
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -914,92 +968,89 @@ private fun MandiIntelligenceCard(
     title: String,
     subtitle: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    bgGradient: List<Color>,
+    bgColor: Color,
     iconTint: Color,
-    borderStrokeColor: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(18.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, borderStrokeColor),
-        shadowElevation = 2.dp,
-        modifier = modifier.height(92.dp)
+        color = bgColor,
+        modifier = modifier.height(98.dp)
     ) {
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    androidx.compose.ui.graphics.Brush.linearGradient(
-                        colors = bgGradient
-                    )
-                )
-                .padding(12.dp)
+                .padding(14.dp),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = CircleShape,
+                    color = Color.White,
+                    modifier = Modifier.size(34.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(Color.White.copy(alpha = 0.9f), CircleShape)
-                            .border(1.dp, borderStrokeColor.copy(alpha = 0.5f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = iconTint,
+                            modifier = Modifier.size(18.dp)
+                        )
                     }
-
-                    Icon(
-                        Icons.AutoMirrored.Rounded.ArrowBack, // Or small forward indicator
-                        contentDescription = null,
-                        tint = iconTint.copy(alpha = 0.6f),
-                        modifier = Modifier
-                            .size(16.dp)
-                            .graphicsLayer(rotationZ = 180f)
-                    )
                 }
 
-                Column {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = Color(0xFF1F2937)
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 11.sp,
-                            color = Color(0xFF4B5563)
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = null,
+                    tint = iconTint.copy(alpha = 0.8f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            Column {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color(0xFF1B1B1B)
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 11.sp,
+                        color = Color.DarkGray
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
     }
 }
 
 @Composable
-fun PriceCard(item: MarketPrice) {
+fun PriceCard(item: MarketPrice, modifier: Modifier = Modifier) {
     Surface(
         shape = RoundedCornerShape(20.dp),
-        color = Color.White.copy(alpha = 0.9f),
-        border = BorderStroke(1.dp, Color(0xFFEEEEEE)),
-        modifier = Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(20.dp))
+        color = Color.White,
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 12.dp,
+                shape = RoundedCornerShape(20.dp),
+                spotColor = Color.Black.copy(alpha = 0.04f),
+                ambientColor = Color.Transparent
+            )
     ) {
         Row(
             modifier = Modifier.padding(16.dp).fillMaxWidth(),
@@ -1016,7 +1067,7 @@ fun PriceCard(item: MarketPrice) {
                 modifier = Modifier.size(56.dp).clip(CircleShape).background(Color(0xFFF3F4F6)),
                 loading = {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF1B4332))
                     }
                 },
                 error = {
@@ -1027,13 +1078,13 @@ fun PriceCard(item: MarketPrice) {
             )
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(item.commodity, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                Text(item.commodity, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A)))
                 Text("${item.market}, ${item.district}", style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray))
                 Text("Range: ₹${item.min_price.toInt()} - ₹${item.max_price.toInt()}", style = MaterialTheme.typography.labelSmall.copy(color = Color.DarkGray))
             }
 
             Column(horizontalAlignment = Alignment.End) {
-                Text("₹${item.modal_price.toInt()}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary))
+                Text("₹${item.modal_price.toInt()}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black, color = Color(0xFF1B4332)))
                 Text("per Quintal", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
             }
         }
@@ -1055,5 +1106,78 @@ fun isCropInCategory(crop: String, category: String): Boolean {
         "FRUITS" -> fruits.any { c.contains(it) }
         "SPICES" -> spices.any { c.contains(it) }
         else -> true
+    }
+}
+
+// =========================================================================
+// REUSABLE PREMIUM BLUR DIALOG
+// =========================================================================
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+fun PremiumBlurDialog(
+    onDismissRequest: () -> Unit,
+    title: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+    confirmButton: @Composable () -> Unit
+) {
+    val view = LocalView.current
+
+    // Disables the default heavy system dim to let the frosted glass aesthetic shine
+    LaunchedEffect(view) {
+        val window = (view.parent as? DialogWindowProvider)?.window
+        window?.let {
+            it.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            it.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismissRequest,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.White.copy(alpha = 0.2f)) // The Frosted UI layer
+                .imePadding()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onDismissRequest
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = {} // Intercept clicks inside surface bounds
+                    ),
+                shape = RoundedCornerShape(28.dp),
+                color = Color.White,
+                shadowElevation = 12.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    ProvideTextStyle(MaterialTheme.typography.titleLarge) {
+                        title()
+                    }
+                    content()
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        confirmButton()
+                    }
+                }
+            }
+        }
     }
 }

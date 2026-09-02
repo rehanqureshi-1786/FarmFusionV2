@@ -182,10 +182,14 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
 
     # 11. Crop Recommendation Intent (Broad agricultural phrasing, soil mentions, seasonal sowing)
     elif any(kw in query for kw in [
+        "crop advice", "crop recommendation", "crop recommend", "crop suggestion", "crop suggestions",
+        "crop prediction", "crop guidance", "crop guide", "crop advisor", "crop advisory",
+        "what crop", "which crop", "best crop", "recommend crop", "recommend crops", "suggest crop", "suggest crops",
+        "advise crop", "advice crop", "what to grow", "what to plant", "crops to grow",
         "कौन सी फसल", "फसल की सलाह", "फसल सलाह", "सलाह दो", "सलाह", "recommend", "which crop", "sow", "बुवाई", "बोना", "बोएं", "बोऊं", "बॉय", "बोए", "बोऊ",
         "लगाएं", "लगाऊं", "लगाए", "लगाना", "उपयुक्त फसल", "खेत में क्या", "क्या लगाऊं", "क्या बोएं", "के बोऊं", "बोईब", "बोईं", "बोवई", "खेती",
         "काली मिट्टी", "रेतीली मिट्टी", "लाल मिट्टी", "दोमट मिट्टी", "चिकनी मिट्टी", "मिट्टी में क्या", "अभी के टाइम", "इस मौसम में", "टाइम पर",
-        "what to grow", "what to plant", "kya boye", "kya lagaye", "khet me kya", "fasal ki salah", "fasal salah", "salah do",
+        "kya boye", "kya lagaye", "khet me kya", "fasal ki salah", "fasal salah", "salah do",
         "पीक", "शेतात", "पाक", "પાક", "কোন ফসল", "কি ফসল", "ফসল চাষ", "ভালো ফসল", "ఏ పంట", "ఎలాంటి పంట", "எந்த பயிர்", "ಯಾವ ಬೆಳೆ", "ഏത് വിള", "അനുയോജ്യമായ വിള", "କେଉଁ ଫସଲ", "খেতি", "فصل"
     ]):
         intent = "crop_recommendation"

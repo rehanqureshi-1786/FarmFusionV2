@@ -24,6 +24,7 @@ from app.api.v1.crop_recommendation import router as crop_recommendation_router
 from app.api.v1.calling import router as calling_router
 from app.routes.crop import router as legacy_crop_router
 from app.routes.weather import router as weather_router
+from app.routes.diagnostics import router as diagnostics_router
 
 
 
@@ -125,6 +126,7 @@ from app.api.v1.calling import telephony_audio_stream_endpoint
 app.websocket("/ws/calling/stream")(telephony_audio_stream_endpoint)
 
 app.include_router(weather_router, prefix=settings.api_v1_prefix)
+app.include_router(diagnostics_router, prefix=settings.api_v1_prefix)
 app.include_router(legacy_crop_router)
 
 # IoT Animal Intrusion Detection Routers

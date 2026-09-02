@@ -85,6 +85,42 @@ async def check_weather_agent():
         }
 
 
+@router.get("/crop-agent")
+async def check_crop_agent():
+    """
+    # Check Crop Recommendation Agent
+    Tests if Crop Agent V2 (ICAR/CRIDA + ML) is available and functional.
+    """
+    try:
+        from app.services.crop_agent_v2 import crop_agent_v2
+        from app.services.ml_service import crop_ml_service
+
+        ml_available = crop_ml_service.is_available()
+        recs, insights, meta = await crop_agent_v2.get_recommendations(
+            location="Jaipur, Rajasthan",
+            state="rajasthan",
+            soil_type="sandy",
+            temperature_c=28.0,
+            rainfall_mm=450.0,
+            farm_size_acres=2.0,
+            language="hi"
+        )
+        return {
+            "status": "available",
+            "ml_model_available": ml_available,
+            "engine": "CropRecommendationAgentV2 (Local ICAR + XGBoost)",
+            "test_recommendation_count": len(recs),
+            "top_crop": recs[0].crop_name if recs else None,
+            "meta": meta
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "message": "Crop recommendation agent encountered an error"
+        }
+
+
 @router.get("/ai-agents")
 async def check_ai_agents():
     """
