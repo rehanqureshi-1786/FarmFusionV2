@@ -3,7 +3,7 @@ Weather Agent powered by Open-Meteo with TTL caching, dynamic location awareness
 deterministic alert evaluation, and separate agronomic interpretations.
 """
 from datetime import datetime, timezone
-import logging
+import structlog
 import time
 from typing import Any, Dict, List, Optional
 
@@ -101,7 +101,8 @@ class WeatherAgent:
                 visibility_m=int(current.get("visibility", 10000)),
                 sunrise=sunrise,
                 sunset=sunset,
-                source="Open-Meteo"
+                source="Open-Meteo",
+                language=lang_code
             )
 
             advice = self._generate_farming_advice(

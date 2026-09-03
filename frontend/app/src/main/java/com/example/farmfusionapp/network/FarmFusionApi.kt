@@ -115,14 +115,16 @@ interface FarmFusionApi {
     @GET("api/v1/weather/current")
     suspend fun getCurrentWeather(
         @Query("lat") latitude: Double,
-        @Query("lon") longitude: Double
+        @Query("lon") longitude: Double,
+        @Query("language") language: String? = null
     ): Response<WeatherResponse>
 
     @GET("api/v1/weather/forecast")
     suspend fun getWeatherForecast(
         @Query("lat") latitude: Double,
         @Query("lon") longitude: Double,
-        @Query("days") days: Int = 7
+        @Query("days") days: Int = 7,
+        @Query("language") language: String? = null
     ): Response<WeatherForecastResponse>
 
     @GET("api/v1/weather/alerts")
@@ -145,7 +147,8 @@ interface FarmFusionApi {
     suspend fun getFarmingWeather(
         @Query("lat") latitude: Double,
         @Query("lon") longitude: Double,
-        @Query("days") days: Int = 7
+        @Query("days") days: Int = 7,
+        @Query("language") language: String? = null
     ): Response<FarmingWeatherResponse>
 
     // ============ VOICE ASSISTANT ============
@@ -166,8 +169,25 @@ interface FarmFusionApi {
     suspend fun getAnimalDetectionHistory(
         @Query("device_id") deviceId: String = "NODE_01",
         @Query("limit") limit: Int = 50,
-        @Query("offset") offset: Int = 0
+        @Query("offset") offset: Int = 0,
+        @Query("sensor") sensor: String? = null,
+        @Query("sensor_type") sensorType: String? = null
     ): Response<HistoryResponseModel>
+
+    @GET("api/v1/animal-detection/status")
+    suspend fun getDeviceStatus(
+        @Query("device_id") deviceId: String = "NODE_01"
+    ): Response<DeviceStatusModel>
+
+    @POST("api/v1/animal-detection")
+    suspend fun postDetectionEvent(
+        @Body request: DetectionEventCreateRequest
+    ): Response<Map<String, Any>>
+
+    @POST("api/v1/animal-detection/heartbeat")
+    suspend fun sendHeartbeat(
+        @Body request: HeartbeatRequestModel
+    ): Response<Map<String, Any>>
 
     // ============ AUTHENTICATION ============
 

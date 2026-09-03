@@ -13,7 +13,7 @@ object AuthStore {
     private const val KEY_DIALECT = "selected_dialect"
 
     @Volatile
-    var activeLanguage: String = "hi"
+    var activeLanguage: String = "en"
 
     /**
      * Save login state and token

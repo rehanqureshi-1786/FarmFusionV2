@@ -1,11 +1,12 @@
 package com.example.farmfusionapp.ui.screens
 
+import androidx.compose.animation.*
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -15,6 +16,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
@@ -51,7 +53,6 @@ object NavRoutes {
     const val LabourServices = "labour_services"
     const val MandiPrices = "mandi_prices"
     const val ProductStore = "product_store"
-    const val DynamicStore = "dynamic_store" // ADDED: Preserved Backend Logic Route
     const val FinancialServices = "financial_services"
     const val Weather = "weather"
     const val VoiceAssistant = "voice_assistant"
@@ -68,11 +69,9 @@ fun AppNav() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    // RESTORED: CropDisease included so the nav bar remains visible
     val mainRoutes = listOf(
         NavRoutes.Dashboard,
         NavRoutes.MandiPrices,
-        NavRoutes.CropDisease,
         NavRoutes.Weather,
         NavRoutes.Profile
     )
@@ -102,68 +101,73 @@ fun AppNav() {
     )
 
     CompositionLocalProvider(LocalGlobalBlur provides globalBlurState) {
-        Scaffold(
-            containerColor = Color(0xFFF4F9F4), // Unified soft green background
-            modifier = Modifier
-                .fillMaxSize()
-                .blur(radius = globalBlurRadius),
-            bottomBar = {
-                if (showBottomBar) {
-                    Box(
-                        modifier = Modifier
-                            .navigationBarsPadding()
-                            .padding(horizontal = 20.dp, vertical = 16.dp)
-                    ) {
-                        HomeBottomBar(
-                            navController = navController,
-                            currentRoute = currentRoute,
-                            isShrunk = forceShrink,
-                            hazeState = hazeState
-                        )
+        // Wrapped everything in a Box to break free from the Scaffold's layout bounds
+        Box(modifier = Modifier.fillMaxSize()) {
+            Scaffold(
+                containerColor = Color(0xFFF4F9F4),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .blur(radius = globalBlurRadius),
+                bottomBar = {
+                    if (showBottomBar) {
+                        Box(
+                            modifier = Modifier
+                                .navigationBarsPadding()
+                                .padding(horizontal = 20.dp, vertical = 16.dp)
+                        ) {
+                            HomeBottomBar(
+                                navController = navController,
+                                currentRoute = currentRoute,
+                                isShrunk = forceShrink,
+                                hazeState = hazeState
+                            )
+                        }
                     }
                 }
-            },
-            floatingActionButton = {
-                if (showMicButton) {
-                    GlassFloatingVoiceButton(
-                        modifier = Modifier
-                            .navigationBarsPadding()
-                            .offset(y = 38.dp),
-                        onClick = { navController.navigate(NavRoutes.VoiceAssistant) }
-                    )
+            ) { _ ->
+                NavHost(
+                    navController = navController,
+                    startDestination = startDestination,
+                    modifier = Modifier.fillMaxSize().haze(state = hazeState)
+                ) {
+                    composable(NavRoutes.LanguageSelection) { LanguageSelectionScreen(navController) }
+                    composable(NavRoutes.Splash) { SplashScreen(navController, authViewModel) }
+                    composable(NavRoutes.Login) { LoginScreen(navController) }
+                    composable(NavRoutes.Register) { RegisterScreen(navController) }
+                    composable(NavRoutes.Dashboard) { DashboardScreen(navController) }
+                    composable(NavRoutes.CropServices) { CropServicesScreen(navController) }
+                    composable(NavRoutes.CropRecommendation) { CropRecommendationScreen(navController) }
+                    composable(NavRoutes.CropSowing) { CropSowingScreen(navController) }
+                    composable(NavRoutes.CropMonitoring) { CropMonitoringScreen(navController) }
+                    composable(NavRoutes.CropDisease) { CropDiseaseScreen(navController) }
+                    composable(NavRoutes.CropHarvesting) { CropHarvestingScreen(navController) }
+                    composable(NavRoutes.CropSelling) { CropSellingScreen(navController) }
+                    composable(NavRoutes.AnimalDetection) { AnimalDetectionScreen(navController) }
+                    composable(NavRoutes.LabourServices) { LabourServicesScreen(navController) }
+                    composable(NavRoutes.MandiPrices) { MandiPricesScreen(navController) }
+                    composable(NavRoutes.ProductStore) { StoreRecommendationsScreen(navController) }
+                    composable(NavRoutes.FinancialServices) { FinancialServicesScreen(navController) }
+                    composable(NavRoutes.Weather) { WeatherScreen(navController) }
+                    composable(NavRoutes.VoiceAssistant) { VoiceAssistantScreen(navController) }
+                    composable(NavRoutes.Alerts) { AlertsScreen(navController) }
+                    composable(NavRoutes.Profile) { ProfileScreen(navController) }
                 }
             }
-        ) { _ ->
-            NavHost(
-                navController = navController,
-                startDestination = startDestination,
-                modifier = Modifier.fillMaxSize().haze(state = hazeState)
+
+            // Placed floating button OUTSIDE the Scaffold to completely avoid clipping
+            AnimatedVisibility(
+                visible = showMicButton,
+                enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + scaleIn(initialScale = 0.8f, animationSpec = tween(350, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(250, easing = FastOutSlowInEasing)) + scaleOut(targetScale = 0.8f, animationSpec = tween(250, easing = FastOutSlowInEasing)),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    // Replaced offset with absolute padding from the bottom so it visually mimics its previous position
+                    .padding(end = 16.dp, bottom = 85.dp)
             ) {
-                composable(NavRoutes.LanguageSelection) { LanguageSelectionScreen(navController) }
-                composable(NavRoutes.Splash) { SplashScreen(navController, authViewModel) }
-                composable(NavRoutes.Login) { LoginScreen(navController) }
-                composable(NavRoutes.Register) { RegisterScreen(navController) }
-                composable(NavRoutes.Dashboard) { DashboardScreen(navController) }
-                composable(NavRoutes.CropServices) { CropServicesScreen(navController) }
-                composable(NavRoutes.CropRecommendation) { CropRecommendationScreen(navController) }
-                composable(NavRoutes.CropSowing) { CropSowingScreen(navController) }
-                composable(NavRoutes.CropMonitoring) { CropMonitoringScreen(navController) }
-                composable(NavRoutes.CropDisease) { CropDiseaseScreen(navController) }
-                composable(NavRoutes.CropHarvesting) { CropHarvestingScreen(navController) }
-                composable(NavRoutes.CropSelling) { CropSellingScreen(navController) }
-                composable(NavRoutes.AnimalDetection) { AnimalDetectionScreen(navController) }
-                composable(NavRoutes.LabourServices) { LabourServicesScreen(navController) }
-                composable(NavRoutes.MandiPrices) { MandiPricesScreen(navController) }
-
-                // UPDATED: The split route logic for your Farm Store
-                composable(NavRoutes.ProductStore) { MarketplaceScreen(navController) } // New Premium UI
-                composable(NavRoutes.DynamicStore) { StoreRecommendationsScreen(navController) } // Safe Dynamic Logic
-
-                composable(NavRoutes.FinancialServices) { FinancialServicesScreen(navController) }
-                composable(NavRoutes.Weather) { WeatherScreen(navController) }
-                composable(NavRoutes.VoiceAssistant) { VoiceAssistantScreen(navController) }
-                composable(NavRoutes.Alerts) { AlertsScreen(navController) }
-                composable(NavRoutes.Profile) { ProfileScreen(navController) }
+                GlassFloatingVoiceButton(
+                    onClick = { navController.navigate(NavRoutes.VoiceAssistant) }
+                )
             }
         }
     }

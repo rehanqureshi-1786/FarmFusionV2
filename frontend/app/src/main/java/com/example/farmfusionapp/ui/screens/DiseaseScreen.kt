@@ -717,19 +717,23 @@ fun DiseaseResultStep(
                     tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
                 )
 
+                val isHealthy = result?.diagnosis_status.equals("healthy", ignoreCase = true) ||
+                        (result?.disease_name?.contains("healthy", ignoreCase = true) == true)
+                val isDiseased = !isHealthy
+
                 // Disease indicator badge
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(16.dp)
                         .background(
-                            color = FarmColors.Error,
+                            color = if (isDiseased) FarmColors.Error else Color(0xFF2E7D32),
                             shape = RoundedCornerShape(12.dp)
                         )
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "DISEASED",
+                        text = if (isDiseased) "DISEASED" else "HEALTHY",
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color.White

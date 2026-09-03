@@ -29,12 +29,12 @@ class LanguageContext(BaseModel):
     native_tts: bool = True
     fallback_language: str = "hi"
 
-def resolve_language_code(code: Optional[str]) -> LanguageContext:
+def resolve_language_code(code: Any) -> LanguageContext:
     """
     Resolves any input language or dialect code to a validated LanguageContext.
     Falls back deterministically to Hindi ('hi') or English ('en') if unknown.
     """
-    if not code or not code.strip():
+    if not code or not isinstance(code, str) or not code.strip():
         profile = LANGUAGE_REGISTRY.get("hi", LANGUAGE_REGISTRY["hi"])
         return LanguageContext(
             requested_code="hi",

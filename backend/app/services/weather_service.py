@@ -2,8 +2,12 @@
 Weather Service - Single Source of Truth for FarmFusion Weather Architecture.
 """
 from typing import Dict, Any, Optional, List
-from app.agents.weather_agent import weather_agent
 from app.schemas.weather import WeatherAlertItem, AgriculturalAdvisory
+
+
+def _get_weather_agent():
+    from app.agents.weather_agent import weather_agent
+    return weather_agent
 
 
 class WeatherService:
@@ -21,7 +25,7 @@ class WeatherService:
         Get current physical weather for location with localized farming advice.
         """
         from app.core.language import get_current_language
-        return await weather_agent.get_current_weather(
+        return await _get_weather_agent().get_current_weather(
             lat=lat,
             lon=lon,
             location_name=location_name,
@@ -42,7 +46,7 @@ class WeatherService:
         Get 1-7 day physical weather forecast with localized farming advice.
         """
         from app.core.language import get_current_language
-        return await weather_agent.get_forecast(
+        return await _get_weather_agent().get_forecast(
             lat=lat,
             lon=lon,
             days=days,
@@ -63,7 +67,7 @@ class WeatherService:
         Evaluates forecast against deterministic agronomic alert thresholds.
         """
         from app.core.language import get_current_language
-        return await weather_agent.get_weather_alerts(
+        return await _get_weather_agent().get_weather_alerts(
             lat=lat,
             lon=lon,
             days=days,
@@ -84,7 +88,7 @@ class WeatherService:
         Constructs an explicit agronomic advisory interpreting weather for farm tasks.
         """
         from app.core.language import get_current_language
-        return await weather_agent.get_agricultural_advisory(
+        return await _get_weather_agent().get_agricultural_advisory(
             lat=lat,
             lon=lon,
             crop_name=crop_name,
@@ -134,7 +138,7 @@ class WeatherService:
         past_days: int = 7,
         language: Optional[str] = None
     ) -> Dict[str, Any]:
-        return await weather_agent.get_weather_timeline(lat, lon, forecast_days, past_days, language=language)
+        return await _get_weather_agent().get_weather_timeline(lat, lon, forecast_days, past_days, language=language)
 
     @staticmethod
     async def get_seasonal_rainfall(
@@ -143,7 +147,7 @@ class WeatherService:
         season: str,
         year: Optional[int] = None
     ) -> Dict[str, Any]:
-        return await weather_agent.get_seasonal_rainfall(lat, lon, season, year)
+        return await _get_weather_agent().get_seasonal_rainfall(lat, lon, season, year)
 
     @staticmethod
     async def get_annual_rainfall(
@@ -151,7 +155,7 @@ class WeatherService:
         lon: float,
         year: Optional[int] = None
     ) -> Dict[str, Any]:
-        return await weather_agent.get_annual_rainfall(lat, lon, year)
+        return await _get_weather_agent().get_annual_rainfall(lat, lon, year)
 
     @staticmethod
     def _generate_farming_summary(

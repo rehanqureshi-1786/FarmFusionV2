@@ -227,7 +227,7 @@ async def test_07_multilingual_weather_advice_and_alerts():
 
     # English
     en_curr = await WeatherService.get_current_weather(lat=26.91, lon=75.78, language="en")
-    assert any(en_curr["weather"].lower().startswith(x) for x in ["clear", "mainly", "partly", "overcast", "rain", "fog", "weather", "light", "drizzle", "heavy", "thunder", "shower"])
+    assert any(en_curr["weather"].lower().startswith(x) for x in ["clear", "mainly", "partly", "overcast", "rain", "fog", "weather", "drizzle", "light", "heavy", "moderate", "thunder", "thunderstorm", "snow", "shower", "showers"])
 
 
 @pytest.mark.asyncio
@@ -272,7 +272,7 @@ def test_09_android_regression_no_sample_forecast():
     Verify that sampleForecast() is completely removed from WeatherScreen.kt,
     and that WeatherScreen.kt consumes real backend forecast API.
     """
-    weather_screen_path = Path("/home/rdj/FarmFusionFinal/frontend/app/src/main/java/com/example/farmfusionapp/ui/screens/WeatherScreen.kt")
+    weather_screen_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "app" / "src" / "main" / "java" / "com" / "example" / "farmfusionapp" / "ui" / "screens" / "WeatherScreen.kt"
     assert weather_screen_path.exists(), "WeatherScreen.kt must exist"
 
     content = weather_screen_path.read_text(encoding="utf-8")
@@ -297,7 +297,7 @@ def test_10_android_weather_forecasting_ui_elements():
     - Backend timestamp displayed in WeatherHero
     - Independent try/catch failure isolation for alerts & advisory
     """
-    weather_screen_path = Path("/home/rdj/FarmFusionFinal/frontend/app/src/main/java/com/example/farmfusionapp/ui/screens/WeatherScreen.kt")
+    weather_screen_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "app" / "src" / "main" / "java" / "com" / "example" / "farmfusionapp" / "ui" / "screens" / "WeatherScreen.kt"
     assert weather_screen_path.exists(), "WeatherScreen.kt must exist"
     content = weather_screen_path.read_text(encoding="utf-8")
 

@@ -32,6 +32,13 @@ from app.routes import (
     voice_router,
     weather_router,
 )
+from app.api.v1.crop_recommendation import router as crop_recommendation_router
+from app.api.v1.crops import router as crops_v1_router
+from app.api.v1.marketplace import router as marketplace_router
+from app.api.v1.labour import router as labour_router
+from app.api.v1.lifecycle import router as lifecycle_router
+from app.api.v1.knowledge import router as knowledge_router
+from app.api.v1.calling import router as calling_router
 
 
 logging.basicConfig(
@@ -56,6 +63,19 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def language_context_middleware(request, call_next):
+    from app.core.language import resolve_language_code, set_current_language
+    user_lang = request.headers.get("x-user-language") or request.headers.get("accept-language")
+    if not user_lang:
+        user_lang = request.query_params.get("language") or request.query_params.get("preferred_language")
+    ctx = resolve_language_code(user_lang)
+    set_current_language(ctx.canonical_code, ctx.dialect_name if ctx.is_dialect else None)
+    response = await call_next(request)
+    response.headers["X-Resolved-Language"] = ctx.canonical_code
+    return response
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup."""
@@ -68,6 +88,9 @@ async def startup_event():
     print("Voice Assistant: /api/v1/voice")
 
 
+# Core API Routers
+app.include_router(crop_recommendation_router, prefix="/api/v1")
+app.include_router(crops_v1_router, prefix="/api/v1")
 app.include_router(crop_router, prefix="/api/v1")
 app.include_router(disease_router, prefix="/api/v1")
 app.include_router(market_router, prefix="/api/v1")
@@ -77,6 +100,12 @@ app.include_router(user_router, prefix="/api/v1")
 app.include_router(voice_router, prefix="/api/v1")
 app.include_router(alerts_router, prefix="/api/v1")
 app.include_router(store_router, prefix="/api/v1")
+app.include_router(diagnostics_router, prefix="/api/v1")
+app.include_router(marketplace_router, prefix="/api/v1")
+app.include_router(labour_router, prefix="/api/v1")
+app.include_router(lifecycle_router, prefix="/api/v1")
+app.include_router(knowledge_router, prefix="/api/v1")
+app.include_router(calling_router, prefix="/api/v1")
 
 # IoT Animal Detection
 from app.animal_detection import animal_detection_router, ws_router
