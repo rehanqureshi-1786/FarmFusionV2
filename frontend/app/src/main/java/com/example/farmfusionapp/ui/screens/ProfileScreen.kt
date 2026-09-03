@@ -38,6 +38,7 @@ import androidx.compose.ui.window.DialogWindowProvider
 import androidx.navigation.NavController
 import com.example.farmfusionapp.R
 import com.example.farmfusionapp.viewmodel.AuthViewModel
+import com.example.farmfusionapp.utils.AppLocalizer
 import com.example.farmfusionapp.utils.AuthStore
 import com.example.farmfusionapp.utils.LanguagePreferences
 import com.example.farmfusionapp.utils.LocaleHelper
@@ -49,24 +50,32 @@ import com.example.farmfusionapp.ui.screens.WeatherSnapshotStore
 fun ProfileScreen(navController: NavController) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val savedLang = AuthStore.getLanguage(context) ?: "en"
+    val currentLang = LocalAppLanguage.current
     val savedDialect = AuthStore.getDialect(context)
-    val activeCode = savedDialect ?: savedLang
+    val activeCode = savedDialect ?: currentLang
     val langObj = remember(activeCode) { com.example.farmfusionapp.data.model.LanguageRegistry.findByCode(activeCode) }
     val langLabel = langObj?.let { "${it.nativeName} (${it.name})" } ?: "English"
 
     val authViewModel: AuthViewModel = remember { AuthViewModel() }
     val userInfo = remember { authViewModel.getCurrentUserInfo() }
-    val userName = userInfo.third ?: "Farmer"
-    val displayCity = WeatherSnapshotStore.latestWeather?.city ?: com.example.farmfusionapp.utils.LocationSnapshotStore.latestCity ?: "Location unavailable"
+    val rawUserName = userInfo.third
+    val userName = if (!rawUserName.isNullOrBlank() && rawUserName != "Farmer") {
+        rawUserName
+    } else {
+        AppLocalizer.localizeProfilePhrase("farmer", currentLang)
+    }
+
+    val fallbackCity = AppLocalizer.localizeProfilePhrase("location unavailable", currentLang)
+    val rawCity = WeatherSnapshotStore.latestWeather?.city ?: com.example.farmfusionapp.utils.LocationSnapshotStore.latestCity
+    val localizedCity = if (!rawCity.isNullOrBlank()) {
+        AppLocalizer.localizeCity(rawCity, currentLang)
+    } else {
+        fallbackCity
+    }
 
     // Theme Colors
     val darkGreen = Color(0xFF1E5631)
     val lightGreenBg = Color(0xFFF7FAF7)
-
-    // Dialog & Global Blur States
-    var showLanguageDialog by remember { mutableStateOf(false) }
-    val globalBlur = LocalGlobalBlur.current
 
     // Root Box to handle the background color and floating twig illustration
     Box(
@@ -96,7 +105,7 @@ fun ProfileScreen(navController: NavController) {
                     ),
                     title = {
                         Text(
-                            stringResource(R.string.profile_title),
+                            text = AppLocalizer.localizeProfilePhrase("profile", currentLang),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                     },
@@ -198,7 +207,7 @@ fun ProfileScreen(navController: NavController) {
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = displayCity,
+                                    text = localizedCity,
                                     style = MaterialTheme.typography.bodyMedium.copy(color = darkGreen)
                                 )
                             }
@@ -211,14 +220,14 @@ fun ProfileScreen(navController: NavController) {
                 // Section Title
                 Column(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        stringResource(R.string.profile_farm_section_title),
+                        text = AppLocalizer.localizeProfilePhrase("farm section title", currentLang),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             color = darkGreen
                         )
                     )
                     Text(
-                        stringResource(R.string.profile_farm_section_sub),
+                        text = AppLocalizer.localizeProfilePhrase("farm section sub", currentLang),
                         style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray)
                     )
                 }
@@ -226,20 +235,20 @@ fun ProfileScreen(navController: NavController) {
                 // Settings Rows
                 SettingPremiumRow(
                     icon = Icons.Rounded.Translate,
-                    title = stringResource(R.string.profile_language),
+                    title = AppLocalizer.localizeProfilePhrase("app language", currentLang),
                     subtitle = langLabel,
                     onClick = { navController.navigate(NavRoutes.LanguageSelection) }
                 )
                 SettingPremiumRow(
                     icon = Icons.Rounded.Notifications,
-                    title = stringResource(R.string.profile_notifications),
-                    subtitle = stringResource(R.string.profile_notifications_sub),
+                    title = AppLocalizer.localizeProfilePhrase("notifications", currentLang),
+                    subtitle = AppLocalizer.localizeProfilePhrase("notifications sub", currentLang),
                     onClick = { }
                 )
                 SettingPremiumRow(
                     icon = Icons.Rounded.Mic,
-                    title = stringResource(R.string.profile_voice),
-                    subtitle = stringResource(R.string.profile_voice_sub),
+                    title = AppLocalizer.localizeProfilePhrase("voice assistant", currentLang),
+                    subtitle = AppLocalizer.localizeProfilePhrase("voice assistant sub", currentLang),
                     onClick = { navController.navigate(NavRoutes.VoiceAssistant) }
                 )
 
@@ -266,7 +275,7 @@ fun ProfileScreen(navController: NavController) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "Logout",
+                        text = AppLocalizer.localizeProfilePhrase("logout", currentLang),
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color.White
@@ -341,147 +350,4 @@ fun SettingPremiumRow(
         }
     }
 }
-
-@Composable
-fun LanguageSelectionDialog(
-    currentLanguageCode: String,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit
-) {
-    val languages = listOf(
-        "en" to "English / English",
-        "hi" to "Hindi / हिंदी",
-        "ta" to "Tamil / தமிழ்",
-        "te" to "Telugu / తెలుగు",
-        "kn" to "Kannada / ಕನ್ನಡ",
-        "mr" to "Marathi / मराठी",
-        "gu" to "Gujarati / ગુજરાતી",
-        "bn" to "Bengali / বাংলা"
-    )
-
-    var selected by remember { mutableStateOf(currentLanguageCode) }
-    val view = LocalView.current
-
-    // Clears the default heavy Compose shadow/dim so our custom overlay shines through
-    LaunchedEffect(view) {
-        val window = (view.parent as? DialogWindowProvider)?.window
-        window?.let {
-            it.clearFlags(android.view.WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-        }
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false
-        )
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.25f)) // Slight dim background
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDismiss
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth(0.85f)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {} // Consume clicks to prevent dismissing when clicking the card
-                    ),
-                shape = RoundedCornerShape(24.dp),
-                color = Color.White,
-                shadowElevation = 12.dp
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    // Header
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Choose Language",
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1B1B1B)
-                            )
-                        )
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .size(36.dp)
-                                .background(Color(0xFFF5F5F5), CircleShape)
-                        ) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Close", tint = Color.Gray, modifier = Modifier.size(20.dp))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Language List
-                    LazyColumn(
-                        modifier = Modifier.heightIn(max = 400.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(languages) { (code, name) ->
-                            val isSelected = selected == code
-                            Surface(
-                                onClick = { selected = code },
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.White,
-                                border = BorderStroke(
-                                    width = 1.dp,
-                                    color = if (isSelected) Color(0xFF2E7D32) else Color(0xFFEEEEEE)
-                                )
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = if (isSelected) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                                        contentDescription = null,
-                                        tint = if (isSelected) Color(0xFF2E7D32) else Color.Gray,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = name,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                            color = Color(0xFF1B1B1B)
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Action Button
-                    Button(
-                        onClick = { onSave(selected) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Done", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                    }
-                }
-            }
-        }
-    }
-}
+

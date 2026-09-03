@@ -19,6 +19,20 @@ interface FarmFusionApi {
         @Body request: CropRecommendRequest
     ): Response<CropRecommendResponse>
 
+    @Multipart
+    @POST("api/v1/crop/recommend-from-document")
+    suspend fun recommendFromDocument(
+        @Part document: MultipartBody.Part,
+        @Part("farm_size_acres") farmSizeAcres: RequestBody,
+        @Part("location") location: RequestBody?,
+        @Part("latitude") latitude: RequestBody?,
+        @Part("longitude") longitude: RequestBody?,
+        @Part("soil_type") soilType: RequestBody?,
+        @Part("rainfall_mm") rainfallMm: RequestBody?,
+        @Part("temperature_c") temperatureC: RequestBody?,
+        @Part("preferred_language") preferredLanguage: RequestBody?
+    ): Response<CropRecommendResponse>
+
     // ============ CROP RECOMMENDATION - NO SOIL REPORT ============
 
     @POST("api/v1/crop-recommendation/no-soil-report")

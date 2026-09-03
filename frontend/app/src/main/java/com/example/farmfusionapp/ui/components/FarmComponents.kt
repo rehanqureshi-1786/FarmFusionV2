@@ -1468,12 +1468,13 @@ fun HomeBottomBar(
     isShrunk: Boolean = false,
     hazeState: HazeState // Keeping the HazeState for your frosted glass!
 ) {
+    val strings = com.example.farmfusionapp.ui.screens.LocalStrings.current
     val items = listOf(
-        BottomNavItem("Home", NavRoutes.Dashboard, iconDrawable = R.drawable.nav_home),
-        BottomNavItem("Rates", NavRoutes.MandiPrices, iconDrawable = R.drawable.nav_rates),
-        BottomNavItem("Scan", NavRoutes.CropDisease, iconVector = Icons.Rounded.CropFree, isPrimaryAction = true),
-        BottomNavItem("Weather", NavRoutes.Weather, iconDrawable = R.drawable.nav_weather),
-        BottomNavItem("Profile", NavRoutes.Profile, iconDrawable = R.drawable.nav_profile)
+        BottomNavItem(strings.nav.home, NavRoutes.Dashboard, iconDrawable = R.drawable.nav_home),
+        BottomNavItem(strings.nav.mandi, NavRoutes.MandiPrices, iconDrawable = R.drawable.nav_rates),
+        BottomNavItem(strings.nav.diseaseScan, NavRoutes.CropDisease, iconVector = Icons.Rounded.CropFree, isPrimaryAction = true),
+        BottomNavItem(strings.nav.weather, NavRoutes.Weather, iconDrawable = R.drawable.nav_weather),
+        BottomNavItem(strings.nav.profile, NavRoutes.Profile, iconDrawable = R.drawable.nav_profile)
     )
 
     // 1. Unified Snappy Easing (Zero bounce, zero quiver, 250ms duration)

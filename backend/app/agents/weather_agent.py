@@ -228,48 +228,58 @@ class WeatherAgent:
         min_temp = min((float(d.get("temperature_min_c", 0)) for d in forecast_items), default=20.0)
         max_wind = max((float(d.get("wind_speed_max_kmh", 0)) for d in forecast_items), default=10.0)
 
-        assumptions = []
-        if crop_name:
-            assumptions.append(f"Crop: {crop_name}")
-        if growth_stage:
-            assumptions.append(f"Growth Stage: {growth_stage}")
-        if soil_type:
-            assumptions.append(f"Soil Type: {soil_type}")
-        if not assumptions:
-            assumptions.append("General Indian agronomic standard; specific crop/soil not provided")
-
         from app.core.language import resolve_language_code
         lang = resolve_language_code(language).canonical_code
+        if lang == "od":
+            lang = "or"
 
-        # Deterministic advisory rules
-        if lang == "hi":
-            # Irrigation
-            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
-                irrig = f"अगले 3 दिनों में {round(total_rain_next_3_days, 1)} मिमी बारिश का अनुमान है। सिंचाई रोक दें ताकि जलभराव न हो।"
-            elif max_temp >= 38.0:
-                irrig = "तेज गर्मी के कारण वाष्पीकरण अधिक होगा। फसलों में नमी बनाए रखने के लिए शाम को हल्की सिंचाई करें।"
-            else:
-                irrig = "मौसम सामान्य रहेगा। मिट्टी की नमी की जांच कर आवश्यकतानुसार नियमित सिंचाई करें।"
+        assumptions = []
+        if crop_name:
+            crop_prefix = {
+                "gu": "પાક", "mr": "पीक", "pa": "ਫਸਲ", "bn": "ফসল", "ta": "பயிர்",
+                "te": "పంట", "kn": "ಬೆಳೆ", "ml": "വിള", "or": "ଫସଲ", "as": "শস্য",
+                "ur": "فصل", "mai": "फसल", "en": "Crop", "hi": "फसल"
+            }.get(lang, "फसल")
+            assumptions.append(f"{crop_prefix}: {crop_name}")
+        if growth_stage:
+            stage_prefix = {
+                "gu": "વિકાસ તબક્કો", "mr": "वाढीची अवस्था", "pa": "ਵਾਧੇ ਦਾ ਪੜਾਅ", "bn": "বৃদ্ধির পর্যায়", "ta": "வளர்ச்சி நிலை",
+                "te": "పెరుగుదల దశ", "kn": "ಬೆಳವಣಿಗೆಯ ಹಂತ", "ml": "വളർച്ചാ ഘട്ടം", "or": "ବୃଦ୍ଧି ଅବସ୍ଥା", "as": "বৃদ্ধিৰ স্তৰ",
+                "ur": "نشوونما کا مرحلہ", "mai": "विकास चरण", "en": "Growth Stage", "hi": "वृद्धि अवस्था"
+            }.get(lang, "वृद्धि अवस्था")
+            assumptions.append(f"{stage_prefix}: {growth_stage}")
+        if soil_type:
+            soil_prefix = {
+                "gu": "જમીન પ્રકાર", "mr": "मातीचा प्रकार", "pa": "ਮਿੱਟੀ ਦੀ ਕਿਸਮ", "bn": "মাটির ধরন", "ta": "மண் வகை",
+                "te": "నేల రకం", "kn": "ಮಣ್ಣಿನ ವಿಧ", "ml": "മണ്ണ് തരം", "or": "ମାଟି ପ୍ରକାର", "as": "মাটিৰ প্ৰকাৰ",
+                "ur": "مٹی کی قسم", "mai": "माटी प्रकार", "en": "Soil Type", "hi": "मिट्टी का प्रकार"
+            }.get(lang, "मिट्टी का प्रकार")
+            assumptions.append(f"{soil_prefix}: {soil_type}")
+        if not assumptions:
+            default_assumption = {
+                "gu": "સામાન્ય ભારતીય કૃષિ ધોરણ; વિશિષ્ટ પાક/જમીન આપવામાં આવેલ નથી",
+                "mr": "सामान्य भारतीय कृषी मानके; विशिष्ट पीक/माती दिलेली नाही",
+                "pa": "ਆਮ ਭਾਰਤੀ ਖੇਤੀਬਾੜੀ ਮਿਆਰ; ਖਾਸ ਫਸਲ/ਮਿੱਟੀ ਨਹੀਂ ਦਿੱਤੀ ਗਈ",
+                "bn": "সাধারণ ভারতীয় কৃষি মানদণ্ড; নির্দিষ্ট ফসল/মাটি প্রদান করা হয়নি",
+                "ta": "பொதுவான இந்திய வேளாண் தரம்; குறிப்பிட்ட பயிர்/மண் குறிப்பிடப்படவில்லை",
+                "te": "సాధారణ భారతీయ వ్యవసాయ ప్రమాణం; నిర్దిష్ట పంట/నేల ఇవ్వబడలేదు",
+                "kn": "ಸಾಮಾನ್ಯ ಭಾರತೀಯ ಕೃಷಿ ಮಾನದಂಡ; ನಿರ್ದಿಷ್ಟ ಬೆಳೆ/ಮಣ್ಣು ಒದಗಿಸಲಾಗಿಲ್ಲ",
+                "ml": "പൊതുവായ ഇന്ത്യൻ കാർഷിക മാനദണ്ഡം; പ്രത്യേക വിള/മണ്ണ് നൽകിയിട്ടില്ല",
+                "or": "ସାଧାରଣ ଭାରତୀୟ କୃଷି ମାନକ; ନିର୍ଦ୍ଦିଷ୍ଟ ଫସଲ/ମାଟି ପ୍ରଦାନ କରାଯାଇ ନାହିଁ",
+                "as": "সাধাৰণ ভাৰতীয় কৃষি মানদণ্ড; নিৰ্দিষ্ট শস্য/মাটি উল্লেখ কৰা নাই",
+                "ur": "عام ہندوستانی زرعی معیارات؛ مخصوص فصل/مٹی فراہم نہیں کی گئی",
+                "mai": "सामान्य भारतीय कृषि मानक; कोनो विशिष्ट फसल/माटी निर्दिष्ट नहि",
+                "en": "General Indian agronomic standard; specific crop/soil not provided",
+                "hi": "सामान्य भारतीय कृषि मानक; विशिष्ट फसल/मिट्टी निर्दिष्ट नहीं"
+            }.get(lang, "सामान्य भारतीय कृषि मानक; विशिष्ट फसल/मिट्टी निर्दिष्ट नहीं")
+            assumptions.append(default_assumption)
 
-            # Spraying
-            if max_wind >= 25.0:
-                spray = f"हवा की गति {round(max_wind, 1)} किमी/घंटा है। दवा के बहाव (ड्रिफ्ट) के खतरे से छिड़काव अभी न करें।"
-            elif max_rain_chance >= 60:
-                spray = "बारिश की संभावना के कारण कीटनाशक धुल सकते हैं। शुष्क मौसम की प्रतीक्षा करें।"
-            else:
-                spray = "हवा एवं मौसम अनुकूल है। सुबह या शाम के समय छिड़काव सुरक्षित रूप से किया जा सकता है।"
-
-            # Fieldwork
-            if total_rain_next_3_days >= 30.0:
-                field = "खेत में नमी अधिक रहेगी। जुताई और कटी फसल की गहाई (थ्रेशिंग) कुछ दिन टालें।"
-            else:
-                field = "खेत कार्य, निराई-गुड़ाई एवं कटाई के लिए मौसम अनुकूल है।"
-
-            summary = f"तापमान {round(min_temp, 1)}°C से {round(max_temp, 1)}°C रहेगा। 3 दिनों में कुल वर्षा: {round(total_rain_next_3_days, 1)} मिमी।"
-
-        elif lang == "gu":
+        # Deterministic advisory rules for all 14 languages
+        if lang == "gu":
             if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
                 irrig = f"આગામી 3 દિવસમાં {round(total_rain_next_3_days, 1)} મીમી વરસાદની શક્યતા છે. પિયત આપવાનું મુલતવી રાખો."
+            elif max_temp >= 38.0:
+                irrig = "ગરમી વધુ હોવાથી બાષ્પીભવન વધશે. સાંજના સમયે હળવું પિયત આપો."
             else:
                 irrig = "જમીનમાં ભેજ ચકાસીને સામાન્ય પિયત આપી શકાય છે."
 
@@ -281,8 +291,183 @@ class WeatherAgent:
             field = "સામાન્ય ખેતી કાર્યો માટે હવામાન અનુકૂળ છે."
             summary = f"તાપમાન {round(min_temp, 1)}°C થી {round(max_temp, 1)}°C રહેશે. સંભવિત વરસાદ: {round(total_rain_next_3_days, 1)} મીમી."
 
-        else:
-            # English default
+        elif lang == "mr":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"पुढील 3 दिवसांत {round(total_rain_next_3_days, 1)} मिमी पावसाचा अंदाज आहे. पिकांना पाणी देणे टाळा."
+            elif max_temp >= 38.0:
+                irrig = "उन्हाची तीव्रता जास्त असल्याने बाष्पीभवन वाढेल. संध्याकाळी हलके पाणी द्या."
+            else:
+                irrig = "मातीतील ओलावा तपासून आवश्यकतेनुसार नियमित पाणी द्या."
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "वारा किंवा पावसाच्या शक्यतेमुळे कीटकनाशक फवारणी पुढे ढकला."
+            else:
+                spray = "फवारणीसाठी हवामान अनुकूल आहे. सकाळच्या किंवा संध्याकाळच्या वेळी फवारणी करा."
+
+            field = "आंतरमशागत, खुरपणी आणि काढणीसाठी हवामान योग्य आहे."
+            summary = f"तापमान {round(min_temp, 1)}°C ते {round(max_temp, 1)}°C राहील. 3 दिवसांतील पाऊस: {round(total_rain_next_3_days, 1)} मिमी."
+
+        elif lang == "pa":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"ਅਗਲੇ 3 ਦਿਨਾਂ 'ਚ {round(total_rain_next_3_days, 1)} ਮਿਮੀ ਬਾਰਿਸ਼ ਦੀ ਸੰਭਾਵਨਾ ਹੈ। ਸਿੰਚਾਈ ਰੋਕੋ।"
+            elif max_temp >= 38.0:
+                irrig = "ਗਰਮੀ ਕਾਰਨ ਸ਼ਾਮ ਨੂੰ ਹਲਕਾ ਪਾਣੀ ਲਗਾਓ।"
+            else:
+                irrig = "ਮੌਸਮ ਆਮ ਹੈ। ਨਮੀ ਅਨੁਸਾਰ ਆਮ ਸਿੰਚਾਈ ਕਰੋ।"
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "ਤੇਜ਼ ਹਵਾ ਜਾਂ ਮੀਂਹ ਕਾਰਨ ਸਪਰੇਅ ਟਾਲ ਦਿਓ।"
+            else:
+                spray = "ਸਵੇਰ ਜਾਂ ਸ਼ਾਮ ਵੇਲੇ ਸਪਰੇਅ ਕਰਨ ਲਈ ਮੌਸਮ ਅਨੁਕੂਲ ਹੈ।"
+
+            field = "ਖੇਤ ਦੇ ਕੰਮਾਂ ਅਤੇ ਕਟਾਈ ਲਈ ਮੌਸਮ ਅਨੁਕੂਲ ਹੈ।"
+            summary = f"ਤਾਪਮਾਨ {round(min_temp, 1)}°C ਤੋਂ {round(max_temp, 1)}°C ਰਹੇਗਾ। ਕੁੱਲ ਮੀਂਹ: {round(total_rain_next_3_days, 1)} ਮਿਮੀ।"
+
+        elif lang == "bn":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"আগামী ৩ দিনে {round(total_rain_next_3_days, 1)} মিমি বৃষ্টির সম্ভাবনা। সেচ স্থগিত রাখুন।"
+            elif max_temp >= 38.0:
+                irrig = "অতিরিক্ত গরমে আর্দ্রতা বজায় রাখতে বিকেলে হালকা সেচ দিন।"
+            else:
+                irrig = "মাটিতে আর্দ্রতা পরীক্ষা করে নিয়মিত সেচ দিন।"
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "ঝড়ো বাতাস বা বৃষ্টির আশঙ্কায় স্প্রে স্থগিত রাখুন।"
+            else:
+                spray = "সকাল বা বিকেলে কীটনাশক স্প্রে করার উপযোগী আবহাওয়া।"
+
+            field = "ফসল তোলা ও নিড়ানির কাজের জন্য আবহাওয়া অনুকূল।"
+            summary = f"তাপমাত্রা {round(min_temp, 1)}°C থেকে {round(max_temp, 1)}°C থাকবে। মোট বৃষ্টি: {round(total_rain_next_3_days, 1)} মিমি।"
+
+        elif lang == "ta":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"அடுத்த 3 நாட்களில் {round(total_rain_next_3_days, 1)} மிமீ மழை பெய்ய வாய்ப்புள்ளது. நீர்ப்பாசனத்தை நிறுத்துங்கள்."
+            elif max_temp >= 38.0:
+                irrig = "அதிக வெப்பம் உள்ளதால் மாலையில் லேசான நீர்ப்பாசனம் செய்யுங்கள்."
+            else:
+                irrig = "மண்ணின் ஈரப்பதத்தைப் பொறுத்து வழக்கமான பாசனம் செய்யலாம்."
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "காற்று அல்லது மழையால் மருந்து தெளிப்பதை ஒத்திவைக்கவும்."
+            else:
+                spray = "காலை அல்லது மாலை வேளையில் மருந்து தெளிக்க ஏற்ற வானிலை."
+
+            field = "அறுவடை மற்றும் களப்பணிகளுக்கு வானிலை உகந்தது."
+            summary = f"வெப்பநிலை {round(min_temp, 1)}°C முதல் {round(max_temp, 1)}°C வரை இருக்கும். மழை: {round(total_rain_next_3_days, 1)} மிமீ."
+
+        elif lang == "te":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"రాబోయే 3 రోజుల్లో {round(total_rain_next_3_days, 1)} మి.మీ వర్షం పడే అవకాశం ఉంది. నీటిపారుదల ఆపండి."
+            elif max_temp >= 38.0:
+                irrig = "ఎండ తీవ్రత వల్ల సాయంత్రం వేళల్లో తేలికపాటి తడులు ఇవ్వండి."
+            else:
+                irrig = "నేల తేమను బట్టి సాధారణ నీటిపారుదల చేయండి."
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "గాలి లేదా వర్షం వల్ల పిచికారీ వాయిదా వేయండి."
+            else:
+                spray = "ఉదయం లేదా సాయంత్రం పిచికారీ చేయడానికి అనుకూలం."
+
+            field = "పొలం పనులు మరియు కోతలకు వాతావరణం అనుకూలంగా ఉంది."
+            summary = f"ఉష్ణోగ్రత {round(min_temp, 1)}°C నుండి {round(max_temp, 1)}°C వరకు ఉంటుంది. వర్షపాతం: {round(total_rain_next_3_days, 1)} మి.మీ."
+
+        elif lang == "kn":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"ಮುಂದಿನ 3 ದಿನಗಳಲ್ಲಿ {round(total_rain_next_3_days, 1)} ಮಿಮೀ ಮಳೆಯಾಗುವ ಸಾಧ್ಯತೆಯಿದೆ. ನೀರಾವರಿ ನಿಲ್ಲಿಸಿ."
+            elif max_temp >= 38.0:
+                irrig = "ಹೆಚ್ಚಿನ ಶಾಖದಿಂದಾಗಿ ಸಂಜೆ ಲಘು ನೀರಾವರಿ ಮಾಡಿ."
+            else:
+                irrig = "ಮಣ್ಣಿನ ತೇವಾಂಶವನ್ನು ಪರೀಕ್ಷಿಸಿ ನಿಯಮಿತವಾಗಿ ನೀರು ಹಾಯಿಸಿ."
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "ಗಾಳಿ ಅಥವಾ ಮಳೆಯ ಕಾರಣ ಸಿಂಪಡಣೆಯನ್ನು ಮುಂದೂಡಿ."
+            else:
+                spray = "ಬೆಳಿಗ್ಗೆ ಅಥವಾ ಸಂಜೆ ಔಷಧ ಸಿಂಪಡಿಸಲು ಸೂಕ್ತ ಸಮಯ."
+
+            field = "ಕಟಾವು ಮತ್ತು ಕೃಷಿ ಕೆಲಸಗಳಿಗೆ ಹವಾಮಾನ ಅನುಕೂಲಕರವಾಗಿದೆ."
+            summary = f"ತಾಪಮಾನ {round(min_temp, 1)}°C ರಿಂದ {round(max_temp, 1)}°C ಇರುತ್ತದೆ. ಮಳೆ: {round(total_rain_next_3_days, 1)} ಮಿಮೀ."
+
+        elif lang == "ml":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"അടുത്ത 3 ദിവസങ്ങളിൽ {round(total_rain_next_3_days, 1)} മിമി മഴയ്ക്ക് സാധ്യത. നനയ്ക്കുന്നത് ഒഴിവാക്കുക."
+            elif max_temp >= 38.0:
+                irrig = "ചൂട് കൂടുതലായതിനാൽ വൈകുന്നേരങ്ങളിൽ നനയ്ക്കുക."
+            else:
+                irrig = "മണ്ണിലെ ഈർപ്പത്തിനനുസരിച്ച് നനയ്ക്കാം."
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "മഴയോ കാറ്റോ ഉള്ളപ്പോൾ മരുന്ന് തളിക്കുന്നത് മാറ്റിവയ്ക്കുക."
+            else:
+                spray = "രാവിലെയോ വൈകുന്നേരമോ മരുന്ന് തളിക്കാൻ അനുകൂല സമയം."
+
+            field = "വിളവെടുപ്പിനും കൃഷിപ്പണികൾക്കും അനുകൂല കാലാവസ്ഥ."
+            summary = f"താപനില {round(min_temp, 1)}°C മുതൽ {round(max_temp, 1)}°C വരെ. മഴ: {round(total_rain_next_3_days, 1)} മിമി."
+
+        elif lang == "or":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"ଆଗାମୀ ୩ ଦିନରେ {round(total_rain_next_3_days, 1)} ମିମି ବର୍ଷା ସମ୍ଭାବନା। ଜଳସେଚନ ବନ୍ଦ ରଖନ୍ତୁ।"
+            elif max_temp >= 38.0:
+                irrig = "ଅଧିକ ଖରା ଥିବାରୁ ସନ୍ଧ୍ୟାରେ ହାଲୁକା ପାଣି ଦିଅନ୍ତୁ।"
+            else:
+                irrig = "ମାଟିର ଓଦା ଅନୁଯାୟୀ ନିୟମିତ ଜଳସେଚନ କରନ୍ତୁ।"
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "ପବନ କିମ୍ବା ବର୍ଷା ଯୋଗୁଁ ସ୍ପ୍ରେ ସ୍ଥଗିତ ରଖନ୍ତୁ।"
+            else:
+                spray = "ସକାଳ କିମ୍ବା ସନ୍ଧ୍ୟାରେ ଔଷଧ ସ୍ପ୍ରେ କରିବା ଉପଯୁକ୍ତ।"
+
+            field = "ଅମଳ ଏବଂ କୃଷି କାର୍ଯ୍ୟ ପାଇଁ ପାଣିପାଗ ଅନୁକୂଳ।"
+            summary = f"ତାପମାତ୍ରା {round(min_temp, 1)}°C ରୁ {round(max_temp, 1)}°C ରହିବ। ବର୍ଷା: {round(total_rain_next_3_days, 1)} ମିମି।"
+
+        elif lang == "as":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"অহা ৩ দিনত {round(total_rain_next_3_days, 1)} মিমি বৰষুণৰ সম্ভাৱনা। পানী দিয়া স্থগিত ৰাখক।"
+            elif max_temp >= 38.0:
+                irrig = "অধিক গৰমৰ বাবে গধূলি সময়ত লঘু পানী দিয়ক।"
+            else:
+                irrig = "মাটিৰ আৰ্দ্ৰতা চাই নিয়মীয়া জলসিঞ্চন কৰক।"
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "বতাহ বা বৰষুণৰ বাবে স্প্ৰে' কৰা পিছুৱাই দিয়ক।"
+            else:
+                spray = "ৰাতিপুৱা বা গধূলি ঔষধ স্প্ৰে' কৰাৰ বাবে বতৰ অনুকূল।"
+
+            field = "শস্য চপোৱা আৰু পথাৰৰ কামৰ বাবে বতৰ উপযোগী।"
+            summary = f"উষ্ণতা {round(min_temp, 1)}°C ৰ পৰা {round(max_temp, 1)}°C থাকিব। মুঠ বৰষুণ: {round(total_rain_next_3_days, 1)} মিমি।"
+
+        elif lang == "ur":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"اگلے 3 دنوں میں {round(total_rain_next_3_days, 1)} ملی میٹر بارش کا امکان ہے۔ آبپاشی روک دیں۔"
+            elif max_temp >= 38.0:
+                irrig = "شدید گرمی کی وجہ سے شام کے وقت ہلکی آبپاشی کریں۔"
+            else:
+                irrig = "مٹی کی نمی دیکھ کر معمول کے مطابق آبپاشی کریں۔"
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "تیز ہوا یا بارش کے امکان پر اسپرے موخر کریں۔"
+            else:
+                spray = "صبح یا شام کے وقت اسپرے کے لیے موسم سازگار ہے۔"
+
+            field = "فصل کی کٹائی اور کھیت کے کاموں کے لیے موسم بہترین ہے۔"
+            summary = f"درجہ حرارت {round(min_temp, 1)}°C سے {round(max_temp, 1)}°C رہے گا۔ کل بارش: {round(total_rain_next_3_days, 1)} ملی میٹر۔"
+
+        elif lang == "mai":
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"आबय बला 3 दिन मे {round(total_rain_next_3_days, 1)} मिमी वर्षा केर सम्भावना अछि। पटौनी रोकि दिअ।"
+            elif max_temp >= 38.0:
+                irrig = "कड़ा घाम केर कारणे संझुका हल्का पटौनी करू।"
+            else:
+                irrig = "माटी मे नमी देखि क नियमित पटौनी करू।"
+
+            if max_wind >= 25.0 or max_rain_chance >= 60:
+                spray = "तेज हवा वा वर्षा केर सम्भावना पर छिड़काव रोकि दिअ।"
+            else:
+                spray = "भिनसरिया वा संझुका कीटनाशक छिड़काव लेल मौसम नीक अछि।"
+
+            field = "दवनी, कटनी आ खेत केर काज लेल मौसम अनुकूल अछि।"
+            summary = f"तापमान {round(min_temp, 1)}°C सं {round(max_temp, 1)}°C रहत। कुल वर्षा: {round(total_rain_next_3_days, 1)} मिमी।"
+
+        elif lang == "en":
             if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
                 irrig = f"Rainfall of {round(total_rain_next_3_days, 1)} mm is forecast over the next 3 days. Pause irrigation to prevent waterlogging."
             elif max_temp >= 38.0:
@@ -299,6 +484,29 @@ class WeatherAgent:
 
             field = "Field conditions are suitable for harvest, intercultural operations, and tilling."
             summary = f"Temperature range: {round(min_temp, 1)}°C to {round(max_temp, 1)}°C. 3-day precipitation: {round(total_rain_next_3_days, 1)} mm."
+
+        else:
+            # Default Hindi
+            if total_rain_next_3_days >= 20.0 or max_rain_chance >= 75:
+                irrig = f"अगले 3 दिनों में {round(total_rain_next_3_days, 1)} मिमी बारिश का अनुमान है। सिंचाई रोक दें ताकि जलभराव न हो।"
+            elif max_temp >= 38.0:
+                irrig = "तेज गर्मी के कारण वाष्पीकरण अधिक होगा। फसलों में नमी बनाए रखने के लिए शाम को हल्की सिंचाई करें।"
+            else:
+                irrig = "मौसम सामान्य रहेगा। मिट्टी की नमी की जांच कर आवश्यकतानुसार नियमित सिंचाई करें।"
+
+            if max_wind >= 25.0:
+                spray = f"हवा की गति {round(max_wind, 1)} किमी/घंटा है। दवा के बहाव (ड्रिफ्ट) के खतरे से छिड़काव अभी न करें।"
+            elif max_rain_chance >= 60:
+                spray = "बारिश की संभावना के कारण कीटनाशक धुल सकते हैं। शुष्क मौसम की प्रतीक्षा करें।"
+            else:
+                spray = "हवा एवं मौसम अनुकूल है। सुबह या शाम के समय छिड़काव सुरक्षित रूप से किया जा सकता है।"
+
+            if total_rain_next_3_days >= 30.0:
+                field = "खेत में नमी अधिक रहेगी। जुताई और कटी फसल की गहाई (थ्रेशिंग) कुछ दिन टालें।"
+            else:
+                field = "खेत कार्य, निराई-गुड़ाई एवं कटाई के लिए मौसम अनुकूल है।"
+
+            summary = f"तापमान {round(min_temp, 1)}°C से {round(max_temp, 1)}°C रहेगा। 3 दिनों में कुल वर्षा: {round(total_rain_next_3_days, 1)} मिमी।"
 
         return AgriculturalAdvisory(
             irrigation_advice=irrig,
@@ -492,6 +700,9 @@ class WeatherAgent:
 
     def _weather_code_to_text(self, code: int | None, language: str = "hi") -> str:
         code_val = code or 0
+        if language == "od":
+            language = "or"
+
         if language == "gu":
             gu_map = {
                 0: "સ્વચ્છ આકાશ", 1: "સામાન્ય સ્વચ્છ", 2: "અંશતઃ વાદળછાયું", 3: "વાદળછાયું",
@@ -520,6 +731,62 @@ class WeatherAgent:
                 65: "ভারী বৃষ্টি", 80: "বৃষ্টির ঝলক", 95: "বজ্রবিদ্যুৎসহ ঝড়"
             }
             return bn_map.get(code_val, "আবহাওয়া আপডেট উপলব্ধ")
+        elif language == "ta":
+            ta_map = {
+                0: "தெளிவான வானம்", 1: "பெரும்பாலும் தெளிவானது", 2: "பகுதி மேகமூட்டம்", 3: "முழு மேகமூட்டம்",
+                45: "மூடுபனி", 51: "தூறல்", 61: "லேசான மழை", 63: "மிதமான மழை",
+                65: "கனமழை", 80: "மழை பொழிவு", 95: "இடி மின்னலுடன் மழை"
+            }
+            return ta_map.get(code_val, "வானிலை தகவல் உள்ளது")
+        elif language == "te":
+            te_map = {
+                0: "స్పష్టమైన ఆకాశం", 1: "ఎక్కువగా స్పష్టం", 2: "పాక్షికంగా మేఘావృతం", 3: "పూర్తిగా మేఘావృతం",
+                45: "పొగమంచు", 51: "తుంపర్లు", 61: "తేలికపాటి వర్షం", 63: "మితమైన వర్షం",
+                65: "భారీ వర్షం", 80: "వర్షపు జల్లులు", 95: "ఉరుములతో కూడిన వర్షం"
+            }
+            return te_map.get(code_val, "వాతావరణ సమాచారం అందుబాటులో ఉంది")
+        elif language == "kn":
+            kn_map = {
+                0: "ಸ್ವಚ್ಛ ಆಕಾಶ", 1: "ಹೆಚ್ಚಾಗಿ ಸ್ವಚ್ಛ", 2: "ಭಾಗಶಃ ಮೋಡ", 3: "ತುಂಬಾ ಮೋಡ",
+                45: "ದಟ್ಟ ಮಂಜು", 51: "ತುಂತುರು ಮಳೆ", 61: "ಹಗುರ ಮಳೆ", 63: "ಮಧ್ಯಮ ಮಳೆ",
+                65: "ಭಾರೀ ಮಳೆ", 80: "ಮಳೆಯ ಸಿಂಚನ", 95: "ಗುಡುಗು ಸಹಿತ ಬಿರುಗಾಳಿ"
+            }
+            return kn_map.get(code_val, "ಹವಾಮಾನ ಮಾಹಿತಿ ಲಭ್ಯವಿದೆ")
+        elif language == "ml":
+            ml_map = {
+                0: "തെളിഞ്ഞ ആകാശം", 1: "മിക്കവാറും തെളിഞ്ഞത്", 2: "ഭാഗികമായി മേഘാവൃതം", 3: "കാർമേഘം",
+                45: "മൂടൽമഞ്ഞ്", 51: "തുള്ളിമഴ", 61: "നേരിയ മഴ", 63: "മിതമായ മഴ",
+                65: "കനത്ത മഴ", 80: "മഴച്ചാറ്റൽ", 95: "ഇടിമിന്നലോട് കൂടിയ മഴ"
+            }
+            return ml_map.get(code_val, "കാലാവസ്ഥ വിവരം ലഭ്യമാണ്")
+        elif language == "or":
+            or_map = {
+                0: "ପରିଷ୍କାର ଆକାଶ", 1: "ମୁଖ୍ୟତଃ ପରିଷ୍କାର", 2: "ଆଂଶିକ ମେଘୁଆ", 3: "ପୂରା ମେଘୁଆ",
+                45: "କୁହୁଡ଼ି", 51: "ଝିପିଝିପି ବର୍ଷା", 61: "ହାଲୁକା ବର୍ଷା", 63: "ମଧ୍ୟମ ବର୍ଷା",
+                65: "ପ୍ରବଳ ବର୍ଷା", 80: "ବର୍ଷା ଝଲକ", 95: "ଘଡ଼ଘଡ଼ି ସହ ଝଡ଼ବର୍ଷା"
+            }
+            return or_map.get(code_val, "ପାଣିପାଗ ସୂଚନା ଉପଲବ୍ଧ")
+        elif language == "as":
+            as_map = {
+                0: "পৰিষ্কাৰ আকাশ", 1: "প্ৰধানকৈ পৰিষ্কাৰ", 2: "আংশিক ডাৱৰীয়া", 3: "ডাৱৰীয়া",
+                45: "কুঁৱলী", 51: "টোপাটোপে বৰষুণ", 61: "পাতলীয়া বৰষুণ", 63: "মজলীয়া বৰষুণ",
+                65: "প্ৰবল বৰষুণ", 80: "বৰষুণৰ জাক", 95: "বজ্ৰপাতসহ ধুমুহা"
+            }
+            return as_map.get(code_val, "বতৰৰ তথ্য উপলব্ধ")
+        elif language == "ur":
+            ur_map = {
+                0: "صاف آسمان", 1: "زیادہ تر صاف", 2: "جزوی ابر آلود", 3: "مکمل ابر آلود",
+                45: "کہر", 51: "ہلکی بونداباندی", 61: "ہلکی بارش", 63: "معتدل بارش",
+                65: "شدید بارش", 80: "تیز بچھاریں", 95: "گرج چمک کے ساتھ طوفان"
+            }
+            return ur_map.get(code_val, "موسم کی تفصیلات دستیاب ہیں")
+        elif language == "mai":
+            mai_map = {
+                0: "साफ अकास", 1: "मुख्यतः साफ", 2: "आंशिक बादल", 3: "घने बादल",
+                45: "कुहासा", 51: "हल्की बूंदाबांदी", 61: "हल्की वर्षा", 63: "मध्यम वर्षा",
+                65: "भारी वर्षा", 80: "बरखा केर बौछार", 95: "ठनका आ आंधी संग वर्षा"
+            }
+            return mai_map.get(code_val, "मौसम केर जानकारी उपलब्ध अछि")
         elif language == "en":
             en_map = {
                 0: "clear sky", 1: "mainly clear", 2: "partly cloudy", 3: "overcast",

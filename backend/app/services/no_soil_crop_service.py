@@ -293,7 +293,9 @@ class NoSoilCropService:
         ph_desc = f"SoilGrids estimated pH (~{ph_val:.1f})" if ph_val is not None else "farmer-selected soil"
 
         from app.core.language import get_current_language
-        lang_code = get_current_language()
+        lang_code = request.language or get_current_language() or "hi"
+        if lang_code == "od":
+            lang_code = "or"
 
         if lang_code == "gu":
             msg_text = "જીપીએસ, વાતાવરણ અને જમીન ડેટાના આધારે પાકની અનુકૂળતા નક્કી કરવામાં આવી છે."
@@ -307,6 +309,30 @@ class NoSoilCropService:
         elif lang_code == "bn":
             msg_text = "জিপিএস, আবহাওয়া এবং মাটির তথ্যের ভিত্তিতে ফসলের উপযোগিতা যাচাই করা হয়েছে।"
             exp_text = f"অবস্থান ({loc_display}), মরসুম ({season}), আবহাওয়া (তাপমাত্রা: {temp_val or '--'}°C, আর্দ্রতা: {hum_val or '--'}%), এবং বৃষ্টিপাত ({annual_rain_val or '--'} mm) অনুযায়ী উল্লিখিত ফসলগুলি উপযোগী।"
+        elif lang_code == "ta":
+            msg_text = "ஜிபிஎஸ், வானிலை மற்றும் மண் தரவுகளின் அடிப்படையில் பயிர் பொருத்தம் மதிப்பீடு செய்யப்பட்டுள்ளது."
+            exp_text = f"இருப்பிடம் ({loc_display}), பருவம் ({season}), வானிலை (வெப்பநிலை: {temp_val or '--'}°C, ஈரப்பதம்: {hum_val or '--'}%), மற்றும் மழைப்பொழிவு ({annual_rain_val or '--'} mm) அடிப்படையில் இப்பயிர்கள் உங்கள் நிலத்திற்கு ஏற்றவை."
+        elif lang_code == "te":
+            msg_text = "జీపీఎస్, వాతావరణం మరియు నేల డేటా ఆధారంగా పంట అనుకూలత అంచనా వేయబడింది."
+            exp_text = f"స్థానం ({loc_display}), కాలం ({season}), ఉష్ణోగ్రత ({temp_val or '--'}°C, తేమ: {hum_val or '--'}%), మరియు వర్షపాతం ({annual_rain_val or '--'} mm) ఆధారంగా పై పంటలు మీ పొలానికి అనుకూలం."
+        elif lang_code == "kn":
+            msg_text = "ಜಿಪಿಎಸ್, ಹವಾಮಾನ ಮತ್ತು ಮಣ್ಣಿನ ಮಾಹಿತಿಯ ಆಧಾರದ ಮೇಲೆ ಬೆಳೆ ಸೂಕ್ತತೆಯನ್ನು ನಿರ್ಣಯಿಸಲಾಗಿದೆ."
+            exp_text = f"ಸ್ಥಳ ({loc_display}), ಋತು ({season}), ತಾಪಮಾನ ({temp_val or '--'}°C, ತೇವಾಂಶ: {hum_val or '--'}%), ಮತ್ತು ಮಳೆ ({annual_rain_val or '--'} mm) ಆಧಾರದ ಮೇಲೆ ಈ ಬೆಳೆಗಳು ನಿಮ್ಮ ಹೊಲಕ್ಕೆ ಉತ್ತಮವಾಗಿವೆ."
+        elif lang_code == "ml":
+            msg_text = "ജിപിഎസ്, കാലാവസ്ഥ, മണ്ണ് വിവരങ്ങളുടെ അടിസ്ഥാനത്തിൽ വിള അനുയോജ്യത വിലയിരുത്തിയിരിക്കുന്നു."
+            exp_text = f"സ്ഥലം ({loc_display}), സീസൺ ({season}), താപനില ({temp_val or '--'}°C, ആർദ്രത: {hum_val or '--'}%), മഴ ({annual_rain_val or '--'} mm) എന്നിവയുടെ അടിസ്ഥാനത്തിൽ ഈ വിളകൾ നിങ്ങളുടെ തോട്ടത്തിന് അനുയോജ്യമാണ്."
+        elif lang_code == "or":
+            msg_text = "ଜିପିଏସ୍, ପାଣିପାଗ ଏବଂ ମାଟି ତଥ୍ୟ ଆଧାରରେ ଫସଲ ଉପଯୁକ୍ତତା ନିର୍ଦ୍ଧାରଣ କରାଯାଇଛି।"
+            exp_text = f"ସ୍ଥାନ ({loc_display}), ଋତୁ ({season}), ତାପମାତ୍ରା ({temp_val or '--'}°C, ଆର୍ଦ୍ରତା: {hum_val or '--'}%), ଏବଂ ବର୍ଷା ({annual_rain_val or '--'} mm) ଆଧାରରେ ଉପରୋକ୍ତ ଫସଲଗୁଡ଼ିକ ଆପଣଙ୍କ ଜମି ପାଇଁ ଉପଯୁକ୍ତ।"
+        elif lang_code == "as":
+            msg_text = "জিপিএছ, বতৰ আৰু মাটিৰ তথ্যৰ ভিত্তিত শস্যৰ উপযোগিতা নিৰ্ধাৰণ কৰা হৈছে।"
+            exp_text = f"স্থান ({loc_display}), ঋতু ({season}), উষ্ণতা ({temp_val or '--'}°C, আৰ্দ্ৰতা: {hum_val or '--'}%), আৰু বৰষুণ ({annual_rain_val or '--'} mm) অনুসৰি উক্ত শস্যসমূহ আপোনাৰ পথাৰৰ বাবে উপযোগী।"
+        elif lang_code == "ur":
+            msg_text = "جی پی ایس، موسم اور مٹی کے ڈیٹا کی بنیاد پر فصل کی موزونیت کا اندازہ لگایا گیا ہے۔"
+            exp_text = f"مقام ({loc_display})، موسم ({season})، درجہ حرارت ({temp_val or '--'}°C، نمی: {hum_val or '--'}%)، اور بارش ({annual_rain_val or '--'} mm) کی بنیاد پر درج بالا فصلیں آپ کے کھیت کے لیے بہترین ہیں۔"
+        elif lang_code == "mai":
+            msg_text = "जीपीएस, मौसम आ माटी केर आंकड़ाक आधार पर फसलक उपयुक्तताक मूल्यांकन कएल गेल अछि।"
+            exp_text = f"अहाँक क्षेत्र ({loc_display}), चालू मौसम ({season}), तापमान ({temp_val or '--'}°C, आर्द्रता: {hum_val or '--'}%), आ वर्षा ({annual_rain_val or '--'} mm) केर आधार पर ई फसल अहाँक खेत लेल सर्वोत्तम अछि।"
         elif lang_code == "en":
             msg_text = "Environmental suitability assessed from real GPS, weather, and soil data."
             exp_text = f"Based on real location ({loc_display}), current season ({season}), Open-Meteo weather (Temp: {temp_val or '--'}°C, Humidity: {hum_val or '--'}%), ERA5-Land rainfall ({annual_rain_val or '--'} mm), and {ph_desc}, the above crops are environmentally well-suited."

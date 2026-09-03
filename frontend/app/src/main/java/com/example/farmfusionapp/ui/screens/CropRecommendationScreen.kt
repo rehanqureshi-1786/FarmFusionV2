@@ -25,11 +25,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -71,8 +75,7 @@ val WavyRightShape = GenericShape { size, _ ->
 enum class RecommendationStep {
     SOIL_SELECTION,
     REPORT_CHECK,
-    FARM_DETAILS,
-    REPORT_PHOTO_INPUT,
+    UPLOAD_REPORT,
     AUTO_ANALYSIS,
     RESULT
 }
@@ -93,7 +96,11 @@ data class CropRecommendationFormInputs(
     val rainfallMm: String = "",
     val temperatureC: String = "",
     val farmSizeAcres: String = "",
-    val budgetUsd: String = ""
+    val budgetUsd: String = "",
+    val documentUri: android.net.Uri? = null,
+    val documentBytes: ByteArray? = null,
+    val documentFilename: String? = null,
+    val documentMimeType: String? = null
 )
 
 // ============================================
@@ -185,9 +192,8 @@ fun CropRecommendationScreen(
                                 when (currentStep) {
                                     RecommendationStep.SOIL_SELECTION -> navController.popBackStack()
                                     RecommendationStep.REPORT_CHECK -> currentStep = RecommendationStep.SOIL_SELECTION
-                                    RecommendationStep.FARM_DETAILS -> currentStep = RecommendationStep.REPORT_CHECK
-                                    RecommendationStep.REPORT_PHOTO_INPUT -> currentStep = RecommendationStep.FARM_DETAILS
-                                    RecommendationStep.AUTO_ANALYSIS -> currentStep = if (isAdvancedMode) RecommendationStep.FARM_DETAILS else RecommendationStep.REPORT_CHECK
+                                    RecommendationStep.UPLOAD_REPORT -> currentStep = RecommendationStep.REPORT_CHECK
+                                    RecommendationStep.AUTO_ANALYSIS -> currentStep = if (isAdvancedMode) RecommendationStep.UPLOAD_REPORT else RecommendationStep.REPORT_CHECK
                                     RecommendationStep.RESULT -> {
                                         currentStep = RecommendationStep.SOIL_SELECTION
                                         viewModel.resetState()
@@ -209,8 +215,10 @@ fun CropRecommendationScreen(
 
                         Spacer(Modifier.weight(1f))
 
+                        val currentLang = LocalAppLanguage.current
+
                         Text(
-                            text = stringResource(R.string.crop_advice_title),
+                            text = AppLocalizer.localizeCropAdvicePhrase("crop advice", currentLang),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
                         )
 
@@ -218,7 +226,7 @@ fun CropRecommendationScreen(
                         Spacer(Modifier.width(48.dp)) // Added for visual symmetry against back button
                     }
 
-                    // Frosted Glass Narrow Step Indicator Capsule
+                    // Frosted Glass Narrow Step Indicator Capsule (4 Steps)
                     Surface(
                         shape = RoundedCornerShape(50.dp),
                         color = Color.White.copy(alpha = 0.55f),
@@ -231,13 +239,12 @@ fun CropRecommendationScreen(
                             currentStep = when (currentStep) {
                                 RecommendationStep.SOIL_SELECTION -> 1
                                 RecommendationStep.REPORT_CHECK -> 2
-                                RecommendationStep.FARM_DETAILS -> 3
-                                RecommendationStep.REPORT_PHOTO_INPUT, RecommendationStep.AUTO_ANALYSIS -> 4
-                                RecommendationStep.RESULT -> 5
+                                RecommendationStep.UPLOAD_REPORT -> 3
+                                RecommendationStep.AUTO_ANALYSIS, RecommendationStep.RESULT -> 4
                             },
-                            totalSteps = 5,
+                            totalSteps = 4,
                             modifier = Modifier
-                                .width(220.dp) // Made it narrow instead of full width
+                                .width(220.dp)
                                 .padding(horizontal = 20.dp, vertical = 10.dp)
                         )
                     }
@@ -260,16 +267,20 @@ fun CropRecommendationScreen(
                         RecommendationStep.REPORT_CHECK -> CropRecommendationReportCheckStep { hasReport ->
                             isAdvancedMode = hasReport
                             if (hasReport) {
-                                currentStep = RecommendationStep.FARM_DETAILS
+                                currentStep = RecommendationStep.UPLOAD_REPORT
                             } else {
                                 // "NO, USE AUTO ANALYSIS" immediately analyzes using backend Mode B
                                 currentStep = RecommendationStep.AUTO_ANALYSIS
                             }
                         }
-                        RecommendationStep.FARM_DETAILS -> FarmDetailsStep(selectedSoil?.name.orEmpty(), formInputs, { formInputs = it }) {
-                            currentStep = RecommendationStep.REPORT_PHOTO_INPUT
-                        }
-                        RecommendationStep.REPORT_PHOTO_INPUT -> PhotoInputStep { currentStep = RecommendationStep.AUTO_ANALYSIS }
+                        RecommendationStep.UPLOAD_REPORT -> UploadSoilReportStep(
+                            selectedSoil = selectedSoil?.name.orEmpty(),
+                            formInputs = formInputs,
+                            onInputsChange = { formInputs = it },
+                            onAnalyze = {
+                                currentStep = RecommendationStep.AUTO_ANALYSIS
+                            }
+                        )
                         RecommendationStep.AUTO_ANALYSIS -> AutoAnalysisStep(formInputs, selectedSoil?.name ?: "Black Soil", viewModel, isAdvancedMode)
                         RecommendationStep.RESULT -> {
                             val activeRecs = if (noSoilResult != null && !noSoilResult!!.recommendations.isNullOrEmpty()) {
@@ -308,11 +319,10 @@ fun CropRecommendationScreen(
 
 @Composable
 fun SoilSelectionStep(soils: List<SoilTypeInfo>, selected: SoilTypeInfo?, onSelect: (SoilTypeInfo) -> Unit) {
-    // 1. Removed: val scrollState = rememberScrollState()
+    val currentLang = LocalAppLanguage.current
 
     Column(
-        modifier = Modifier
-            .fillMaxSize(), // 2. Removed: .verticalScroll(scrollState)
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         // "What is your Soil Type?" Premium Header Card
@@ -351,7 +361,7 @@ fun SoilSelectionStep(soils: List<SoilTypeInfo>, selected: SoilTypeInfo?, onSele
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text(
-                            text = "What is your\nSoil Type?",
+                            text = AppLocalizer.localizeCropAdvicePhrase("what is your soil type", currentLang),
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color(0xFF1B5E20)
@@ -359,7 +369,7 @@ fun SoilSelectionStep(soils: List<SoilTypeInfo>, selected: SoilTypeInfo?, onSele
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "This helps us suggest\nthe best crops for\nyour field.",
+                            text = AppLocalizer.localizeCropAdvicePhrase("this helps us suggest", currentLang),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color.DarkGray,
                                 lineHeight = 16.sp
@@ -377,7 +387,11 @@ fun SoilSelectionStep(soils: List<SoilTypeInfo>, selected: SoilTypeInfo?, onSele
         ) {
             Icon(Icons.Rounded.Eco, null, tint = Color(0xFF4CAF50), modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Select the soil type that best matches your field.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+            Text(
+                text = AppLocalizer.localizeCropAdvicePhrase("select soil match", currentLang),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.Gray
+            )
         }
 
         // Fading Curved Rectangular Soil Cards
@@ -385,6 +399,8 @@ fun SoilSelectionStep(soils: List<SoilTypeInfo>, selected: SoilTypeInfo?, onSele
             soils.forEach { soil ->
                 val isSelected = selected == soil
                 val scale by animateFloatAsState(if (isSelected) 1.02f else 1f, label = "card_scale")
+                val localizedSoilName = AppLocalizer.localizeSoil(soil.name, currentLang)
+                val localizedSoilDesc = AppLocalizer.localizeSoilDescription(soil.description, currentLang)
 
                 Box(
                     modifier = Modifier
@@ -410,7 +426,7 @@ fun SoilSelectionStep(soils: List<SoilTypeInfo>, selected: SoilTypeInfo?, onSele
                             // Fading PNG Base Layer
                             Image(
                                 painter = painterResource(id = soil.imageRes),
-                                contentDescription = soil.name,
+                                contentDescription = localizedSoilName,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .fillMaxHeight()
@@ -451,9 +467,9 @@ fun SoilSelectionStep(soils: List<SoilTypeInfo>, selected: SoilTypeInfo?, onSele
 
                                 // Text Section
                                 Column(modifier = Modifier.weight(1f).offset(x = (-2).dp)) {
-                                    Text(soil.name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B)))
+                                    Text(localizedSoilName, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B)))
                                     Surface(color = soil.displayColor, modifier = Modifier.padding(vertical = 4.dp).height(2.dp).width(16.dp)) {}
-                                    Text(soil.description, style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp, lineHeight = 14.sp))
+                                    Text(localizedSoilDesc, style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray, fontSize = 11.sp, lineHeight = 14.sp))
                                 }
 
                                 // Simple Right Arrow
@@ -471,12 +487,14 @@ fun SoilSelectionStep(soils: List<SoilTypeInfo>, selected: SoilTypeInfo?, onSele
                 }
             }
         }
-        // 3. Removed: Spacer(Modifier.height(100.dp))
     }
 }
 
 @Composable
 fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
+    val currentLang = LocalAppLanguage.current
+    val strings = LocalStrings.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -496,7 +514,7 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
 
         // Title
         Text(
-            text = "Do you have a Soil Health Card?",
+            text = strings.cropAdvice.hasSoilReport,
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFF1B1B1B)
@@ -527,7 +545,7 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
 
         // Subtitle
         Text(
-            text = "A Soil Health Card helps us understand your\nsoil better and give you accurate crop advice.",
+            text = AppLocalizer.localizeCropAdvicePhrase("soil report subtitle", currentLang),
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = Color.DarkGray,
                 lineHeight = 22.sp
@@ -539,17 +557,17 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
 
         // Narrowed Capsule Buttons
         Column(
-            modifier = Modifier.width(280.dp), // Explicitly constrains width for the buttons
+            modifier = Modifier.width(280.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // YES Button (Primary)
             PremiumButton(
-                text = "YES, I HAVE REPORT",
+                text = strings.cropAdvice.yesHaveReport,
                 onClick = { onChoice(true) },
                 icon = Icons.Rounded.PhotoCamera,
                 shape = CircleShape,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1B5E20), // Dark Green
+                    containerColor = Color(0xFF1B5E20),
                     contentColor = Color.White
                 )
             )
@@ -559,7 +577,7 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
                 onClick = { onChoice(false) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp), // Matching PremiumButton fixed height
+                    .height(56.dp),
                 shape = CircleShape,
                 border = BorderStroke(1.dp, Color(0xFF1B5E20)),
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -578,7 +596,7 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "NO, USE AUTO ANALYSIS",
+                        text = strings.cropAdvice.noUseAutoAnalysis,
                         style = MaterialTheme.typography.labelLarge.copy(
                             fontWeight = FontWeight.SemiBold
                         )
@@ -589,59 +607,625 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
     }
 }
 
+// ============================================
+// UPLOAD SOIL REPORT STEP (MATCHING DESIGN)
+// ============================================
 @Composable
-fun FarmDetailsStep(selectedSoil: String, inputs: CropRecommendationFormInputs, onInputsChange: (CropRecommendationFormInputs) -> Unit, onContinue: () -> Unit) {
-    val scrollState = rememberScrollState()
+fun UploadSoilReportStep(
+    selectedSoil: String,
+    formInputs: CropRecommendationFormInputs,
+    onInputsChange: (CropRecommendationFormInputs) -> Unit,
+    onAnalyze: () -> Unit
+) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val canContinue = inputs.location.isNotBlank() && inputs.farmSizeAcres.isNotBlank() && inputs.rainfallMm.isNotBlank() && inputs.temperatureC.isNotBlank()
+    val currentLang = LocalAppLanguage.current
+    val scrollState = rememberScrollState()
 
-    fun autoFillFromLocation() {
-        scope.launch {
-            val location = getDeviceLocation(context) ?: return@launch
-            val (lat, lon) = location
-            var next = inputs
-            val appLanguage = LanguagePreferences.getSelectedLanguage(context) ?: "en"
-            getCityFromLocation(context, lat, lon, appLanguage)?.let { if(next.location.isBlank()) next = next.copy(location = it) }
-            runCatching { RetrofitInstance.farmFusionApi.getCurrentWeather(lat, lon) }.getOrNull()?.body()?.data?.let { if(next.temperatureC.isBlank()) next = next.copy(temperatureC = it.temperature_c.toInt().toString()) }
-            onInputsChange(next)
+    var farmSizeInput by remember { mutableStateOf(formInputs.farmSizeAcres) }
+    var locationDisplay by remember { mutableStateOf(formInputs.location.ifBlank { LocationSnapshotStore.latestCity ?: "Detecting..." }) }
+    var rainfallDisplay by remember { mutableStateOf(formInputs.rainfallMm.ifBlank { "" }) }
+    var tempDisplay by remember {
+        mutableStateOf(
+            formInputs.temperatureC.ifBlank {
+                WeatherSnapshotStore.latestWeather?.let { "${it.temperature}.0" } ?: ""
+            }
+        )
+    }
+
+    var documentName by remember { mutableStateOf(formInputs.documentFilename) }
+    var documentBytes by remember { mutableStateOf(formInputs.documentBytes) }
+    var documentMime by remember { mutableStateOf(formInputs.documentMimeType) }
+
+    // File picker launcher for images and PDFs
+    val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri: android.net.Uri? ->
+        if (uri != null) {
+            try {
+                val contentResolver = context.contentResolver
+                val mime = contentResolver.getType(uri) ?: "application/pdf"
+                var name = "Soil_Health_Card.pdf"
+                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (nameIndex != -1) {
+                            cursor.getString(nameIndex)?.let { name = it }
+                        }
+                    }
+                }
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (bytes != null) {
+                    documentName = name
+                    documentBytes = bytes
+                    documentMime = mime
+                    onInputsChange(
+                        formInputs.copy(
+                            documentUri = uri,
+                            documentBytes = bytes,
+                            documentFilename = name,
+                            documentMimeType = mime
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                // handle error gracefully
+            }
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(stringResource(R.string.basic_details_title), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-        Surface(modifier = Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(16.dp)), shape = RoundedCornerShape(16.dp), color = Color(0xFFF9F9F9)) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Grass, null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text(stringResource(R.string.soil_type_selected), style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
-                    Text(selectedSoil.ifBlank { "Select soil in previous step" }, style = MaterialTheme.typography.titleMedium)
+    // Auto-fetch location & weather on load
+    LaunchedEffect(Unit) {
+        val location = getDeviceLocation(context)
+        val lat = location?.first ?: LocationSnapshotStore.latestLatitude ?: 26.9124
+        val lon = location?.second ?: LocationSnapshotStore.latestLongitude ?: 75.7873
+        val appLang = LanguagePreferences.getSelectedLanguage(context) ?: "en"
+
+        val city = getCityFromLocation(context, lat, lon, appLang)
+        if (!city.isNullOrBlank()) {
+            locationDisplay = city
+            LocationSnapshotStore.latestCity = city
+        } else if (!LocationSnapshotStore.latestCity.isNullOrBlank()) {
+            locationDisplay = LocationSnapshotStore.latestCity!!
+        } else {
+            locationDisplay = "Jaipur, Rajasthan"
+        }
+
+        // Live weather query
+        val weatherRes = runCatching { RetrofitInstance.farmFusionApi.getCurrentWeather(lat, lon) }.getOrNull()
+        val weatherData = weatherRes?.body()?.data
+        if (weatherData != null) {
+            tempDisplay = String.format(java.util.Locale.US, "%.1f", weatherData.temperature_c)
+            val estRainfall = when {
+                lat in 24.0..30.5 && lon in 70.0..78.5 -> 612.0  // NW / Rajasthan
+                lat in 8.0..18.0 && lon in 74.0..78.0 -> 950.0   // South
+                lat in 20.0..28.0 && lon in 80.0..89.0 -> 1150.0 // East / Gangetic
+                else -> 750.0
+            }
+            rainfallDisplay = estRainfall.toInt().toString()
+        } else if (WeatherSnapshotStore.latestWeather != null) {
+            tempDisplay = "${WeatherSnapshotStore.latestWeather!!.temperature}.0"
+            rainfallDisplay = "612"
+        } else {
+            tempDisplay = "27.4"
+            rainfallDisplay = "612"
+        }
+
+        onInputsChange(
+            formInputs.copy(
+                location = locationDisplay,
+                rainfallMm = rainfallDisplay,
+                temperatureC = tempDisplay,
+                farmSizeAcres = farmSizeInput
+            )
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        // Title & Description Header
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = "Upload Your Soil Health Card",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF1B1B1B),
+                    fontSize = 22.sp
+                )
+            )
+            Text(
+                text = "Upload your soil report to get crop recommendations based on your soil condition.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Color.Gray,
+                    lineHeight = 20.sp,
+                    fontSize = 13.5.sp
+                )
+            )
+        }
+
+        // ========================================
+        // DASHED UPLOAD CARD
+        // ========================================
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .drawBehind {
+                    val stroke = Stroke(
+                        width = 1.5.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f)
+                    )
+                    drawRoundRect(
+                        color = Color(0xFF81C784),
+                        cornerRadius = CornerRadius(20.dp.toPx(), 20.dp.toPx()),
+                        style = stroke
+                    )
+                }
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFFFAFCF9))
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Soil Card Illustration
+                Image(
+                    painter = painterResource(id = R.drawable.ill_soil_report_card),
+                    contentDescription = "Soil Report Illustration",
+                    modifier = Modifier
+                        .size(100.dp)
+                        .padding(end = 12.dp),
+                    contentScale = ContentScale.Fit
+                )
+
+                // Right Content Info & Upload Action
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Upload Soil Report",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1B1B1B),
+                            fontSize = 15.sp
+                        )
+                    )
+                    Text(
+                        text = "JPG, JPEG, PNG or PDF",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.Gray,
+                            fontSize = 12.sp
+                        )
+                    )
+                    Text(
+                        text = "Maximum file size: 10 MB",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color.Gray,
+                            fontSize = 11.5.sp
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    if (documentName == null) {
+                        // Upload Document Button
+                        OutlinedButton(
+                            onClick = {
+                                filePickerLauncher.launch(
+                                    arrayOf(
+                                        "image/jpeg",
+                                        "image/png",
+                                        "image/jpg",
+                                        "application/pdf",
+                                        "image/*"
+                                    )
+                                )
+                            },
+                            shape = RoundedCornerShape(20.dp),
+                            border = BorderStroke(1.dp, Color(0xFF1B5E20)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = Color.Transparent,
+                                contentColor = Color(0xFF1B5E20)
+                            ),
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                            modifier = Modifier.height(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.FileUpload,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = Color(0xFF1B5E20)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "UPLOAD DOCUMENT",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                            )
+                        }
+                    } else {
+                        // Picked State Badge + Change Button
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFE8F5E9))
+                                .clickable {
+                                    filePickerLauncher.launch(
+                                        arrayOf(
+                                            "image/jpeg",
+                                            "image/png",
+                                            "image/jpg",
+                                            "application/pdf",
+                                            "image/*"
+                                        )
+                                    )
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF2E7D32),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = documentName ?: "File Selected",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1B5E20),
+                                    fontSize = 11.sp
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                    }
                 }
             }
         }
-        PremiumTextField(inputs.location, { onInputsChange(inputs.copy(location = it)) }, label = stringResource(R.string.village_district_label), leadingIcon = Icons.Rounded.LocationOn)
-        PremiumTextField(inputs.farmSizeAcres, { onInputsChange(inputs.copy(farmSizeAcres = it)) }, label = stringResource(R.string.farm_size_label), leadingIcon = Icons.Rounded.SquareFoot)
-        PremiumTextField(inputs.rainfallMm, { onInputsChange(inputs.copy(rainfallMm = it)) }, label = stringResource(R.string.annual_rainfall_label), leadingIcon = Icons.Rounded.WaterDrop)
-        PremiumTextField(inputs.temperatureC, { onInputsChange(inputs.copy(temperatureC = it)) }, label = stringResource(R.string.avg_temp_label), leadingIcon = Icons.Rounded.Thermostat)
 
-        AssistChip(onClick = { autoFillFromLocation() }, label = { Text(stringResource(R.string.refresh_autofill)) }, leadingIcon = { Icon(Icons.Rounded.MyLocation, null, modifier = Modifier.size(18.dp)) })
-        Spacer(modifier = Modifier.height(16.dp))
-        PremiumButton(stringResource(R.string.continue_button), onContinue, icon = Icons.AutoMirrored.Rounded.ArrowForward, enabled = canContinue)
-        Spacer(modifier = Modifier.height(100.dp))
+        // Helper Note under card
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Description,
+                contentDescription = null,
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "You can upload a photo of your Soil Health Card or a PDF report.",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFF616161),
+                    fontSize = 12.sp
+                )
+            )
+        }
+
+        // ========================================
+        // FARM SIZE (ACRES) INPUT
+        // ========================================
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = "Farm Size (Acres)",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1B1B1B),
+                    fontSize = 16.sp
+                )
+            )
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+                shadowElevation = 0.5.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Green Farm Icon
+                    Icon(
+                        imageVector = Icons.Rounded.GridOn,
+                        contentDescription = null,
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(24.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(14.dp))
+
+                    // Farm Size Editable Input
+                    androidx.compose.foundation.text.BasicTextField(
+                        value = farmSizeInput,
+                        onValueChange = { input ->
+                            farmSizeInput = input
+                            onInputsChange(formInputs.copy(farmSizeAcres = input))
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF1B1B1B),
+                            fontSize = 15.sp
+                        ),
+                        modifier = Modifier.weight(1f),
+                        decorationBox = { innerTextField ->
+                            if (farmSizeInput.isEmpty()) {
+                                Text(
+                                    text = "Enter farm size",
+                                    style = MaterialTheme.typography.bodyLarge.copy(
+                                        color = Color(0xFF9E9E9E),
+                                        fontSize = 15.sp
+                                    )
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+
+                    // Trailing unit label
+                    Text(
+                        text = "acres",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF757575),
+                            fontSize = 14.sp
+                        )
+                    )
+                }
+            }
+        }
+
+        // ========================================
+        // AUTO-FETCHED DETAILS BANNER
+        // ========================================
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color(0xFFF1F8F1),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.AutoAwesome,
+                    contentDescription = null,
+                    tint = Color(0xFF2E7D32),
+                    modifier = Modifier.size(24.dp)
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Some details are automatically fetched",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1B5E20),
+                            fontSize = 13.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Village/District, Annual Rainfall and Avg. Temperature are detected using your location and live weather data.",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = Color(0xFF424242),
+                            fontSize = 11.5.sp,
+                            lineHeight = 16.sp
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Icon(
+                    imageVector = Icons.Rounded.Info,
+                    contentDescription = null,
+                    tint = Color(0xFF81C784),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        // ========================================
+        // 3 AUTO-FETCHED CARDS ROW
+        // ========================================
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = "Auto-fetched Details",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF1B1B1B),
+                    fontSize = 16.sp
+                )
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Card 1: Village / District
+                AutoFetchedItemCard(
+                    icon = Icons.Rounded.LocationOn,
+                    label = "Village / District",
+                    value = locationDisplay.ifBlank { "Detecting..." },
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Card 2: Annual Rainfall
+                AutoFetchedItemCard(
+                    icon = Icons.Rounded.WaterDrop,
+                    label = "Annual Rainfall",
+                    value = if (rainfallDisplay.isNotBlank()) "$rainfallDisplay mm" else "Calculating...",
+                    modifier = Modifier.weight(1f)
+                )
+
+                // Card 3: Avg. Temperature
+                AutoFetchedItemCard(
+                    icon = Icons.Rounded.Thermostat,
+                    label = "Avg. Temperature",
+                    value = if (tempDisplay.isNotBlank()) "$tempDisplay °C" else "Fetching...",
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ========================================
+        // ANALYZE & GET CROP ADVICE BUTTON
+        // ========================================
+        Button(
+            onClick = {
+                onInputsChange(
+                    formInputs.copy(
+                        location = locationDisplay,
+                        rainfallMm = rainfallDisplay,
+                        temperatureC = tempDisplay,
+                        farmSizeAcres = farmSizeInput,
+                        documentBytes = documentBytes,
+                        documentFilename = documentName,
+                        documentMimeType = documentMime
+                    )
+                )
+                onAnalyze()
+            },
+            shape = RoundedCornerShape(28.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF1B5E20),
+                contentColor = Color.White
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "ANALYZE & GET CROP ADVICE",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(40.dp))
     }
 }
 
 @Composable
-fun PhotoInputStep(onComplete: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-        Surface(modifier = Modifier.size(200.dp).shadow(4.dp, RoundedCornerShape(32.dp)), shape = RoundedCornerShape(32.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFF0F0F0))) {
-            Box(contentAlignment = Alignment.Center) { Icon(Icons.Rounded.AddAPhoto, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)) }
+fun AutoFetchedItemCard(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFEBEBEB)),
+        shadowElevation = 0.5.dp,
+        modifier = modifier.height(130.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 10.dp, horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Icon in Light-Green Circle
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFE8F5E9),
+                modifier = Modifier.size(34.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = Color(0xFF2E7D32),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            // Title & Value
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Color(0xFF757575),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 10.sp
+                    ),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Color(0xFF1B1B1B),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.5.sp
+                    ),
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+            }
+
+            // "AUTO" Badge Pill
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xFFE8F5E9)
+            ) {
+                Text(
+                    text = "AUTO",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Color(0xFF2E7D32),
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.5.sp
+                    ),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
         }
-        Spacer(Modifier.height(32.dp))
-        Text(stringResource(R.string.scan_soil_report), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-        Spacer(Modifier.height(40.dp))
-        PremiumButton(stringResource(R.string.take_photo), onComplete, icon = Icons.Rounded.Camera)
     }
 }
 
@@ -653,6 +1237,7 @@ fun AutoAnalysisStep(
     isAdvancedMode: Boolean
 ) {
     val context = LocalContext.current
+    val currentLang = LocalAppLanguage.current
     val isLoading by viewModel.isLoading
     val isNoSoilLoading by viewModel.isNoSoilReportLoading
     val error by viewModel.error
@@ -677,16 +1262,33 @@ fun AutoAnalysisStep(
             )
         } else {
             // Mode A: "I Have a Soil Report" flow
-            viewModel.fetchRecommendations(
-                location = resolvedLocation,
-                soilType = soilType,
-                rainfallMm = formInputs.rainfallMm.toDoubleOrNull() ?: -1.0,
-                temperatureC = formInputs.temperatureC.toDoubleOrNull() ?: 25.0,
-                farmSizeAcres = formInputs.farmSizeAcres.toDoubleOrNull() ?: 1.0,
-                latitude = lat,
-                longitude = lon,
-                preferredLanguage = lang
-            )
+            val docBytes = formInputs.documentBytes
+            if (docBytes != null && docBytes.isNotEmpty()) {
+                viewModel.fetchRecommendationsFromDocument(
+                    documentBytes = docBytes,
+                    filename = formInputs.documentFilename ?: "soil_report.pdf",
+                    mimeType = formInputs.documentMimeType ?: "application/pdf",
+                    farmSizeAcres = formInputs.farmSizeAcres.toDoubleOrNull() ?: 1.0,
+                    location = resolvedLocation,
+                    latitude = lat,
+                    longitude = lon,
+                    soilType = soilType,
+                    rainfallMm = formInputs.rainfallMm.toDoubleOrNull() ?: 612.0,
+                    temperatureC = formInputs.temperatureC.toDoubleOrNull() ?: 27.4,
+                    preferredLanguage = lang
+                )
+            } else {
+                viewModel.fetchRecommendations(
+                    location = resolvedLocation,
+                    soilType = soilType,
+                    rainfallMm = formInputs.rainfallMm.toDoubleOrNull() ?: 612.0,
+                    temperatureC = formInputs.temperatureC.toDoubleOrNull() ?: 27.4,
+                    farmSizeAcres = formInputs.farmSizeAcres.toDoubleOrNull() ?: 1.0,
+                    latitude = lat,
+                    longitude = lon,
+                    preferredLanguage = lang
+                )
+            }
         }
     }
 
@@ -705,13 +1307,13 @@ fun AutoAnalysisStep(
             CircularProgressIndicator(modifier = Modifier.size(64.dp), color = Color(0xFF1B5E20))
             Spacer(Modifier.height(24.dp))
             Text(
-                "AI is analyzing your soil & weather...",
+                text = AppLocalizer.localizeCropAdvicePhrase("ai analyzing", currentLang),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)),
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                "Fetching live weather and soil characteristics automatically",
+                text = AppLocalizer.localizeCropAdvicePhrase("fetching weather characteristics", currentLang),
                 style = MaterialTheme.typography.bodyMedium.copy(color = Color.Gray),
                 textAlign = TextAlign.Center
             )
@@ -722,34 +1324,58 @@ fun AutoAnalysisStep(
 @Composable
 fun RecommendationResultStep(soil: SoilTypeInfo?, recommendations: List<CropRecommendationItem>, aiInsights: String, onReset: () -> Unit, onOpenAgriStore: () -> Unit) {
     val scrollState = rememberScrollState()
+    val currentLang = LocalAppLanguage.current
+
     Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Surface(modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(24.dp)), shape = RoundedCornerShape(24.dp), color = Color.White) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(12.dp))
-                    Text("AI Best Recommendations", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+                    Text(
+                        text = AppLocalizer.localizeCropAdvicePhrase("ai best recommendations", currentLang),
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
                 }
-                Text("Based on your ${soil?.name ?: "Field"} and location", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
+                Text(
+                    text = AppLocalizer.localizeCropAdvicePhrase("based on your soil", currentLang),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
             }
         }
         if (aiInsights.isNotEmpty()) GlassPanel { Row { Text("💡", fontSize = 24.sp); Spacer(Modifier.width(12.dp)); Text(aiInsights, style = MaterialTheme.typography.bodyLarge) } }
         recommendations.forEach { CropResultCard(it) }
-        PremiumButton("Shop seeds & inputs", onOpenAgriStore, icon = Icons.Rounded.ShoppingBag)
-        PremiumOutlinedButton("START OVER", onReset, icon = Icons.Rounded.Refresh)
+        PremiumButton(
+            text = AppLocalizer.localizeCropAdvicePhrase("shop seeds", currentLang),
+            onClick = onOpenAgriStore,
+            icon = Icons.Rounded.ShoppingBag
+        )
+        PremiumOutlinedButton(
+            text = AppLocalizer.localizeCropAdvicePhrase("start over", currentLang),
+            onClick = onReset,
+            icon = Icons.Rounded.Refresh
+        )
         Spacer(Modifier.height(100.dp))
     }
 }
 
 @Composable
 fun CropResultCard(crop: CropRecommendationItem) {
+    val currentLang = LocalAppLanguage.current
+    val localizedCropName = AppLocalizer.localizeCrop(crop.crop_name, currentLang)
+
     Surface(modifier = Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(24.dp)), shape = RoundedCornerShape(24.dp), color = Color.White, border = BorderStroke(1.dp, Color(0xFFF0F0F0))) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text(crop.crop_name, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B)))
+                    Text(localizedCropName, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B)))
                     Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
-                        Text("Match: ${(crop.confidence_score * 100).toInt()}%", modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary))
+                        Text(
+                            text = "${AppLocalizer.localizeCropAdvicePhrase("match", currentLang)}: ${(crop.confidence_score * 100).toInt()}%",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        )
                     }
                 }
                 Surface(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), shape = CircleShape, modifier = Modifier.size(52.dp)) {
@@ -758,11 +1384,26 @@ fun CropResultCard(crop: CropRecommendationItem) {
             }
             HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), thickness = 0.5.dp, color = Color(0xFFF5F5F5))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                ResultDetailItem(Icons.Rounded.TrendingUp, "Profit", "High", Modifier.weight(1f))
+                ResultDetailItem(
+                    icon = Icons.Rounded.TrendingUp,
+                    label = AppLocalizer.localizeCropAdvicePhrase("profit", currentLang),
+                    value = AppLocalizer.localizeSeverity("High", currentLang),
+                    modifier = Modifier.weight(1f)
+                )
                 Box(modifier = Modifier.height(32.dp).width(1.dp).background(Color(0xFFF0F0F0)))
-                ResultDetailItem(Icons.Rounded.Schedule, "Duration", "${crop.growing_duration_months} Mon", Modifier.weight(1f))
+                ResultDetailItem(
+                    icon = Icons.Rounded.Schedule,
+                    label = AppLocalizer.localizeCropAdvicePhrase("duration", currentLang),
+                    value = AppLocalizer.localizeDuration(crop.growing_duration_months, currentLang),
+                    modifier = Modifier.weight(1f)
+                )
                 Box(modifier = Modifier.height(32.dp).width(1.dp).background(Color(0xFFF0F0F0)))
-                ResultDetailItem(Icons.Rounded.WaterDrop, "Water", crop.water_requirement, Modifier.weight(1f))
+                ResultDetailItem(
+                    icon = Icons.Rounded.WaterDrop,
+                    label = AppLocalizer.localizeCropAdvicePhrase("water", currentLang),
+                    value = AppLocalizer.localizeSeverity(crop.water_requirement, currentLang),
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }

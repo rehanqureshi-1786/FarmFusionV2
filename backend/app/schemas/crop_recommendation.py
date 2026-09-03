@@ -34,6 +34,10 @@ class NoSoilReportRequest(BaseModel):
         default=None,
         description="Alias for farmer_selected_soil_type for compatibility",
     )
+    language: Optional[str] = Field(
+        default=None,
+        description="Language code for response (hi, en, gu, mr, pa, bn, ta, te, kn, ml, or, as, ur, mai)",
+    )
 
 
 class ProvenanceField(BaseModel):

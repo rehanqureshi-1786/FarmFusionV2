@@ -61,6 +61,7 @@ data class LabourJob(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LabourServicesScreen(navController: NavController) {
+    val currentLang = LocalAppLanguage.current
     var showHiringForm by remember { mutableStateOf(false) }
     var showGetWork by remember { mutableStateOf(false) }
 
@@ -80,7 +81,7 @@ fun LabourServicesScreen(navController: NavController) {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        "Labour Service",
+                        com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("labour service", currentLang),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         color = LabourGreen
@@ -116,14 +117,16 @@ fun LabourServicesScreen(navController: NavController) {
         ) {
             when {
                 showHiringForm -> LabourHiringForm(
+                    currentLang = currentLang,
                     onJobPosted = { newJob ->
                         jobsList.add(0, newJob)
                         showHiringForm = false
                         showGetWork = true // Show the list after posting
                     }
                 )
-                showGetWork -> GetWorkScreen(jobsList)
+                showGetWork -> GetWorkScreen(jobsList, currentLang)
                 else -> LabourSelectionScreen(
+                    currentLang = currentLang,
                     onHire = { showHiringForm = true },
                     onGetWork = { showGetWork = true }
                 )
@@ -136,14 +139,14 @@ fun LabourServicesScreen(navController: NavController) {
 // Landing screen
 // ---------------------------------------------------------------------------
 @Composable
-fun LabourSelectionScreen(onHire: () -> Unit, onGetWork: () -> Unit) {
+fun LabourSelectionScreen(currentLang: String = "en", onHire: () -> Unit, onGetWork: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .padding(bottom = 24.dp)
     ) {
-        HeroSection()
+        HeroSection(currentLang)
 
         Spacer(Modifier.height(28.dp))
 
@@ -155,40 +158,40 @@ fun LabourSelectionScreen(onHire: () -> Unit, onGetWork: () -> Unit) {
         ) {
             ServiceOptionCard(
                 modifier = Modifier.weight(1f),
-                title = "Hire Labour",
-                description = "Find skilled and reliable workers for your farm.",
+                title = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("hire labour", currentLang),
+                description = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("hire labour desc", currentLang),
                 icon = Icons.Rounded.PersonAdd,
                 accentColor = LabourGreenDark,
                 cardBackground = GreenCardBg,
                 cardBorder = GreenCardBorder,
                 pillBackground = GreenPillBg,
                 pillIcon = Icons.Rounded.Eco,
-                pillText = "FOR FARMERS",
+                pillText = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("for farmers", currentLang),
                 onClick = onHire
             )
             ServiceOptionCard(
                 modifier = Modifier.weight(1f),
-                title = "Get Work",
-                description = "Find nearby job opportunities and earn daily.",
+                title = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("get work", currentLang),
+                description = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("get work desc", currentLang),
                 icon = Icons.Rounded.Search,
                 accentColor = LabourBlue,
                 cardBackground = BlueCardBg,
                 cardBorder = BlueCardBorder,
                 pillBackground = BluePillBg,
                 pillIcon = Icons.Rounded.Groups,
-                pillText = "FOR WORKERS",
+                pillText = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("for workers", currentLang),
                 onClick = onGetWork
             )
         }
 
         Spacer(Modifier.height(20.dp))
 
-        TrustBadgesSection(modifier = Modifier.padding(horizontal = 20.dp))
+        TrustBadgesSection(currentLang, modifier = Modifier.padding(horizontal = 20.dp))
     }
 }
 
 @Composable
-private fun HeroSection() {
+private fun HeroSection(currentLang: String = "en") {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -198,14 +201,14 @@ private fun HeroSection() {
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Find Trusted Help,",
+                text = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("find trusted help", currentLang),
                 fontSize = 26.sp,
                 lineHeight = 32.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = Color(0xFF1B1B1B)
             )
             Text(
-                text = "Get Work Done.",
+                text = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("get work done", currentLang),
                 fontSize = 26.sp,
                 lineHeight = 32.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -232,7 +235,7 @@ private fun HeroSection() {
             Spacer(Modifier.height(10.dp))
 
             Text(
-                text = "Hire skilled labour or find daily work quickly and easily.",
+                text = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("labour hero sub", currentLang),
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
                 color = LabourSubtitleGray
@@ -364,7 +367,7 @@ private fun ServiceOptionCard(
 }
 
 @Composable
-private fun TrustBadgesSection(modifier: Modifier = Modifier) {
+private fun TrustBadgesSection(currentLang: String = "en", modifier: Modifier = Modifier) {
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -381,22 +384,22 @@ private fun TrustBadgesSection(modifier: Modifier = Modifier) {
                 modifier = Modifier.weight(1f),
                 icon = Icons.Rounded.VerifiedUser,
                 iconColor = LabourGreen,
-                title = "Verified Workers",
-                description = "Safe & secure connections"
+                title = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("verified workers", currentLang),
+                description = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("safe secure connections", currentLang)
             )
             TrustBadgeItem(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Rounded.LocationOn,
                 iconColor = LabourOrange,
-                title = "Local Opportunities",
-                description = "Jobs and workers near you"
+                title = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("local opportunities", currentLang),
+                description = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("jobs and workers near you", currentLang)
             )
             TrustBadgeItem(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Rounded.Lock,
                 iconColor = LabourBlue,
-                title = "Secure Payments",
-                description = "Trusted and protected"
+                title = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("secure payments", currentLang),
+                description = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("trusted and protected", currentLang)
             )
         }
     }
@@ -439,33 +442,33 @@ private fun TrustBadgeItem(
 // Hiring form
 // ---------------------------------------------------------------------------
 @Composable
-fun LabourHiringForm(onJobPosted: (LabourJob) -> Unit) {
+fun LabourHiringForm(currentLang: String = "en", onJobPosted: (LabourJob) -> Unit) {
     var details by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
     var count by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("Hire Workers", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-        Text("मजदूरों के लिए जानकारी भरें", color = LabourGreen)
+        Text(com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("hire workers", currentLang), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+        Text(com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("fill details for workers", currentLang), color = LabourGreen)
 
         OutlinedTextField(
             value = details, onValueChange = { details = it },
-            label = { Text("What work? (e.g. Rice Sowing)") },
+            label = { Text(com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("what work", currentLang)) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp)
         )
 
         OutlinedTextField(
             value = location, onValueChange = { location = it },
-            label = { Text("Farm Location") },
+            label = { Text(com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("farm location", currentLang)) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp)
         )
 
         OutlinedTextField(
             value = count, onValueChange = { count = it },
-            label = { Text("How many workers needed?") },
+            label = { Text(com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("how many workers needed", currentLang)) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -473,7 +476,7 @@ fun LabourHiringForm(onJobPosted: (LabourJob) -> Unit) {
 
         OutlinedTextField(
             value = price, onValueChange = { price = it },
-            label = { Text("Pay per day (₹)") },
+            label = { Text(com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("pay per day", currentLang)) },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -491,7 +494,7 @@ fun LabourHiringForm(onJobPosted: (LabourJob) -> Unit) {
             shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.buttonColors(containerColor = LabourGreenDark)
         ) {
-            Text("POST JOB", fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color.White)
+            Text(com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("post job", currentLang), fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color.White)
         }
     }
 }
@@ -500,21 +503,19 @@ fun LabourHiringForm(onJobPosted: (LabourJob) -> Unit) {
 // Work List Design
 // ---------------------------------------------------------------------------
 @Composable
-fun GetWorkScreen(jobs: List<LabourJob>) {
+fun GetWorkScreen(jobs: List<LabourJob>, currentLang: String = "en") {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
-            text = "Available Work Near You",
+            text = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("available work near you", currentLang),
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF1B1B1B)
             ),
-            // FIXED: Fully explicit arguments
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp)
         )
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            // FIXED: Fully explicit arguments
             modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp)
         ) {
             Box(
@@ -532,30 +533,51 @@ fun GetWorkScreen(jobs: List<LabourJob>) {
         }
 
         Text(
-            text = "आपके आस-पास उपलब्ध काम",
+            text = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("available work near you", currentLang),
             color = LabourGreen,
             fontWeight = FontWeight.Medium,
             fontSize = 14.sp,
-            modifier = Modifier.padding(horizontal = 20.dp) // Only horizontal is fine!
+            modifier = Modifier.padding(horizontal = 20.dp)
         )
 
         Spacer(Modifier.height(20.dp))
 
         LazyColumn(
-            // FIXED: Fully explicit arguments
             contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize()
         ) {
             items(jobs) { job ->
-                JobCard(job)
+                JobCard(job, currentLang)
             }
         }
     }
 }
 
 @Composable
-fun JobCard(job: LabourJob) {
+fun JobCard(job: LabourJob, currentLang: String = "en") {
+    val localizedTitle = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase(job.title, currentLang)
+    val localizedLocation = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase(job.location, currentLang)
+    val localizedDate = if (job.date.equals("Just now", ignoreCase = true)) {
+        com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("just now", currentLang)
+    } else {
+        com.example.farmfusionapp.utils.AppLocalizer.localizeDay(job.date, currentLang)
+    }
+
+    val perDayText = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("per day", currentLang)
+    val localizedPrice = if (job.price.contains("/day")) {
+        job.price.replace("/day", perDayText)
+    } else {
+        job.price
+    }
+
+    val neededTextTemplate = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("needed workers", currentLang)
+    val neededText = if (neededTextTemplate.contains("%s")) {
+        neededTextTemplate.replace("%s", job.workersNeeded)
+    } else {
+        "Needed: ${job.workersNeeded} Workers"
+    }
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -580,19 +602,19 @@ fun JobCard(job: LabourJob) {
                 Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = job.title,
+                        text = localizedTitle,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF1B1B1B)
                         )
                     )
                     Text(
-                        text = job.location,
+                        text = localizedLocation,
                         style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
                     )
                 }
                 Text(
-                    text = job.price,
+                    text = localizedPrice,
                     fontWeight = FontWeight.Black,
                     color = LabourGreenDark,
                     fontSize = 17.sp
@@ -619,7 +641,7 @@ fun JobCard(job: LabourJob) {
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "Needed: ${job.workersNeeded} Workers",
+                        text = neededText,
                         style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF444444))
                     )
                 }
@@ -632,7 +654,7 @@ fun JobCard(job: LabourJob) {
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = job.date,
+                        text = localizedDate,
                         style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF444444))
                     )
                 }
@@ -657,7 +679,7 @@ fun JobCard(job: LabourJob) {
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Contact Farmer",
+                    text = com.example.farmfusionapp.utils.AppLocalizer.localizeLabourPhrase("contact farmer", currentLang),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp
                 )

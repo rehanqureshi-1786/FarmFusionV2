@@ -47,6 +47,7 @@ import coil.request.ImageRequest
 import com.example.farmfusionapp.data.model.*
 import com.example.farmfusionapp.network.RetrofitInstance
 import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
+import com.example.farmfusionapp.utils.AppLocalizer
 import com.example.farmfusionapp.utils.commodityHeroImageUrl
 import com.example.farmfusionapp.utils.LocationSnapshotStore
 import com.example.farmfusionapp.viewmodel.MarketViewModel
@@ -1040,6 +1041,12 @@ private fun MandiIntelligenceCard(
 
 @Composable
 fun PriceCard(item: MarketPrice, modifier: Modifier = Modifier) {
+    val currentLang = LocalAppLanguage.current
+    val strings = LocalStrings.current
+    val localizedCrop = AppLocalizer.localizeCrop(item.commodity, currentLang)
+    val localizedMarket = AppLocalizer.localizeCity(item.market, currentLang)
+    val localizedDistrict = AppLocalizer.localizeCity(item.district, currentLang)
+
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
@@ -1078,14 +1085,14 @@ fun PriceCard(item: MarketPrice, modifier: Modifier = Modifier) {
             )
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(item.commodity, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A)))
-                Text("${item.market}, ${item.district}", style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray))
-                Text("Range: ₹${item.min_price.toInt()} - ₹${item.max_price.toInt()}", style = MaterialTheme.typography.labelSmall.copy(color = Color.DarkGray))
+                Text(localizedCrop.ifBlank { item.commodity }, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1A1A1A)))
+                Text("$localizedMarket, $localizedDistrict", style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray))
+                Text("₹${item.min_price.toInt()} - ₹${item.max_price.toInt()}", style = MaterialTheme.typography.labelSmall.copy(color = Color.DarkGray))
             }
 
             Column(horizontalAlignment = Alignment.End) {
                 Text("₹${item.modal_price.toInt()}", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black, color = Color(0xFF1B4332)))
-                Text("per Quintal", style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
+                Text(strings.mandi.perQuintal, style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray, fontSize = 10.sp))
             }
         }
     }

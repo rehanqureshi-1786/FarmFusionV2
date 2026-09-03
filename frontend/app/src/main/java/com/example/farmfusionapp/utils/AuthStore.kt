@@ -1,6 +1,8 @@
 package com.example.farmfusionapp.utils
 
 import android.content.Context
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 
 /**
  * AuthStore - Manages persistent authentication state & global language settings using SharedPreferences
@@ -14,6 +16,13 @@ object AuthStore {
 
     @Volatile
     var activeLanguage: String = "en"
+        set(value) {
+            field = value
+            _activeLanguageState.value = value
+        }
+
+    private val _activeLanguageState = mutableStateOf("en")
+    val activeLanguageState: State<String> = _activeLanguageState
 
     /**
      * Save login state and token

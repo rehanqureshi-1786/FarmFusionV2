@@ -34,6 +34,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.farmfusionapp.R
 import com.example.farmfusionapp.data.model.*
+import com.example.farmfusionapp.utils.AppLocalizer
 import com.example.farmfusionapp.viewmodel.AnimalDetectionViewModel
 import kotlinx.coroutines.delay
 
@@ -50,16 +51,16 @@ private val NeutralDark = Color(0xFF1A1A1A)
 private val NeutralGray = Color(0xFF757575)
 private val SoftBg = Color(0xFFF7FBF7)
 
-// Zone mappings for user-friendly UI display
-private val SENSOR_ZONE_MAP = mapOf(
-    "IR_1" to Pair("North Boundary", "North Perimeter Beam"),
-    "IR_2" to Pair("East Boundary", "East Perimeter Beam"),
-    "IR_3" to Pair("South Boundary", "South Perimeter Beam"),
-    "IR_4" to Pair("West Boundary", "West Perimeter Beam"),
-    "IR_5" to Pair("Orchard Edge", "Fruit Tree Boundary"),
-    "IR_6" to Pair("Gate Line", "Main Entrance Tripwire"),
-    "PIR_1" to Pair("Main Crop Zone", "Crop Field Motion"),
-    "PIR_2" to Pair("Grain Storage", "Storage Shed Motion")
+// Zone mapping keys for 14-language localization lookup
+private val SENSOR_ZONE_KEYS = mapOf(
+    "IR_1" to Pair("north boundary", "north perimeter beam"),
+    "IR_2" to Pair("east boundary", "east perimeter beam"),
+    "IR_3" to Pair("south boundary", "south perimeter beam"),
+    "IR_4" to Pair("west boundary", "west perimeter beam"),
+    "IR_5" to Pair("orchard edge", "fruit tree boundary"),
+    "IR_6" to Pair("gate line", "main entrance tripwire"),
+    "PIR_1" to Pair("main crop zone", "crop field motion"),
+    "PIR_2" to Pair("grain storage", "storage shed motion")
 )
 
 @Composable
@@ -67,6 +68,7 @@ fun AnimalDetectionScreen(
     navController: NavController,
     vm: AnimalDetectionViewModel = viewModel()
 ) {
+    val currentLang = LocalAppLanguage.current
     val scrollState = rememberScrollState()
     val latestState by vm.latestStatusState
     val historyState by vm.historyState
@@ -134,6 +136,7 @@ fun AnimalDetectionScreen(
                 TopHeaderSection(
                     navController = navController,
                     latestState = latestState,
+                    currentLang = currentLang,
                     onToggleAutoRefresh = { vm.toggleAutoRefresh(!isAutoRefresh) }
                 )
 
@@ -143,6 +146,7 @@ fun AnimalDetectionScreen(
                 HeroSecurityCard(
                     latestState = latestState,
                     isRepellentActive = isRepellentActive,
+                    currentLang = currentLang,
                     onToggleRepellent = { vm.toggleRepellent(!isRepellentActive) },
                     onSendHeartbeat = { vm.sendNodeHeartbeat() },
                     onRetry = { vm.refreshAll() }
@@ -153,9 +157,10 @@ fun AnimalDetectionScreen(
                 // 3. Quick Simulation Bar (Live IoT Testing Controls)
                 QuickSimulationBar(
                     isSimulating = isSimulating,
+                    currentLang = currentLang,
                     onTriggerTest = { sensor, type -> vm.triggerSensorSimulation(sensor, type, "detected") },
                     onClearAll = {
-                        SENSOR_ZONE_MAP.keys.forEach { sName ->
+                        SENSOR_ZONE_KEYS.keys.forEach { sName ->
                             val sType = if (sName.startsWith("PIR")) "PIR" else "IR"
                             vm.triggerSensorSimulation(sName, sType, "cleared")
                         }
@@ -169,6 +174,7 @@ fun AnimalDetectionScreen(
                 PerimeterSensorMatrixSection(
                     latestState = latestState,
                     isSimulating = isSimulating,
+                    currentLang = currentLang,
                     onTriggerSensor = { sensor, type, currentStatus ->
                         val nextStatus = if (currentStatus == "detected") "cleared" else "detected"
                         vm.triggerSensorSimulation(sensor, type, nextStatus)
@@ -180,6 +186,7 @@ fun AnimalDetectionScreen(
                 // 5. Smart Deterrent & Audio-Strobe Defense Section
                 SmartDeterrentControlCard(
                     isRepellentActive = isRepellentActive,
+                    currentLang = currentLang,
                     onToggleRepellent = { vm.toggleRepellent(!isRepellentActive) }
                 )
 
@@ -189,6 +196,7 @@ fun AnimalDetectionScreen(
                 IntrusionHistorySection(
                     historyState = historyState,
                     selectedFilter = selectedFilter,
+                    currentLang = currentLang,
                     onSelectFilter = { vm.setFilter(it) },
                     onRefresh = { vm.fetchHistory() }
                 )
@@ -196,7 +204,7 @@ fun AnimalDetectionScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // 7. How It Works Timeline (Preserved with Sensor Illustration)
-                HowItWorksSection()
+                HowItWorksSection(currentLang = currentLang)
 
                 // Bottom Buffer for Navigation Bar
                 Spacer(modifier = Modifier.height(110.dp))
@@ -213,8 +221,10 @@ fun AnimalDetectionScreen(
 private fun TopHeaderSection(
     navController: NavController,
     latestState: AnimalDetectionViewModel.LatestStatusState,
+    currentLang: String,
     onToggleAutoRefresh: () -> Unit
 ) {
+    val strings = LocalStrings.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -247,7 +257,7 @@ private fun TopHeaderSection(
 
             // Screen Title
             Text(
-                text = "Animal Detection",
+                text = strings.dashboard.animalIntrusion,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
                 color = NeutralDark
@@ -277,7 +287,7 @@ private fun TopHeaderSection(
                     )
                     Spacer(modifier = Modifier.width(5.dp))
                     Text(
-                        text = if (isOnline) "Online" else "Offline",
+                        text = if (isOnline) AppLocalizer.localizeAnimalDetectionPhrase("online", currentLang) else AppLocalizer.localizeAnimalDetectionPhrase("offline", currentLang),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isOnline) Color(0xFF2E7D32) else Color(0xFFD32F2F)
@@ -291,19 +301,19 @@ private fun TopHeaderSection(
         // Headline & Subtitle
         Column(modifier = Modifier.padding(horizontal = 8.dp)) {
             Text(
-                text = "Protect Your Harvest,",
+                text = strings.animalDetection.animalDetection,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 color = NeutralDark
             )
             Text(
-                text = "Smart Wildlife Defense",
+                text = strings.animalDetection.liveCameraFeed,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = FarmGreenPrimary
             )
             Text(
-                text = "8-Node IR tripwire & PIR thermal intrusion network active across your farm perimeter.",
+                text = AppLocalizer.localizeAnimalDetectionPhrase("animal alert header desc", currentLang),
                 fontSize = 13.sp,
                 color = Color.DarkGray,
                 modifier = Modifier.padding(top = 4.dp),
@@ -321,6 +331,7 @@ private fun TopHeaderSection(
 private fun HeroSecurityCard(
     latestState: AnimalDetectionViewModel.LatestStatusState,
     isRepellentActive: Boolean,
+    currentLang: String,
     onToggleRepellent: () -> Unit,
     onSendHeartbeat: () -> Unit,
     onRetry: () -> Unit
@@ -344,7 +355,7 @@ private fun HeroSecurityCard(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         CircularProgressIndicator(color = FarmGreenPrimary, strokeWidth = 3.dp)
                         Spacer(modifier = Modifier.height(12.dp))
-                        Text("Connecting to IoT Gateway...", fontSize = 13.sp, color = NeutralGray)
+                        Text(AppLocalizer.localizeAnimalDetectionPhrase("connecting to iot gateway", currentLang), fontSize = 13.sp, color = NeutralGray)
                     }
                 }
             }
@@ -364,13 +375,13 @@ private fun HeroSecurityCard(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "IoT Telemetry Gateway Offline",
+                        text = AppLocalizer.localizeAnimalDetectionPhrase("iot telemetry gateway offline", currentLang),
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
                         color = NeutralDark
                     )
                     Text(
-                        text = "Backend connected. Tap below to send a simulated node heartbeat.",
+                        text = AppLocalizer.localizeAnimalDetectionPhrase("backend connected tap below", currentLang),
                         fontSize = 12.sp,
                         color = NeutralGray,
                         textAlign = TextAlign.Center,
@@ -384,13 +395,13 @@ private fun HeroSecurityCard(
                         ) {
                             Icon(Icons.Rounded.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Wake Node (Heartbeat)", fontSize = 13.sp)
+                            Text(AppLocalizer.localizeAnimalDetectionPhrase("wake node heartbeat", currentLang), fontSize = 13.sp)
                         }
                         OutlinedButton(
                             onClick = onRetry,
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Retry", fontSize = 13.sp, color = FarmGreenPrimary)
+                            Text(AppLocalizer.localizeAnimalDetectionPhrase("retry", currentLang), fontSize = 13.sp, color = FarmGreenPrimary)
                         }
                     }
                 }
@@ -464,9 +475,9 @@ private fun HeroSecurityCard(
                             Column {
                                 Text(
                                     text = when {
-                                        isDetected -> "INTRUSION DETECTED"
-                                        isOffline -> "NODE OFFLINE"
-                                        else -> "PERIMETER SECURE"
+                                        isDetected -> AppLocalizer.localizeAnimalDetectionPhrase("intrusion detected", currentLang)
+                                        isOffline -> AppLocalizer.localizeAnimalDetectionPhrase("node offline", currentLang)
+                                        else -> AppLocalizer.localizeAnimalDetectionPhrase("perimeter secure", currentLang)
                                     },
                                     fontSize = 17.sp,
                                     fontWeight = FontWeight.ExtraBold,
@@ -474,9 +485,18 @@ private fun HeroSecurityCard(
                                 )
                                 Text(
                                     text = when {
-                                        isDetected -> "Alert in: ${data.detected_sensors.joinToString(", ")}"
-                                        isOffline -> "Waiting for ESP32 keep-alive (12s)"
-                                        else -> "All 8 sensors active & clear"
+                                        isDetected -> {
+                                            val sensorStr = data.detected_sensors.joinToString(", ") { sKey ->
+                                                val zonePair = SENSOR_ZONE_KEYS[sKey]
+                                                if (zonePair != null) {
+                                                    "$sKey (${AppLocalizer.localizeAnimalDetectionPhrase(zonePair.first, currentLang)})"
+                                                } else sKey
+                                            }
+                                            val alertTemplate = AppLocalizer.localizeAnimalDetectionPhrase("alert in sensors", currentLang)
+                                            if (alertTemplate.contains("%s")) alertTemplate.replace("%s", sensorStr) else "$alertTemplate $sensorStr"
+                                        }
+                                        isOffline -> AppLocalizer.localizeAnimalDetectionPhrase("waiting for esp32 keep alive", currentLang)
+                                        else -> AppLocalizer.localizeAnimalDetectionPhrase("all 8 sensors active clear", currentLang)
                                     },
                                     fontSize = 12.sp,
                                     color = if (isDetected) AlertCrimson else Color.DarkGray,
@@ -515,19 +535,19 @@ private fun HeroSecurityCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         StatPillItem(
-                            label = "Active Sensors",
+                            label = AppLocalizer.localizeAnimalDetectionPhrase("active sensors", currentLang),
                             value = "${data.sensors.values.count { it.health == "online" }}/8",
                             color = FarmGreenPrimary
                         )
                         Box(modifier = Modifier.height(26.dp).width(1.dp).background(Color(0xFFE0E0E0)))
                         StatPillItem(
-                            label = "Intrusions",
+                            label = AppLocalizer.localizeAnimalDetectionPhrase("intrusions", currentLang),
                             value = "${data.detected_sensors.size}",
                             color = if (data.detected_sensors.isNotEmpty()) AlertCrimson else NeutralDark
                         )
                         Box(modifier = Modifier.height(26.dp).width(1.dp).background(Color(0xFFE0E0E0)))
                         StatPillItem(
-                            label = "Offline",
+                            label = AppLocalizer.localizeAnimalDetectionPhrase("offline", currentLang),
                             value = "${data.offline_sensors.size}",
                             color = if (data.offline_sensors.isNotEmpty()) WarningAmber else NeutralDark
                         )
@@ -554,7 +574,7 @@ private fun HeroSecurityCard(
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Text(
-                                    text = if (isRepellentActive) "Stop Repellent" else "Sound Alarm",
+                                    text = if (isRepellentActive) AppLocalizer.localizeAnimalDetectionPhrase("stop repellent", currentLang) else AppLocalizer.localizeAnimalDetectionPhrase("sound alarm", currentLang),
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -570,7 +590,7 @@ private fun HeroSecurityCard(
                         ) {
                             Icon(Icons.Rounded.CellTower, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Send ESP32 Node Heartbeat (Ping)", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text(AppLocalizer.localizeAnimalDetectionPhrase("send esp32 node heartbeat", currentLang), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -601,6 +621,7 @@ private fun StatPillItem(label: String, value: String, color: Color) {
 @Composable
 private fun QuickSimulationBar(
     isSimulating: Boolean,
+    currentLang: String,
     onTriggerTest: (String, String) -> Unit,
     onClearAll: () -> Unit,
     onSendHeartbeat: () -> Unit
@@ -628,7 +649,7 @@ private fun QuickSimulationBar(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Live IoT Simulation & Testing",
+                        text = AppLocalizer.localizeAnimalDetectionPhrase("live iot simulation testing", currentLang),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = NeutralDark
@@ -641,7 +662,7 @@ private fun QuickSimulationBar(
 
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                text = "Simulate real-time hardware telemetry and tripwire triggers directly against the backend IoT server.",
+                text = AppLocalizer.localizeAnimalDetectionPhrase("live iot sim desc", currentLang),
                 fontSize = 12.sp,
                 color = NeutralGray,
                 lineHeight = 16.sp
@@ -658,25 +679,25 @@ private fun QuickSimulationBar(
             ) {
                 ActionTestChip(
                     icon = Icons.Rounded.Warning,
-                    label = "Trigger IR_1 Breach",
+                    label = AppLocalizer.localizeAnimalDetectionPhrase("trigger ir1 breach", currentLang),
                     color = AlertCrimson,
                     onClick = { onTriggerTest("IR_1", "IR") }
                 )
                 ActionTestChip(
                     icon = Icons.Rounded.DirectionsRun,
-                    label = "Trigger PIR_1 Motion",
+                    label = AppLocalizer.localizeAnimalDetectionPhrase("trigger pir1 motion", currentLang),
                     color = WarningAmber,
                     onClick = { onTriggerTest("PIR_1", "PIR") }
                 )
                 ActionTestChip(
                     icon = Icons.Rounded.CellTower,
-                    label = "Send Keep-Alive Ping",
+                    label = AppLocalizer.localizeAnimalDetectionPhrase("send keep alive ping", currentLang),
                     color = FarmGreenPrimary,
                     onClick = onSendHeartbeat
                 )
                 ActionTestChip(
                     icon = Icons.Rounded.CheckCircle,
-                    label = "Clear All Sensors",
+                    label = AppLocalizer.localizeAnimalDetectionPhrase("clear all sensors", currentLang),
                     color = Color(0xFF455A64),
                     onClick = onClearAll
                 )
@@ -717,6 +738,7 @@ private fun ActionTestChip(
 private fun PerimeterSensorMatrixSection(
     latestState: AnimalDetectionViewModel.LatestStatusState,
     isSimulating: Boolean,
+    currentLang: String,
     onTriggerSensor: (String, String, String) -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -726,13 +748,13 @@ private fun PerimeterSensorMatrixSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Perimeter Sensor Grid",
+                text = AppLocalizer.localizeAnimalDetectionPhrase("perimeter sensor grid", currentLang),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 color = NeutralDark
             )
             Text(
-                text = "8 Nodes Total",
+                text = AppLocalizer.localizeAnimalDetectionPhrase("8 nodes total", currentLang),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 color = NeutralGray
@@ -745,7 +767,7 @@ private fun PerimeterSensorMatrixSection(
 
         // 6 IR Boundary Tripwires
         Text(
-            text = "BOUNDARY IR BEAMS (6 SENSORS)",
+            text = AppLocalizer.localizeAnimalDetectionPhrase("boundary ir beams header", currentLang),
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = FarmGreenPrimary,
@@ -762,16 +784,19 @@ private fun PerimeterSensorMatrixSection(
                     val detail = sensorsMap[sensorKey]
                     val status = detail?.status ?: "offline"
                     val health = detail?.health ?: "offline"
-                    val zoneInfo = SENSOR_ZONE_MAP[sensorKey] ?: Pair(sensorKey, "Perimeter")
+                    val zoneKey = SENSOR_ZONE_KEYS[sensorKey] ?: Pair("north boundary", "north perimeter beam")
+                    val zoneTitle = AppLocalizer.localizeAnimalDetectionPhrase(zoneKey.first, currentLang)
+                    val zoneDesc = AppLocalizer.localizeAnimalDetectionPhrase(zoneKey.second, currentLang)
 
                     SensorTileCard(
                         modifier = Modifier.weight(1f),
                         sensorKey = sensorKey,
                         sensorType = "IR",
-                        zoneTitle = zoneInfo.first,
-                        zoneDesc = zoneInfo.second,
+                        zoneTitle = zoneTitle,
+                        zoneDesc = zoneDesc,
                         status = status,
                         health = health,
+                        currentLang = currentLang,
                         onClickToggle = {
                             onTriggerSensor(sensorKey, "IR", status)
                         }
@@ -785,7 +810,7 @@ private fun PerimeterSensorMatrixSection(
 
         // 2 PIR Thermal Motion Detectors
         Text(
-            text = "WIDE-ANGLE PIR MOTION DETECTORS (2 SENSORS)",
+            text = AppLocalizer.localizeAnimalDetectionPhrase("wide angle pir header", currentLang),
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = FarmGreenPrimary,
@@ -800,16 +825,19 @@ private fun PerimeterSensorMatrixSection(
                 val detail = sensorsMap[sensorKey]
                 val status = detail?.status ?: "offline"
                 val health = detail?.health ?: "offline"
-                val zoneInfo = SENSOR_ZONE_MAP[sensorKey] ?: Pair(sensorKey, "Motion Zone")
+                val zoneKey = SENSOR_ZONE_KEYS[sensorKey] ?: Pair("main crop zone", "crop field motion")
+                val zoneTitle = AppLocalizer.localizeAnimalDetectionPhrase(zoneKey.first, currentLang)
+                val zoneDesc = AppLocalizer.localizeAnimalDetectionPhrase(zoneKey.second, currentLang)
 
                 SensorTileCard(
                     modifier = Modifier.weight(1f),
                     sensorKey = sensorKey,
                     sensorType = "PIR",
-                    zoneTitle = zoneInfo.first,
-                    zoneDesc = zoneInfo.second,
+                    zoneTitle = zoneTitle,
+                    zoneDesc = zoneDesc,
                     status = status,
                     health = health,
+                    currentLang = currentLang,
                     onClickToggle = {
                         onTriggerSensor(sensorKey, "PIR", status)
                     }
@@ -828,6 +856,7 @@ private fun SensorTileCard(
     zoneDesc: String,
     status: String,
     health: String,
+    currentLang: String,
     onClickToggle: () -> Unit
 ) {
     val isDetected = status == "detected"
@@ -871,9 +900,9 @@ private fun SensorTileCard(
                 ) {
                     Text(
                         text = when {
-                            isDetected -> "DETECTED"
-                            !isOnline -> "OFFLINE"
-                            else -> "CLEAR"
+                            isDetected -> AppLocalizer.localizeAnimalDetectionPhrase("detected", currentLang)
+                            !isOnline -> AppLocalizer.localizeAnimalDetectionPhrase("offline", currentLang)
+                            else -> AppLocalizer.localizeAnimalDetectionPhrase("clear", currentLang)
                         },
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -926,7 +955,7 @@ private fun SensorTileCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (isDetected) "Tap to Clear" else "Tap to Test Trigger",
+                        text = if (isDetected) AppLocalizer.localizeAnimalDetectionPhrase("tap to clear", currentLang) else AppLocalizer.localizeAnimalDetectionPhrase("tap to test trigger", currentLang),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = stateColor
@@ -944,6 +973,7 @@ private fun SensorTileCard(
 @Composable
 private fun SmartDeterrentControlCard(
     isRepellentActive: Boolean,
+    currentLang: String,
     onToggleRepellent: () -> Unit
 ) {
     Card(
@@ -978,13 +1008,13 @@ private fun SmartDeterrentControlCard(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Acoustic & Strobe Deterrent",
+                            text = AppLocalizer.localizeAnimalDetectionPhrase("acoustic strobe deterrent", currentLang),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = NeutralDark
                         )
                         Text(
-                            text = if (isRepellentActive) "Ultrasonic Repellent Active (24 kHz)" else "Standby (Auto-triggers on breach)",
+                            text = if (isRepellentActive) AppLocalizer.localizeAnimalDetectionPhrase("ultrasonic repellent active", currentLang) else AppLocalizer.localizeAnimalDetectionPhrase("standby auto triggers", currentLang),
                             fontSize = 12.sp,
                             color = if (isRepellentActive) AlertCrimson else NeutralGray
                         )
@@ -1005,7 +1035,7 @@ private fun SmartDeterrentControlCard(
 
             Spacer(modifier = Modifier.height(12.dp))
             Text(
-                text = "Emits non-harmful, high-frequency sound waves & solar strobe flashes calibrated specifically for Indian wildlife (Nilgai, Wild Boar, Monkeys, Stray Cattle).",
+                text = AppLocalizer.localizeAnimalDetectionPhrase("smart deterrent desc", currentLang),
                 fontSize = 12.sp,
                 color = Color.DarkGray,
                 lineHeight = 16.sp
@@ -1022,6 +1052,7 @@ private fun SmartDeterrentControlCard(
 private fun IntrusionHistorySection(
     historyState: AnimalDetectionViewModel.HistoryState,
     selectedFilter: String,
+    currentLang: String,
     onSelectFilter: (String) -> Unit,
     onRefresh: () -> Unit
 ) {
@@ -1032,7 +1063,7 @@ private fun IntrusionHistorySection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Intrusion Incident Log",
+                text = AppLocalizer.localizeAnimalDetectionPhrase("intrusion incident log", currentLang),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 color = NeutralDark
@@ -1051,7 +1082,11 @@ private fun IntrusionHistorySection(
 
         // Filter Chips
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("ALL" to "All Events", "IR" to "IR Tripwires", "PIR" to "PIR Motion").forEach { (code, label) ->
+            listOf(
+                "ALL" to AppLocalizer.localizeAnimalDetectionPhrase("all events", currentLang),
+                "IR" to AppLocalizer.localizeAnimalDetectionPhrase("ir tripwires", currentLang),
+                "PIR" to AppLocalizer.localizeAnimalDetectionPhrase("pir motion", currentLang)
+            ).forEach { (code, label) ->
                 val isSelected = selectedFilter == code
                 Surface(
                     shape = RoundedCornerShape(12.dp),
@@ -1122,13 +1157,13 @@ private fun IntrusionHistorySection(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Perimeter Peaceful",
+                                text = AppLocalizer.localizeAnimalDetectionPhrase("perimeter peaceful", currentLang),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 14.sp,
                                 color = NeutralDark
                             )
                             Text(
-                                text = "No intrusion incidents recorded. Your boundary is safe.",
+                                text = AppLocalizer.localizeAnimalDetectionPhrase("no intrusion incidents recorded", currentLang),
                                 fontSize = 12.sp,
                                 color = NeutralGray,
                                 textAlign = TextAlign.Center
@@ -1138,7 +1173,7 @@ private fun IntrusionHistorySection(
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         events.take(6).forEach { event ->
-                            HistoryEventItem(event)
+                            HistoryEventItem(event, currentLang)
                         }
                     }
                 }
@@ -1150,9 +1185,10 @@ private fun IntrusionHistorySection(
 }
 
 @Composable
-private fun HistoryEventItem(event: DetectionEventModel) {
+private fun HistoryEventItem(event: DetectionEventModel, currentLang: String) {
     val isDetected = event.status.lowercase() == "detected"
-    val zoneInfo = SENSOR_ZONE_MAP[event.sensor] ?: Pair(event.sensor, "Perimeter")
+    val zoneKey = SENSOR_ZONE_KEYS[event.sensor] ?: Pair("north boundary", "north perimeter beam")
+    val zoneTitle = AppLocalizer.localizeAnimalDetectionPhrase(zoneKey.first, currentLang)
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -1185,13 +1221,15 @@ private fun HistoryEventItem(event: DetectionEventModel) {
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "${event.sensor} • ${zoneInfo.first}",
+                        text = "${event.sensor} • $zoneTitle",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = NeutralDark
                     )
+                    val timeLabel = AppLocalizer.localizeAnimalDetectionPhrase("timestamp label", currentLang)
+                    val formattedTime = formatTimestamp(event.timestamp)
                     Text(
-                        text = "Timestamp: ${formatTimestamp(event.timestamp)}",
+                        text = if (timeLabel.contains("%s")) timeLabel.replace("%s", formattedTime) else "$timeLabel $formattedTime",
                         fontSize = 11.sp,
                         color = NeutralGray
                     )
@@ -1203,7 +1241,7 @@ private fun HistoryEventItem(event: DetectionEventModel) {
                 color = if (isDetected) AlertCrimson.copy(alpha = 0.12f) else FarmGreenPrimary.copy(alpha = 0.12f)
             ) {
                 Text(
-                    text = if (isDetected) "BREACH" else "CLEARED",
+                    text = if (isDetected) AppLocalizer.localizeAnimalDetectionPhrase("breach", currentLang) else AppLocalizer.localizeAnimalDetectionPhrase("cleared", currentLang),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = if (isDetected) AlertCrimson else FarmGreenPrimary,
@@ -1216,7 +1254,6 @@ private fun HistoryEventItem(event: DetectionEventModel) {
 
 private fun formatTimestamp(iso: String): String {
     return try {
-        // e.g. 2026-09-03T12:30:00+00:00 -> formatted short time
         if (iso.contains("T")) {
             val parts = iso.split("T")
             val date = parts[0]
@@ -1235,14 +1272,14 @@ private fun formatTimestamp(iso: String): String {
 // ==========================================
 
 @Composable
-private fun HowItWorksSection() {
+private fun HowItWorksSection(currentLang: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Text(
-            text = "How IoT Intrusion System Works",
+            text = AppLocalizer.localizeAnimalDetectionPhrase("how iot system works", currentLang),
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
             color = FarmGreenPrimary,
@@ -1264,18 +1301,18 @@ private fun HowItWorksSection() {
                 ) {
                     StepTimelineItem(
                         icon = Icons.Rounded.Sensors,
-                        title = "1. Boundary Detect",
-                        desc = "Infrared beam tripwires & thermal PIR detect wild animal movement."
+                        title = AppLocalizer.localizeAnimalDetectionPhrase("step1 title", currentLang),
+                        desc = AppLocalizer.localizeAnimalDetectionPhrase("step1 desc", currentLang)
                     )
                     StepTimelineItem(
                         icon = Icons.Rounded.NotificationsActive,
-                        title = "2. Instant Cloud Alert",
-                        desc = "ESP32 node transmits event to FarmFusion cloud via MQTT / REST."
+                        title = AppLocalizer.localizeAnimalDetectionPhrase("step2 title", currentLang),
+                        desc = AppLocalizer.localizeAnimalDetectionPhrase("step2 desc", currentLang)
                     )
                     StepTimelineItem(
                         icon = Icons.Rounded.Security,
-                        title = "3. Auto Deterrent",
-                        desc = "Ultrasonic repeller fires automatically to safeguard your standing crop.",
+                        title = AppLocalizer.localizeAnimalDetectionPhrase("step3 title", currentLang),
+                        desc = AppLocalizer.localizeAnimalDetectionPhrase("step3 desc", currentLang),
                         isLast = true
                     )
                 }

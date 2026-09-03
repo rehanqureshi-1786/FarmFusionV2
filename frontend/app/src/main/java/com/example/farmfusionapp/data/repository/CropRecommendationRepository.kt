@@ -9,6 +9,9 @@ import com.example.farmfusionapp.utils.Resource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 import java.io.IOException
 
@@ -66,6 +69,71 @@ class CropRecommendationRepository {
             )
 
             val response = api.getCropRecommendations(request)
+
+            if (response.isSuccessful) {
+                response.body()?.let { result ->
+                    if (result.success) {
+                        emit(Resource.Success(result))
+                    } else {
+                        emit(Resource.Error("API returned unsuccessful response"))
+                    }
+                } ?: emit(Resource.Error("Empty response from server"))
+            } else {
+                emit(Resource.Error("Error ${response.code()}: ${response.message()}"))
+            }
+        } catch (e: HttpException) {
+            emit(Resource.Error("HTTP Error: ${e.message ?: "Unknown error"}"))
+        } catch (e: IOException) {
+            emit(Resource.Error("Network Error: Check your internet connection"))
+        } catch (e: Exception) {
+            emit(Resource.Error("Error: ${e.message ?: "Unknown error"}"))
+        }
+    }
+
+    /**
+     * Get crop recommendations by uploading a Soil Health Card (Image or PDF).
+     */
+    fun getCropRecommendationsFromDocument(
+        documentBytes: ByteArray,
+        filename: String,
+        mimeType: String,
+        farmSizeAcres: Double,
+        location: String?,
+        latitude: Double?,
+        longitude: Double?,
+        soilType: String?,
+        rainfallMm: Double?,
+        temperatureC: Double?,
+        preferredLanguage: String
+    ): Flow<Resource<CropRecommendResponse>> = flow {
+        emit(Resource.Loading())
+
+        try {
+            val mediaType = mimeType.toMediaTypeOrNull() ?: "application/octet-stream".toMediaTypeOrNull()
+            val fileRequestBody = documentBytes.toRequestBody(mediaType, 0, documentBytes.size)
+            val filePart = MultipartBody.Part.createFormData("document", filename, fileRequestBody)
+
+            val textMediaType = "text/plain".toMediaTypeOrNull()
+            val farmSizeBody = farmSizeAcres.toString().toRequestBody(textMediaType)
+            val locationBody = location?.toRequestBody(textMediaType)
+            val latBody = latitude?.toString()?.toRequestBody(textMediaType)
+            val lonBody = longitude?.toString()?.toRequestBody(textMediaType)
+            val soilTypeBody = soilType?.toRequestBody(textMediaType)
+            val rainBody = rainfallMm?.toString()?.toRequestBody(textMediaType)
+            val tempBody = temperatureC?.toString()?.toRequestBody(textMediaType)
+            val langBody = preferredLanguage.toRequestBody(textMediaType)
+
+            val response = api.recommendFromDocument(
+                document = filePart,
+                farmSizeAcres = farmSizeBody,
+                location = locationBody,
+                latitude = latBody,
+                longitude = lonBody,
+                soilType = soilTypeBody,
+                rainfallMm = rainBody,
+                temperatureC = tempBody,
+                preferredLanguage = langBody
+            )
 
             if (response.isSuccessful) {
                 response.body()?.let { result ->

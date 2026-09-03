@@ -221,7 +221,8 @@ class DiseaseService:
             db.add(detection_record)
             await db.commit()
 
-        return response_data
+        from app.services.disease_translation import localize_disease_response
+        return localize_disease_response(response_data, response_language)
 
     @staticmethod
     async def get_user_disease_history(

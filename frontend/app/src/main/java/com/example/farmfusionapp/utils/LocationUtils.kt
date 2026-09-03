@@ -166,33 +166,36 @@ suspend fun getDetailedAddressFromLocation(
  * Convert latitude/longitude to a city-like place name using device geocoder only.
  */
 suspend fun getCityFromLocation(context: Context, latitude: Double, longitude: Double, languageCode: String? = null): String? {
+    val activeLang = languageCode ?: AuthStore.activeLanguage
     return try {
         withContext(Dispatchers.IO) {
-            val locale = if (languageCode != null) Locale.forLanguageTag(languageCode) else Locale.getDefault()
+            val locale = Locale.forLanguageTag(activeLang)
             val geocoder = Geocoder(context, locale)
             @Suppress("DEPRECATION")
             val addresses = geocoder.getFromLocation(latitude, longitude, 1)
-            val city = addresses
+            val rawCity = addresses
                 ?.firstOrNull()
                 ?.let { it.locality ?: it.subAdminArea ?: it.adminArea ?: it.featureName }
 
-            cacheResolvedLocation(latitude, longitude, city)
-            city
+            val localizedCity = AppLocalizer.localizeCity(rawCity, activeLang)
+            cacheResolvedLocation(latitude, longitude, localizedCity)
+            localizedCity
         }
     } catch (e: Exception) {
         e.printStackTrace()
-        null
+        AppLocalizer.localizeCity(null, activeLang)
     }
 }
 
 suspend fun getRegionFromCoordinates(context: Context, latitude: Double, longitude: Double, languageCode: String? = null): String? {
+    val activeLang = languageCode ?: AuthStore.activeLanguage
     return try {
         withContext(Dispatchers.IO) {
-            val locale = if (languageCode != null) Locale.forLanguageTag(languageCode) else Locale.getDefault()
+            val locale = Locale.forLanguageTag(activeLang)
             val geocoder = Geocoder(context, locale)
             @Suppress("DEPRECATION")
             val addresses = geocoder.getFromLocation(latitude, longitude, 1)
-            if (!addresses.isNullOrEmpty()) {
+            val rawRegion = if (!addresses.isNullOrEmpty()) {
                 addresses[0].subAdminArea
                     ?: addresses[0].adminArea
                     ?: addresses[0].locality
@@ -200,10 +203,11 @@ suspend fun getRegionFromCoordinates(context: Context, latitude: Double, longitu
             } else {
                 "India"
             }
+            AppLocalizer.localizeCity(rawRegion, activeLang)
         }
     } catch (e: Exception) {
         e.printStackTrace()
-        "India"
+        AppLocalizer.localizeCity("India", activeLang)
     }
 }
 

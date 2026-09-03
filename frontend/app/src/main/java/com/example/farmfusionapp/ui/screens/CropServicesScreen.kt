@@ -49,11 +49,12 @@ data class CropServiceItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CropServicesScreen(navController: NavController) {
-    val services = remember {
+    val currentLang = LocalAppLanguage.current
+    val services = remember(currentLang) {
         listOf(
             CropServiceItem(
-                title = "Crop Advice",
-                subtitle = "Personalized advice\nfor better yield",
+                title = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("crop advice", currentLang),
+                subtitle = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("crop advice sub", currentLang),
                 icon = Icons.Rounded.Agriculture,
                 route = NavRoutes.CropRecommendation,
                 iconBgColor = Color(0xFFE8F5E9), // Used as Card Background
@@ -66,8 +67,8 @@ fun CropServicesScreen(navController: NavController) {
                 imageOffsetY = 10.dp
             ),
             CropServiceItem(
-                title = "Disease Info",
-                subtitle = "Identify diseases\nand get solutions",
+                title = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("disease info", currentLang),
+                subtitle = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("disease info sub", currentLang),
                 icon = Icons.Rounded.BugReport,
                 route = NavRoutes.CropDisease,
                 iconBgColor = Color(0xFFFFF3E0),
@@ -80,8 +81,8 @@ fun CropServicesScreen(navController: NavController) {
                 imageOffsetY = 20.dp
             ),
             CropServiceItem(
-                title = "Harvesting",
-                subtitle = "Best time and tips\nfor harvesting",
+                title = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("harvesting", currentLang),
+                subtitle = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("harvesting sub", currentLang),
                 icon = Icons.Rounded.ContentCut,
                 route = NavRoutes.CropHarvesting,
                 iconBgColor = Color(0xFFF3E5F5),
@@ -94,8 +95,8 @@ fun CropServicesScreen(navController: NavController) {
                 imageOffsetY = 20.dp
             ),
             CropServiceItem(
-                title = "Selling",
-                subtitle = "Get the best price\nfor your produce",
+                title = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("selling", currentLang),
+                subtitle = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("selling sub", currentLang),
                 icon = Icons.Rounded.CurrencyRupee,
                 route = NavRoutes.CropSelling,
                 iconBgColor = Color(0xFFE0F2F1),
@@ -118,7 +119,7 @@ fun CropServicesScreen(navController: NavController) {
                     containerColor = Color.Transparent,
                     titleContentColor = Color(0xFF1B4332)
                 ),
-                title = { Text("Crop Services", fontWeight = FontWeight.Bold) },
+                title = { Text(com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("crop services", currentLang), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color(0xFF1B1B1B))
@@ -177,14 +178,14 @@ fun CropServicesScreen(navController: NavController) {
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = "Smart Solutions\nfor Healthier Crops",
+                                text = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("smart solutions for healthier crops", currentLang),
                                 color = Color(0xFF1B4332),
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
                                 lineHeight = 26.sp
                             )
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                text = "AI-powered tools and expert \nguidance for every stage of\nyour farming journey.",
+                                text = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("crop services hero sub", currentLang),
                                 color = Color(0xFF525252),
                                 style = MaterialTheme.typography.bodySmall,
                                 lineHeight = 16.sp
@@ -204,12 +205,12 @@ fun CropServicesScreen(navController: NavController) {
                         )
                         Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "Available Services",
+                            text = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("available services", currentLang),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B4332))
                         )
                     }
                     Text(
-                        text = "Explore AI-powered tools and expert guidance",
+                        text = com.example.farmfusionapp.utils.AppLocalizer.localizeCropServicesPhrase("available services sub", currentLang),
                         style = MaterialTheme.typography.bodyMedium.copy(color = Color(0xFF616161)),
                         modifier = Modifier.padding(start = 30.dp)
                     )

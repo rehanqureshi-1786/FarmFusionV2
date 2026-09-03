@@ -184,6 +184,66 @@ class CropRecommendationViewModel : ViewModel() {
         }.launchIn(viewModelScope)
     }
 
+    /**
+     * Upload and parse Soil Health Card (Image or PDF) and get AI crop recommendations.
+     */
+    fun fetchRecommendationsFromDocument(
+        documentBytes: ByteArray,
+        filename: String,
+        mimeType: String,
+        farmSizeAcres: Double,
+        location: String?,
+        latitude: Double?,
+        longitude: Double?,
+        soilType: String?,
+        rainfallMm: Double?,
+        temperatureC: Double?,
+        preferredLanguage: String
+    ) {
+        val backendSoilType = when (soilType?.lowercase()) {
+            "black soil" -> "loamy"
+            "red soil" -> "clay"
+            "alluvial soil" -> "silty"
+            "sandy soil" -> "sandy"
+            else -> soilType?.lowercase() ?: "loamy"
+        }
+
+        repository.getCropRecommendationsFromDocument(
+            documentBytes = documentBytes,
+            filename = filename,
+            mimeType = mimeType,
+            farmSizeAcres = farmSizeAcres,
+            location = location,
+            latitude = latitude,
+            longitude = longitude,
+            soilType = backendSoilType,
+            rainfallMm = rainfallMm,
+            temperatureC = temperatureC,
+            preferredLanguage = preferredLanguage
+        ).onEach { result ->
+            when (result) {
+                is Resource.Loading -> {
+                    _isLoading.value = true
+                    _error.value = null
+                    _isSuccess.value = false
+                }
+                is Resource.Success -> {
+                    _isLoading.value = false
+                    result.data?.let { response ->
+                        _recommendations.value = response.recommendations
+                        _aiInsights.value = response.ai_insights
+                        _isSuccess.value = true
+                    }
+                }
+                is Resource.Error -> {
+                    _isLoading.value = false
+                    _error.value = result.message
+                    _isSuccess.value = false
+                }
+            }
+        }.launchIn(viewModelScope)
+    }
+
     /** Clear error state */
     fun clearError() {
         _error.value = null
