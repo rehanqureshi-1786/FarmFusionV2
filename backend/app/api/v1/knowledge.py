@@ -24,6 +24,7 @@ class KnowledgeChunkResponse(BaseModel):
     doc_type: str
     content: str
     source_url: Optional[str] = None
+    similarity: float = Field(default=1.0, description="Cosine vector similarity score (0.0 - 1.0)")
     metadata: dict = {}
 
 

@@ -21,6 +21,7 @@ ai-venv/
 # Database
 *.db
 *.sqlite3
+*.pre_migration_backup
 !backend/app/data/agriculture/farmfusion_agriculture.db
 
 # External / Raw Datasets

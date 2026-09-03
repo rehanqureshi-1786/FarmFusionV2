@@ -6,14 +6,26 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.orm import DeclarativeBase
 from app.core.config import settings
 
+import os
+from sqlalchemy.pool import NullPool
+
+import sys
+is_testing = ("pytest" in sys.modules) or bool(os.environ.get("PYTEST_CURRENT_TEST")) or getattr(settings, "testing", False)
+engine_kwargs = {
+    "echo": settings.debug,
+    "future": True,
+    "pool_pre_ping": True,
+}
+if is_testing:
+    engine_kwargs["poolclass"] = NullPool
+else:
+    engine_kwargs["pool_size"] = 10
+    engine_kwargs["max_overflow"] = 20
+
 # Create async engine for PostgreSQL
 engine = create_async_engine(
     settings.effective_async_database_url,
-    echo=settings.debug,
-    future=True,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20
+    **engine_kwargs
 )
 
 # Async session factory

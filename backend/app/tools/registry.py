@@ -310,6 +310,30 @@ class ToolRegistry:
             self._execute_price_alert,
         )
 
+        # 15. Real Agricultural Vector RAG Search Tool
+        self.register(
+            ToolDefinition(
+                name="rag_search_tool",
+                description="Performs semantic vector search across 174+ ICAR crop cultivation guides, plant pathology treatment protocols, and government agricultural welfare schemes using pgvector.",
+                required_slots=["query"],
+                optional_slots=["doc_type", "crop", "top_k"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_rag_search,
+        )
+
+        # 16. Government Scheme Verification Tool
+        self.register(
+            ToolDefinition(
+                name="government_scheme_tool",
+                description="Retrieves authentic eligibility, financial benefits, and application guidelines for central and state agricultural schemes (PM-KISAN, PMFBY, KCC, Soil Health Card) directly from verified documents.",
+                required_slots=["query"],
+                optional_slots=["state", "top_k"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_government_scheme,
+        )
+
     # -------------------------------------------------------------------------
     # Executors
     # -------------------------------------------------------------------------
@@ -882,6 +906,66 @@ class ToolRegistry:
                 provenance=ProvenanceMetadata(source="MandiIntelligenceService", estimated_vs_measured="unavailable"),
                 message=f"Error creating price alert: {str(e)}"
             )
+
+    async def _execute_rag_search(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        query = slots.get("query")
+        if not query:
+            return ToolResult(
+                status=ToolStatus.INVALID_INPUT,
+                data=None,
+                provenance=ProvenanceMetadata(source="pgvector_rag", estimated_vs_measured="unavailable"),
+                message="Query parameter is required for agricultural knowledge search.",
+            )
+
+        doc_type = slots.get("doc_type")
+        crop = slots.get("crop")
+        top_k = int(slots.get("top_k", 3))
+
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.rag.retriever import KnowledgeRetriever
+
+            async with AsyncSessionLocal() as session:
+                retriever = KnowledgeRetriever(session)
+                chunks = await retriever.search(query=query, doc_type=doc_type, crop=crop, top_k=top_k)
+
+            if not chunks:
+                return ToolResult(
+                    status=ToolStatus.NOT_FOUND,
+                    data={"matches": []},
+                    provenance=ProvenanceMetadata(source="pgvector_rag", estimated_vs_measured="measured"),
+                    message=f"No matching verified agricultural guidance found for '{query}'.",
+                )
+
+            top = chunks[0]
+            short_content = top["content"][:250].replace("\n", " ").strip()
+            hi_msg = f"सत्यापित कृषि दिशानिर्देश ({top['title']}): {short_content}..."
+            en_msg = f"Verified Guidance ({top['title']}): {short_content}..."
+
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                data={"matches": chunks, "top_similarity": top["similarity"]},
+                provenance=ProvenanceMetadata(
+                    source="ICAR / Ministry of Agriculture Verified Documents via pgvector HNSW",
+                    estimated_vs_measured="measured",
+                    confidence=top["similarity"],
+                    location=top.get("source_url"),
+                ),
+                message=en_msg,
+                localized_message={"hi": hi_msg, "en": en_msg},
+            )
+        except Exception as e:
+            return ToolResult(
+                status=ToolStatus.UNAVAILABLE,
+                data=None,
+                provenance=ProvenanceMetadata(source="pgvector_rag", estimated_vs_measured="unavailable"),
+                message=f"Error performing vector search: {str(e)}",
+            )
+
+    async def _execute_government_scheme(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        query = slots.get("query") or "PM-KISAN PMFBY agricultural schemes"
+        slots["doc_type"] = "scheme"
+        return await self._execute_rag_search(slots, context)
 
 
 # Module-level singleton

@@ -29,6 +29,10 @@ class OrchestratorState(TypedDict, total=False):
     farmer_preferred_dialect: Optional[str]
     response_language: Optional[str]
     response_dialect: Optional[str]
+    tts_language: Optional[str]
+    native_tts: Optional[bool]
+    fallback_used: Optional[bool]
+    fallback_reason: Optional[str]
 
     # Farmer contextual profile (retained across turns)
     farmer_context: Dict[str, Any]

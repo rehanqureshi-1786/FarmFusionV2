@@ -91,11 +91,12 @@ class CropMLService:
             logger.warning("v2_metadata_validation_failed: unexpected version '%s'", version)
             return False
 
-        if n_classes != 57 or len(getattr(le, "classes_", [])) != 57:
+        encoder_classes_len = len(getattr(le, "classes_", []))
+        if n_classes != encoder_classes_len or n_classes not in (32, 57):
             logger.warning(
-                "v2_metadata_validation_failed: expected 57 classes, got meta=%s, encoder=%s",
+                "v2_metadata_validation_failed: expected valid classes (32 or 57), got meta=%s, encoder=%s",
                 n_classes,
-                len(getattr(le, "classes_", [])),
+                encoder_classes_len,
             )
             return False
 

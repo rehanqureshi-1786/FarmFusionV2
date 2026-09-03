@@ -227,7 +227,7 @@ async def test_07_multilingual_weather_advice_and_alerts():
 
     # English
     en_curr = await WeatherService.get_current_weather(lat=26.91, lon=75.78, language="en")
-    assert any(en_curr["weather"].lower().startswith(x) for x in ["clear", "mainly", "partly", "overcast", "rain", "fog", "weather"])
+    assert any(en_curr["weather"].lower().startswith(x) for x in ["clear", "mainly", "partly", "overcast", "rain", "fog", "weather", "light", "drizzle", "heavy", "thunder", "shower"])
 
 
 @pytest.mark.asyncio

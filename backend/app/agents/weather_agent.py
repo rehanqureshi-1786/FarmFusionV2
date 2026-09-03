@@ -18,7 +18,8 @@ from app.schemas.weather import (
 )
 from app.services.weather_alert_engine import weather_alert_engine
 
-logger = logging.getLogger(__name__)
+import structlog
+logger = structlog.get_logger(__name__)
 
 
 class WeatherAgent:

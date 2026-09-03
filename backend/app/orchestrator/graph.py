@@ -1,8 +1,11 @@
 """
 Main Multilingual Orchestrator execution pipeline.
 Assembly of intent classification, tool routing, and response synthesis nodes with multi-turn session state.
+Implemented using official LangGraph StateGraph with MemorySaver checkpointer.
 """
 from typing import Any, Dict, List, Optional
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
 import structlog
 
 from app.orchestrator.state import OrchestratorState
@@ -11,6 +14,39 @@ from app.orchestrator.nodes.tool_router import tool_router_node
 from app.orchestrator.nodes.synthesizer import response_synthesizer_node
 
 logger = structlog.get_logger(__name__)
+
+
+def _route_after_intent(state: OrchestratorState) -> str:
+    """Conditional routing edge: clarification question bypasses tool execution."""
+    if state.get("requires_clarification"):
+        return "response_synthesizer"
+    return "tool_router"
+
+
+def create_orchestrator_graph():
+    """Build and compile the canonical LangGraph StateGraph for FarmFusion."""
+    builder = StateGraph(OrchestratorState)
+    builder.add_node("intent_classification", intent_classification_node)
+    builder.add_node("tool_router", tool_router_node)
+    builder.add_node("response_synthesizer", response_synthesizer_node)
+
+    builder.add_edge(START, "intent_classification")
+    builder.add_conditional_edges(
+        "intent_classification",
+        _route_after_intent,
+        {
+            "response_synthesizer": "response_synthesizer",
+            "tool_router": "tool_router"
+        }
+    )
+    builder.add_edge("tool_router", "response_synthesizer")
+    builder.add_edge("response_synthesizer", END)
+
+    checkpointer = MemorySaver()
+    return builder.compile(checkpointer=checkpointer)
+
+
+orchestrator_graph = create_orchestrator_graph()
 
 
 async def run_orchestrator_pipeline(
@@ -25,7 +61,7 @@ async def run_orchestrator_pipeline(
     last_final_response: Optional[str] = None,
 ) -> OrchestratorState:
     """
-    Execute the full orchestrator graph turn:
+    Execute the full orchestrator graph turn via LangGraph StateGraph:
     1. State initialization with multi-turn context
     2. Intent classification & entity extraction
     3. Tool execution via ToolRegistry
@@ -54,15 +90,12 @@ async def run_orchestrator_pipeline(
         "requires_clarification": False,
         "clarification_question": None,
         "turn_history": [],
+        "tts_language": None,
+        "native_tts": None,
+        "fallback_used": None,
+        "fallback_reason": None,
     }
 
-    # Step 1: Intent Classification & Slot Extraction
-    state = await intent_classification_node(initial_state)
-
-    # Step 2: Tool Routing (if not requiring clarification)
-    if not state.get("requires_clarification"):
-        state = await tool_router_node(state)
-
-    # Step 3: Response Synthesis
-    state = await response_synthesizer_node(state)
-    return state
+    config = {"configurable": {"thread_id": session_id}}
+    result_state = await orchestrator_graph.ainvoke(initial_state, config=config)
+    return result_state

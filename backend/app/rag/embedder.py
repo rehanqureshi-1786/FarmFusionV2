@@ -1,43 +1,68 @@
 """
-BGE-M3 Embedder service (1024-dimensional embeddings for agricultural RAG).
+Real SentenceTransformer Embedder service for FarmFusion agricultural RAG.
+Produces legitimate semantic dense vector embeddings.
+Strictly removes any synthetic, sine-wave, or pseudo-random fallbacks.
 """
-import math
+from typing import List, Optional
+import numpy as np
 import structlog
 from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
-EMBEDDING_DIM = 1024
+TARGET_EMBEDDING_DIM = 1024
+DEFAULT_LOCAL_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 
-class BGEM3Embedder:
-    """Embedder wrapper producing 1024-dimensional vectors."""
-    
-    def __init__(self, model_name: str | None = None):
-        self.model_name = model_name or settings.embedding_model_name
+class RealAgriculturalEmbedder:
+    """Production embedder using real SentenceTransformer neural models."""
+
+    def __init__(self, model_name: Optional[str] = None):
+        self.model_name = model_name or settings.embedding_model_name or DEFAULT_LOCAL_MODEL
         self._model = None
 
-    def embed_text(self, text: str) -> list[float]:
-        """
-        Generate 1024-dimensional embedding for text input.
-        Uses sentence_transformers if available, otherwise deterministic feature hash embedding.
-        """
-        try:
-            if self._model is None:
-                from sentence_transformers import SentenceTransformer
+    def _get_model(self):
+        if self._model is None:
+            from sentence_transformers import SentenceTransformer
+            try:
+                logger.info("loading_embedding_model", model=self.model_name)
                 self._model = SentenceTransformer(self.model_name)
-            vector = self._model.encode(text).tolist()
-            return vector
-        except Exception as e:
-            logger.warning("bge_m3_fallback_embedding", error=str(e), model=self.model_name)
-            # Deterministic 1024-dim fallback embedding vector for offline testing
-            text_bytes = text.encode("utf-8")
-            vector = []
-            for i in range(EMBEDDING_DIM):
-                val = math.sin((i + 1) * len(text_bytes) + sum(text_bytes))
-                vector.append(round(val, 6))
-            return vector
+            except Exception as e:
+                logger.warning("primary_embedding_model_failed", model=self.model_name, error=str(e))
+                if self.model_name != DEFAULT_LOCAL_MODEL:
+                    logger.info("falling_back_to_fast_local_embedding_model", fallback=DEFAULT_LOCAL_MODEL)
+                    self.model_name = DEFAULT_LOCAL_MODEL
+                    self._model = SentenceTransformer(DEFAULT_LOCAL_MODEL)
+                else:
+                    raise RuntimeError(f"Embedding model could not be loaded: {e}") from e
+        return self._model
 
-    async def aembed_text(self, text: str) -> list[float]:
+    def embed_text(self, text: str) -> List[float]:
+        """
+        Generates genuine dense vector embedding for text.
+        Fails explicitly if model is unavailable. Zero fake math.
+        """
+        clean_text = text.strip()
+        if not clean_text:
+            raise ValueError("Cannot embed empty text string.")
+
+        model = self._get_model()
+        vector = model.encode(clean_text, normalize_embeddings=True)
+        raw_list = vector.tolist()
+
+        # If model dimension is less than 1024 (e.g. 384-dim MiniLM),
+        # mathematically pad to 1024 while preserving cosine geometry.
+        if len(raw_list) < TARGET_EMBEDDING_DIM:
+            raw_list = raw_list + [0.0] * (TARGET_EMBEDDING_DIM - len(raw_list))
+        elif len(raw_list) > TARGET_EMBEDDING_DIM:
+            raw_list = raw_list[:TARGET_EMBEDDING_DIM]
+
+        return [round(float(x), 6) for x in raw_list]
+
+    async def aembed_text(self, text: str) -> List[float]:
         """Async wrapper for embed_text."""
         return self.embed_text(text)
+
+
+# Backward-compatible alias for existing code
+BGEM3Embedder = RealAgriculturalEmbedder

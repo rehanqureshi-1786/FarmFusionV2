@@ -1,32 +1,7 @@
-"""SQLAlchemy ORM Models for FarmFusion Database"""
-from sqlalchemy import Column, String, Float, Integer, DateTime, ForeignKey, Text, Boolean
-from sqlalchemy.dialects.sqlite import JSON
+from sqlalchemy import Column, String, Float, Integer, DateTime, ForeignKey, Text, Boolean, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from .database import Base
-
-
-class User(Base):
-    """User model - synced with Firebase Auth"""
-    __tablename__ = "users"
-
-    id = Column(Integer, primary_key=True, index=True)
-    firebase_uid = Column(String(128), unique=True, index=True, nullable=False)
-    phone_number = Column(String(20), unique=True, index=True)
-    name = Column(String(100))
-    email = Column(String(100))
-    language_preference = Column(String(10), default="en")  # en, hi, mr, etc.
-    created_at = Column(DateTime, default=datetime.utcnow)
-    last_login = Column(DateTime)
-    is_active = Column(Boolean, default=True)
-
-    # Relationships
-    farms = relationship("Farm", back_populates="user", cascade="all, delete-orphan")
-    recommendations = relationship("Recommendation", back_populates="user", cascade="all, delete-orphan")
-    disease_detections = relationship("DiseaseDetection", back_populates="user", cascade="all, delete-orphan")
-    listings = relationship("MarketListing", back_populates="seller")
-    jobs = relationship("LabourJob", back_populates="poster")
-    crop_cycles = relationship("CropCycle", back_populates="user")
+from app.core.database import Base
 
 
 class Farm(Base):
@@ -212,3 +187,7 @@ class CropCycle(Base):
     # Relationships
     user = relationship("User", back_populates="crop_cycles")
     farm = relationship("Farm", back_populates="crop_cycles")
+
+
+# Backward-compatible re-export of canonical User model
+from app.models.user import User  # noqa: E402
