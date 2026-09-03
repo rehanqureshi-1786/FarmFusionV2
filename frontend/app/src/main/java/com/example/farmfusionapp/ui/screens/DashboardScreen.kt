@@ -149,7 +149,7 @@ fun DashboardScreen(navController: NavController) {
     val view = LocalView.current
 
     var weatherData by remember { mutableStateOf(WeatherSnapshotStore.latestWeather) }
-    var locationName by remember { mutableStateOf(WeatherSnapshotStore.latestWeather?.city ?: com.example.farmfusionapp.utils.LocationSnapshotStore.latestCity ?: "Location unavailable") }
+    var locationName by remember { mutableStateOf(WeatherSnapshotStore.latestWeather?.city ?: "Waiting for location...") }
     var hasLocationPermission by remember { mutableStateOf(false) }
 
     // Changed to LaunchedEffect to prevent multiple redraws that break canvas loading sync
@@ -274,7 +274,7 @@ fun DashboardScreen(navController: NavController) {
             ),
             HomeAction(
                 title = "Animal Alert",
-                subtitle = "🚧 Under Development\n(Coming Soon!)",
+                subtitle = "Stay alert to wildlife threats",
                 iconDrawable = R.drawable.ic_animal_alert,
                 route = NavRoutes.AnimalDetection,
                 colors = listOf(Color(0xFFFFEAEA), Color(0xFFFFCFCF)),
@@ -779,7 +779,7 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Uni
                 ) {
                     WeatherStatItem(Icons.Rounded.WaterDrop, "Humidity", weatherData?.let { "${it.humidity}%" } ?: "--")
                     Box(modifier = Modifier.height(24.dp).width(1.dp).background(Color.White.copy(alpha = 0.3f)))
-                    WeatherStatItem(Icons.Rounded.Air, "Wind Speed", weatherData?.let { "${it.windSpeed.toInt()} km/h" } ?: "--")
+                    WeatherStatItem(Icons.Rounded.Air, "Wind", weatherData?.let { "${it.windSpeed.toInt()} km/h" } ?: "--")
                 }
             }
         }

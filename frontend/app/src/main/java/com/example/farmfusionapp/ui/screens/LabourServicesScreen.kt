@@ -83,7 +83,7 @@ fun LabourServicesScreen(navController: NavController) {
                         "Labour Service",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (onLandingScreen) LabourGreen else Color(0xFF1B1B1B)
+                        color = LabourGreen
                     )
                 },
                 navigationIcon = {
@@ -133,7 +133,7 @@ fun LabourServicesScreen(navController: NavController) {
 }
 
 // ---------------------------------------------------------------------------
-// Landing screen — matches the target design
+// Landing screen
 // ---------------------------------------------------------------------------
 @Composable
 fun LabourSelectionScreen(onHire: () -> Unit, onGetWork: () -> Unit) {
@@ -241,14 +241,12 @@ private fun HeroSection() {
 
         Spacer(Modifier.width(12.dp))
 
-        // Illustration: replace R.drawable.img_handshake_illustration with your PNG's resource name
         Box(
             modifier = Modifier
                 .weight(0.85f)
                 .aspectRatio(0.95f),
             contentAlignment = Alignment.Center
         ) {
-            // Soft decorative "blob" sitting behind the illustration
             Box(
                 modifier = Modifier
                     .fillMaxSize(0.9f)
@@ -263,7 +261,7 @@ private fun HeroSection() {
                     )
             )
             Image(
-                painter = painterResource(id = R.drawable.img_handshake_illustration),
+                painter = painterResource(id = R.drawable.ill_labour_help), // Adjust resource if needed
                 contentDescription = "Farmer and employer shaking hands",
                 modifier = Modifier.fillMaxSize(0.88f),
                 contentScale = ContentScale.Fit
@@ -438,113 +436,7 @@ private fun TrustBadgeItem(
 }
 
 // ---------------------------------------------------------------------------
-// Bottom navigation bar shown on the landing screen
-// NOTE: If the app already has a shared bottom navigation composable (e.g. in
-// AppNav.kt), swap this out for that so behaviour stays consistent across
-// screens. The onClick lambdas below are placeholders — wire them to your
-// actual NavController routes for Rates / Scan / Weather / Profile.
-// ---------------------------------------------------------------------------
-@Composable
-private fun LabourBottomNavBar(navController: NavController) {
-    Box(modifier = Modifier.fillMaxWidth()) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-            color = Color.White,
-            shadowElevation = 12.dp
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BottomNavItem(
-                    icon = Icons.Rounded.Home,
-                    label = "Home",
-                    selected = true,
-                    onClick = { navController.popBackStack() }
-                )
-                BottomNavItem(
-                    icon = Icons.Rounded.ShowChart,
-                    label = "Rates",
-                    selected = false,
-                    onClick = { /* TODO: navigate to Rates screen */ }
-                )
-                // Reserved space so items don't sit under the floating Scan button
-                Spacer(modifier = Modifier.width(54.dp))
-                BottomNavItem(
-                    icon = Icons.Rounded.Cloud,
-                    label = "Weather",
-                    selected = false,
-                    onClick = { /* TODO: navigate to Weather screen */ }
-                )
-                BottomNavItem(
-                    icon = Icons.Rounded.Person,
-                    label = "Profile",
-                    selected = false,
-                    onClick = { /* TODO: navigate to Profile screen */ }
-                )
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = (-16).dp)
-                .size(56.dp)
-                .shadow(8.dp, CircleShape)
-                .background(LabourGreen, CircleShape)
-                .clickable { /* TODO: navigate to Scan / Disease Detection screen */ },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                Icons.Rounded.CenterFocusStrong,
-                contentDescription = "Scan",
-                tint = Color.White,
-                modifier = Modifier.size(26.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun BottomNavItem(
-    icon: ImageVector,
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val contentColor = if (selected) LabourGreenDark else Color(0xFF8A8A8A)
-
-    Column(
-        modifier = Modifier
-            .let { base ->
-                if (selected) base.background(Color(0xFFE3F3E4), RoundedCornerShape(16.dp)) else base
-            }
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            icon,
-            contentDescription = label,
-            tint = contentColor,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(Modifier.height(3.dp))
-        Text(
-            text = label,
-            fontSize = 11.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-            color = contentColor
-        )
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Unchanged from the original screen — hiring form, job list, job card
+// Hiring form
 // ---------------------------------------------------------------------------
 @Composable
 fun LabourHiringForm(onJobPosted: (LabourJob) -> Unit) {
@@ -555,7 +447,7 @@ fun LabourHiringForm(onJobPosted: (LabourJob) -> Unit) {
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text("Hire Workers", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
-        Text("मजदूरों के लिए जानकारी भरें", color = MaterialTheme.colorScheme.primary)
+        Text("मजदूरों के लिए जानकारी भरें", color = LabourGreen)
 
         OutlinedTextField(
             value = details, onValueChange = { details = it },
@@ -596,21 +488,65 @@ fun LabourHiringForm(onJobPosted: (LabourJob) -> Unit) {
                 }
             },
             modifier = Modifier.fillMaxWidth().height(80.dp),
-            shape = RoundedCornerShape(24.dp)
+            shape = RoundedCornerShape(24.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = LabourGreenDark)
         ) {
-            Text("POST JOB", fontWeight = FontWeight.Black, fontSize = 22.sp)
+            Text("POST JOB", fontWeight = FontWeight.Black, fontSize = 22.sp, color = Color.White)
         }
     }
 }
 
+// ---------------------------------------------------------------------------
+// Work List Design
+// ---------------------------------------------------------------------------
 @Composable
 fun GetWorkScreen(jobs: List<LabourJob>) {
-    Column(modifier = Modifier.fillMaxSize().padding(20.dp)) {
-        Text("Available Work Near You", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-        Text("आपके आसपास उपलब्ध काम", color = MaterialTheme.colorScheme.primary)
-        Spacer(Modifier.height(16.dp))
+    Column(modifier = Modifier.fillMaxSize()) {
+        Text(
+            text = "Available Work Near You",
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1B1B1B)
+            ),
+            // FIXED: Fully explicit arguments
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp)
+        )
 
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            // FIXED: Fully explicit arguments
+            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(28.dp)
+                    .height(4.dp)
+                    .background(LabourGreen, RoundedCornerShape(2.dp))
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Box(
+                modifier = Modifier
+                    .size(4.dp)
+                    .background(LabourGreen, CircleShape)
+            )
+        }
+
+        Text(
+            text = "आपके आस-पास उपलब्ध काम",
+            color = LabourGreen,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp,
+            modifier = Modifier.padding(horizontal = 20.dp) // Only horizontal is fine!
+        )
+
+        Spacer(Modifier.height(20.dp))
+
+        LazyColumn(
+            // FIXED: Fully explicit arguments
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxSize()
+        ) {
             items(jobs) { job ->
                 JobCard(job)
             }
@@ -622,9 +558,9 @@ fun GetWorkScreen(jobs: List<LabourJob>) {
 fun JobCard(job: LabourJob) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         color = Color.White,
-        shadowElevation = 4.dp,
+        shadowElevation = 2.dp,
         border = BorderStroke(1.dp, Color(0xFFF0F0F0))
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
@@ -632,37 +568,99 @@ fun JobCard(job: LabourJob) {
                 Box(
                     modifier = Modifier
                         .size(48.dp)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                        .background(GreenCardBg, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.Work, null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        imageVector = Icons.Rounded.Work,
+                        contentDescription = null,
+                        tint = LabourGreenDark
+                    )
                 }
                 Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(job.title, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B)))
-                    Text(job.location, style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray))
+                    Text(
+                        text = job.title,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF1B1B1B)
+                        )
+                    )
+                    Text(
+                        text = job.location,
+                        style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray)
+                    )
                 }
-                Text(job.price, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary, fontSize = 18.sp)
+                Text(
+                    text = job.price,
+                    fontWeight = FontWeight.Black,
+                    color = LabourGreenDark,
+                    fontSize = 17.sp
+                )
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), thickness = 0.5.dp, color = Color(0xFFF5F5F5))
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 16.dp),
+                thickness = 1.dp,
+                color = Color(0xFFF5F5F5)
+            )
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Needed: ${job.workersNeeded} Workers", style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF444444)))
-                Text(job.date, style = MaterialTheme.typography.labelSmall, color = Color.LightGray)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.People,
+                        contentDescription = null,
+                        tint = LabourGreen,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Needed: ${job.workersNeeded} Workers",
+                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF444444))
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Rounded.CalendarToday,
+                        contentDescription = null,
+                        tint = LabourGreen,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = job.date,
+                        style = MaterialTheme.typography.labelMedium.copy(color = Color(0xFF444444))
+                    )
+                }
             }
 
             Spacer(Modifier.height(16.dp))
 
-            Button(
+            OutlinedButton(
                 onClick = { /* Contact Farmer */ },
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                border = BorderStroke(1.dp, LabourGreen),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    containerColor = Color.White,
+                    contentColor = LabourGreen
+                )
             ) {
-                Icon(Icons.Rounded.Call, null, modifier = Modifier.size(18.dp))
+                Icon(
+                    imageVector = Icons.Rounded.Call,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(Modifier.width(8.dp))
-                Text("CONTACT FARMER", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(
+                    text = "Contact Farmer",
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp
+                )
             }
         }
     }

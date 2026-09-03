@@ -7,9 +7,10 @@ GET /api/v1/weather/advisory - Actionable agricultural weather advisory
 GET /api/v1/weather/farming - Comprehensive farming weather bundle
 """
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from datetime import datetime, timezone
 
+from app.core.language import get_language_context, LanguageContext
 from app.services.weather_service import WeatherService
 from app.schemas.weather import (
     WeatherCurrentResponse,
@@ -29,13 +30,13 @@ async def get_current_weather(
     lat: float = Query(..., description="Latitude coordinate"),
     lon: float = Query(..., description="Longitude coordinate"),
     location_name: Optional[str] = Query(None, description="Optional farm/city/village location name"),
-    language: Optional[str] = Query(None, description="Language code (hi, gu, mr, pa, bn, en)")
+    language: Optional[str] = Query(None, description="Language code (hi, gu, mr, pa, bn, en)"),
+    lang_ctx: LanguageContext = Depends(get_language_context)
 ):
     """
     Get current verified physical weather observations from Open-Meteo NWP.
     """
-    from app.core.language import get_current_language
-    req_lang = language or get_current_language()
+    req_lang = language or lang_ctx.canonical_code
     try:
         weather_dict = await WeatherService.get_current_weather(
             lat=lat,
@@ -48,7 +49,10 @@ async def get_current_weather(
 
         # Strip internal keys and map to CurrentWeather
         weather_dict.pop("success", None)
-        advisory_text = weather_dict.pop("farming_advice", None)
+        if not weather_dict.get("weather"):
+            weather_dict["weather"] = weather_dict.get("condition")
+        if not weather_dict.get("location"):
+            weather_dict["location"] = weather_dict.get("location_name") or location_name
         current_obj = CurrentWeather(**weather_dict)
 
         advisory_obj = await WeatherService.get_agricultural_advisory(
@@ -74,13 +78,13 @@ async def get_weather_forecast(
     lon: float = Query(..., description="Longitude coordinate"),
     days: int = Query(7, ge=1, le=7, description="Number of forecast days (1-7)"),
     location_name: Optional[str] = Query(None, description="Optional farm/city/village location name"),
-    language: Optional[str] = Query(None, description="Language code")
+    language: Optional[str] = Query(None, description="Language code"),
+    lang_ctx: LanguageContext = Depends(get_language_context)
 ):
     """
     Get 1 to 7-day physical weather forecast from Open-Meteo NWP.
     """
-    from app.core.language import get_current_language
-    req_lang = language or get_current_language()
+    req_lang = language or lang_ctx.canonical_code
     try:
         forecast_dict = await WeatherService.get_forecast(
             lat=lat,
@@ -137,13 +141,13 @@ async def get_weather_alerts(
     lon: float = Query(..., description="Longitude coordinate"),
     days: int = Query(7, ge=1, le=7, description="Number of forecast days to evaluate"),
     location_name: Optional[str] = Query(None, description="Optional location name"),
-    language: Optional[str] = Query(None, description="Language code")
+    language: Optional[str] = Query(None, description="Language code"),
+    lang_ctx: LanguageContext = Depends(get_language_context)
 ):
     """
     Get deterministic agronomic weather alerts (Heavy Rain, Heatwave, Frost, High Wind, Thunderstorm).
     """
-    from app.core.language import get_current_language
-    req_lang = language or get_current_language()
+    req_lang = language or lang_ctx.canonical_code
     try:
         alerts = await WeatherService.get_weather_alerts(
             lat=lat,
@@ -169,13 +173,13 @@ async def get_agricultural_advisory(
     crop_name: Optional[str] = Query(None, description="Optional crop name (e.g. Wheat, Mustard)"),
     growth_stage: Optional[str] = Query(None, description="Optional growth stage"),
     soil_type: Optional[str] = Query(None, description="Optional soil type"),
-    language: Optional[str] = Query(None, description="Language code")
+    language: Optional[str] = Query(None, description="Language code"),
+    lang_ctx: LanguageContext = Depends(get_language_context)
 ):
     """
     Get actionable agricultural advisory based on 3-day weather forecast.
     """
-    from app.core.language import get_current_language
-    req_lang = language or get_current_language()
+    req_lang = language or lang_ctx.canonical_code
     try:
         return await WeatherService.get_agricultural_advisory(
             lat=lat,
@@ -196,12 +200,12 @@ async def get_farming_weather(
     days: int = Query(7, ge=1, le=7, description="Number of days"),
     location_name: Optional[str] = Query(None, description="Location name"),
     language: Optional[str] = Query(None, description="Language code"),
+    lang_ctx: LanguageContext = Depends(get_language_context)
 ):
     """
     Comprehensive bundle returning current, forecast, alerts, and farming summary.
     """
-    from app.core.language import get_current_language
-    req_lang = language or get_current_language()
+    req_lang = language or lang_ctx.canonical_code
     try:
         weather = await WeatherService.get_farming_weather(
             lat=lat,

@@ -1,6 +1,8 @@
 package com.example.farmfusionapp.ui.screens
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,12 +33,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.farmfusionapp.R
 import com.example.farmfusionapp.ui.components.*
 import com.example.farmfusionapp.utils.*
 import kotlinx.coroutines.launch
@@ -45,6 +52,7 @@ import com.example.farmfusionapp.data.model.AgriculturalAdvisoryResponse
 
 data class DisplayWeatherData(
     val temperature: Int,
+    val feelsLike: Int? = null,
     val description: String,
     val humidity: Int,
     val windSpeed: Double,
@@ -53,7 +61,8 @@ data class DisplayWeatherData(
     val timestamp: String? = null,
     val forecast: List<DailyForecast> = emptyList(),
     val alerts: List<WeatherAlertItemUi> = emptyList(),
-    val advisory: AgriculturalAdvisoryResponse? = null
+    val advisory: AgriculturalAdvisoryResponse? = null,
+    val pressure: Int? = null
 )
 
 data class DailyForecast(
@@ -67,12 +76,14 @@ data class DailyForecast(
 
 object WeatherSnapshotStore {
     var latestWeather by mutableStateOf<DisplayWeatherData?>(null)
+    var latestLanguage by mutableStateOf<String?>(null)
     var latestError by mutableStateOf<String?>(null)
     var lastUpdatedAt by mutableLongStateOf(0L)
 }
 
-fun shouldRefreshWeather(maxAgeMs: Long = 10 * 60 * 1000L): Boolean {
+fun shouldRefreshWeather(currentLanguage: String? = null, maxAgeMs: Long = 10 * 60 * 1000L): Boolean {
     if (WeatherSnapshotStore.latestWeather == null) return true
+    if (currentLanguage != null && WeatherSnapshotStore.latestLanguage != null && WeatherSnapshotStore.latestLanguage != currentLanguage) return true
     return System.currentTimeMillis() - WeatherSnapshotStore.lastUpdatedAt > maxAgeMs
 }
 
@@ -81,7 +92,8 @@ suspend fun refreshWeatherSnapshotIfNeeded(
     force: Boolean = false,
     onResult: (DisplayWeatherData?, String?) -> Unit
 ) {
-    if (!force && !shouldRefreshWeather()) {
+    val currentLang = LanguagePreferences.getSelectedLanguage(context) ?: "en"
+    if (!force && !shouldRefreshWeather(currentLang)) {
         onResult(WeatherSnapshotStore.latestWeather, WeatherSnapshotStore.latestError)
         return
     }
@@ -115,74 +127,163 @@ fun WeatherScreen(navController: NavController) {
         }
     )
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        CenterAlignedTopAppBar(
-            title = { Text("Weather", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) },
-            navigationIcon = {
-                IconButton(onClick = { navController.popBackStack() }) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                }
-            }
-        )
-        NeoScaffoldBackground(
+    // Edge-to-edge background container
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF1F8E9))) {
+
+        // Fullscreen background illustration
+        Image(
+            painter = painterResource(id = R.drawable.ill_weather_bg),
+            contentDescription = "Weather Landscape Background",
+            contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
-        ) {
+        )
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        text = "Weather",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1B5E20)
+                        )
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF1B5E20)
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = Color.Transparent
+                )
+            )
+
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(20.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp)
+                // No horizontal padding here so child rows can bleed to the edges!
+                contentPadding = PaddingValues(top = 24.dp, bottom = 116.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 when {
-                    isLoading -> item { WeatherLoadingState() }
+                    isLoading -> item {
+                        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+                            WeatherLoadingState()
+                        }
+                    }
                     errorMessage != null -> item {
-                        WeatherErrorState(errorMessage!!) {
-                            isLoading = true
-                            errorMessage = null
-                            scope.launch {
-                                refreshWeatherSnapshotIfNeeded(context, force = true) { data, error ->
-                                    weatherData = data ?: weatherData
-                                    errorMessage = error
-                                    isLoading = false
+                        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp), contentAlignment = Alignment.Center) {
+                            WeatherErrorState(errorMessage!!) {
+                                isLoading = true
+                                errorMessage = null
+                                scope.launch {
+                                    refreshWeatherSnapshotIfNeeded(context, force = true) { data, error ->
+                                        weatherData = data ?: weatherData
+                                        errorMessage = error
+                                        isLoading = false
+                                    }
                                 }
                             }
                         }
                     }
                     weatherData != null -> {
+
+                        // 1. Weather Alerts
                         if (weatherData!!.alerts.isNotEmpty()) {
                             item {
-                                WeatherAlertsBanner(weatherData!!.alerts)
+                                Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                                    WeatherAlertsBanner(weatherData!!.alerts)
+                                }
                             }
                         }
-                        item { WeatherHero(weatherData!!) }
+
+                        // 2. Hero Weather Card
+                        item {
+                            Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                                WeatherHeroCard(weatherData!!)
+                            }
+                        }
+
+                        // 3. Stat Cards Row
                         item {
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                WeatherInfoCard("Humidity", "${weatherData!!.humidity}%", Icons.Rounded.WaterDrop, Modifier.weight(1f))
-                                WeatherInfoCard("Wind", "${weatherData!!.windSpeed.toInt()} km/h", Icons.Rounded.Air, Modifier.weight(1f))
+                                WeatherStatCard("Humidity", "${weatherData!!.humidity}%", Icons.Rounded.WaterDrop, Modifier.weight(1f))
+                                WeatherStatCard("Wind", "${weatherData!!.windSpeed.toInt()} km/h", Icons.Rounded.Air, Modifier.weight(1f))
                             }
                         }
+
+                        // 4. Rich Advisory or Field Guidance
                         if (weatherData!!.advisory != null) {
                             item {
-                                NeoSectionTitle("Agricultural Advisory", "Actionable agronomic guidance for field operations")
+                                Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)) {
+                                    Text(
+                                        text = "Agricultural Advisory",
+                                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B))
+                                    )
+                                    Text(
+                                        text = "Actionable agronomic guidance for field operations",
+                                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.DarkGray)
+                                    )
+                                }
                             }
                             item {
-                                AgriculturalAdvisoryCard(weatherData!!.advisory!!)
+                                Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                                    AgriculturalAdvisoryCard(weatherData!!.advisory!!)
+                                }
                             }
                         } else {
                             item {
-                                NeoSectionTitle("Field guidance", "Actionable farm operations & suitability for today")
+                                Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)) {
+                                    Text(
+                                        text = "Field guidance",
+                                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B))
+                                    )
+                                    Text(
+                                        text = "Actionable farm operations & suitability for today",
+                                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.DarkGray)
+                                    )
+                                }
                             }
                             item {
-                                FieldGuidanceCard(weatherData!!)
+                                Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                                    FieldGuidanceCard(weatherData!!)
+                                }
+                            }
+                        }
+
+                        // 6. Outlook Forecast Section (Horizontally Scrollable)
+                        item {
+                            Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)) {
+                                Text(
+                                    text = "Outlook",
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B))
+                                )
+                                Text(
+                                    text = "7-day forecast for farm planning",
+                                    style = MaterialTheme.typography.bodyMedium.copy(color = Color.DarkGray)
+                                )
                             }
                         }
                         item {
-                            NeoSectionTitle("Outlook", "Real 7-day forecast for farm planning")
-                        }
-                        items(weatherData!!.forecast) { forecast ->
-                            ForecastRow(forecast)
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                // This content padding ensures the cards bleed properly to the edge of the device screen while scrolling!
+                                contentPadding = PaddingValues(horizontal = 24.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(weatherData!!.forecast) { forecast ->
+                                    OutlookCard(forecast, modifier = Modifier.width(85.dp))
+                                }
+                            }
                         }
                     }
                 }
@@ -192,74 +293,29 @@ fun WeatherScreen(navController: NavController) {
 }
 
 @Composable
-private fun WeatherLoadingState() {
-    NeoCard {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            CircularProgressIndicator()
-            Text("Loading live weather", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-            Text("Fetching your field conditions and advice.", style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-@Composable
-private fun WeatherErrorState(message: String, onRetry: () -> Unit) {
-    NeoCard(containerColor = MaterialTheme.colorScheme.errorContainer) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(32.dp))
-            Text("Weather unavailable", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-            Text(message, style = MaterialTheme.typography.bodyMedium)
-            PremiumButton(text = "Try Again", onClick = onRetry)
-        }
-    }
-}
-
-@Composable
-private fun WeatherHero(weatherData: DisplayWeatherData) {
+private fun WeatherHeroCard(weatherData: DisplayWeatherData) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(280.dp)
-            .shadow(16.dp, RoundedCornerShape(32.dp)),
-        shape = RoundedCornerShape(32.dp),
-        color = Color.White
+            .height(180.dp)
+            .shadow(16.dp, RoundedCornerShape(24.dp), spotColor = Color(0xFF2E7D32).copy(alpha = 0.4f)),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.Transparent
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(
                     Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF4FC3F7),
-                            Color(0xFF29B6F6),
-                            Color(0xFF039BE5)
-                        )
+                        colors = listOf(Color(0xFF55B059), Color(0xFF2E7D32))
                     )
                 )
         ) {
-            // Background Decorative Circles
-            Box(
-                modifier = Modifier
-                    .size(180.dp)
-                    .offset(x = (-40).dp, y = (-40).dp)
-                    .background(Color.White.copy(alpha = 0.1f), CircleShape)
-            )
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .align(Alignment.BottomEnd)
-                    .offset(x = 30.dp, y = 30.dp)
-                    .background(Color.White.copy(alpha = 0.15f), CircleShape)
-            )
+            Box(modifier = Modifier.size(220.dp).offset(x = (-60).dp, y = (-60).dp).background(Color.White.copy(alpha = 0.06f), CircleShape))
+            Box(modifier = Modifier.size(160.dp).align(Alignment.BottomEnd).offset(x = 40.dp, y = 40.dp).background(Color.White.copy(alpha = 0.08f), CircleShape))
 
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(26.dp),
+                modifier = Modifier.fillMaxSize().padding(22.dp),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
@@ -269,19 +325,11 @@ private fun WeatherHero(weatherData: DisplayWeatherData) {
                 ) {
                     Column {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                Icons.Rounded.LocationOn,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.9f),
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Icon(Icons.Rounded.LocationOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = weatherData.city,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                style = MaterialTheme.typography.titleMedium.copy(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             )
                         }
                         val timeLabel = remember(weatherData.timestamp) {
@@ -301,9 +349,8 @@ private fun WeatherHero(weatherData: DisplayWeatherData) {
                         }
                         Text(
                             text = timeLabel,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                color = Color.White.copy(alpha = 0.85f)
-                            )
+                            style = MaterialTheme.typography.labelMedium.copy(color = Color.White.copy(alpha = 0.85f)),
+                            modifier = Modifier.padding(start = 22.dp, top = 2.dp)
                         )
                     }
 
@@ -315,40 +362,49 @@ private fun WeatherHero(weatherData: DisplayWeatherData) {
                         },
                         contentDescription = null,
                         tint = Color.White,
-                        modifier = Modifier.size(56.dp)
+                        modifier = Modifier.size(42.dp)
                     )
                 }
 
-                Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "${weatherData.temperature}°",
+                        text = "${weatherData.temperature}°C",
                         style = MaterialTheme.typography.displayLarge.copy(
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.SemiBold,
                             color = Color.White,
-                            fontSize = 84.sp
+                            fontSize = 64.sp
                         )
                     )
-                    Text(
-                        text = weatherData.description.replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                    )
-                }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color.White.copy(alpha = 0.2f))
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    WeatherHeroStat(Icons.Rounded.WaterDrop, "Humidity", "${weatherData.humidity}%")
-                    Box(modifier = Modifier.height(24.dp).width(1.dp).background(Color.White.copy(alpha = 0.3f)))
-                    WeatherHeroStat(Icons.Rounded.Air, "Wind Speed", "${weatherData.windSpeed.toInt()} km/h")
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    // Vertical Line separator exactly matching DashboardScreen
+                    Box(
+                        modifier = Modifier
+                            .height(56.dp)
+                            .width(1.dp)
+                            .background(Color.White.copy(alpha = 0.5f))
+                    )
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(verticalArrangement = Arrangement.Center) {
+                        Text(
+                            text = weatherData.description.replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Feels like ${weatherData.feelsLike ?: weatherData.temperature}°C",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -356,45 +412,38 @@ private fun WeatherHero(weatherData: DisplayWeatherData) {
 }
 
 @Composable
-private fun WeatherHeroStat(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(16.dp))
-        Spacer(modifier = Modifier.width(6.dp))
-        Column {
-            Text(value, style = MaterialTheme.typography.labelLarge.copy(color = Color.White, fontWeight = FontWeight.Bold))
-            Text(label, style = MaterialTheme.typography.labelSmall.copy(color = Color.White.copy(alpha = 0.7f)))
-        }
-    }
-}
-
-@Composable
-private fun WeatherInfoCard(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
+private fun WeatherStatCard(label: String, value: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier) {
     Surface(
-        modifier = modifier.height(100.dp),
-        shape = RoundedCornerShape(24.dp),
+        modifier = modifier.height(96.dp),
+        shape = RoundedCornerShape(20.dp),
         color = Color.White,
-        shadowElevation = 4.dp,
-        border = BorderStroke(1.dp, Color(0xFFF0F0F0))
+        shadowElevation = 2.dp
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Box(modifier = Modifier.fillMaxSize()) {
+            Canvas(modifier = Modifier.fillMaxWidth().height(35.dp).align(Alignment.BottomCenter)) {
+                val wavePath = Path().apply {
+                    moveTo(0f, size.height * 0.4f)
+                    quadraticBezierTo(size.width * 0.25f, 0f, size.width * 0.5f, size.height * 0.5f)
+                    quadraticBezierTo(size.width * 0.75f, size.height, size.width, size.height * 0.6f)
+                    lineTo(size.width, size.height)
+                    lineTo(0f, size.height)
+                    close()
+                }
+                drawPath(wavePath, color = Color(0xFFF1F8E9))
+            }
+
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.Top,
+                horizontalAlignment = Alignment.Start
             ) {
                 Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f), CircleShape),
+                    modifier = Modifier.size(28.dp).background(Color(0xFFF1F8E9), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Icon(icon, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(14.dp))
                 }
-            }
-            Column {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(label, style = MaterialTheme.typography.labelSmall.copy(color = Color.Gray))
                 Text(value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B)))
             }
@@ -403,69 +452,60 @@ private fun WeatherInfoCard(label: String, value: String, icon: androidx.compose
 }
 
 @Composable
-private fun ForecastRow(forecast: DailyForecast) {
+private fun OutlookCard(forecast: DailyForecast, modifier: Modifier = Modifier) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.height(116.dp),
         shape = RoundedCornerShape(20.dp),
         color = Color.White,
-        shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, Color(0xFFF5F5F5))
+        shadowElevation = 2.dp
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.fillMaxSize().padding(vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .background(Color(0xFFF5F5F5), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = when {
-                            forecast.condition.contains("cloud", ignoreCase = true) -> Icons.Rounded.WbCloudy
-                            forecast.condition.contains("rain", ignoreCase = true) -> Icons.Rounded.BeachAccess
-                            else -> Icons.Rounded.WbSunny
-                        },
-                        contentDescription = null,
-                        tint = if (forecast.condition.contains("sun", ignoreCase = true)) Color(0xFFFFB300) else Color(0xFF0288D1),
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-                Column {
-                    Text(forecast.day, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                    Text(forecast.condition, style = MaterialTheme.typography.bodySmall.copy(color = Color.Gray))
-                    if (forecast.rainProbability > 0 || forecast.precipitationMm > 0.0) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(
-                                Icons.Rounded.WaterDrop,
-                                contentDescription = null,
-                                tint = Color(0xFF0288D1),
-                                modifier = Modifier.size(12.dp)
-                            )
-                            val precipText = if (forecast.precipitationMm > 0.0) {
-                                " · ${String.format(java.util.Locale.US, "%.1f", forecast.precipitationMm)} mm"
-                            } else ""
-                            Text(
-                                text = "${forecast.rainProbability}%$precipText",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color(0xFF0288D1),
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                        }
-                    }
-                }
+            Text(forecast.day, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Color.DarkGray))
+
+            RealWeatherIcon(condition = forecast.condition)
+
+            if (forecast.precipitationMm > 0.0) {
+                Text(
+                    text = "${forecast.precipitationMm} mm",
+                    style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF1976D2), fontSize = 10.sp)
+                )
             }
+
             Text(
                 text = "${forecast.high}° / ${forecast.low}°",
-                style = MaterialTheme.typography.titleMedium.copy(
+                style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.ExtraBold,
-                    color = MaterialTheme.colorScheme.primary
+                    color = Color(0xFF2E7D32)
                 )
             )
+        }
+    }
+}
+
+@Composable
+private fun RealWeatherIcon(condition: String, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.size(36.dp), contentAlignment = Alignment.Center) {
+        when {
+            condition.contains("rain", true) -> {
+                Icon(Icons.Rounded.Cloud, contentDescription = null, tint = Color(0xFF90A4AE), modifier = Modifier.size(28.dp).offset(y = (-4).dp))
+                Icon(Icons.Rounded.WaterDrop, contentDescription = null, tint = Color(0xFF42A5F5), modifier = Modifier.size(12.dp).offset(x = (-6).dp, y = 10.dp))
+                Icon(Icons.Rounded.WaterDrop, contentDescription = null, tint = Color(0xFF42A5F5), modifier = Modifier.size(12.dp).offset(x = 6.dp, y = 10.dp))
+            }
+            condition.contains("partly", true) || (condition.contains("cloud", true) && condition.contains("sun", true)) -> {
+                Icon(Icons.Rounded.WbSunny, contentDescription = null, tint = Color(0xFFFFCA28), modifier = Modifier.size(24.dp).offset(x = 8.dp, y = (-6).dp))
+                Icon(Icons.Rounded.Cloud, contentDescription = null, tint = Color(0xFF81D4FA), modifier = Modifier.size(26.dp).offset(x = (-4).dp, y = 4.dp))
+            }
+            condition.contains("cloud", true) -> {
+                Icon(Icons.Rounded.Cloud, contentDescription = null, tint = Color(0xFFB0BEC5), modifier = Modifier.size(24.dp).offset(x = 6.dp, y = (-4).dp))
+                Icon(Icons.Rounded.Cloud, contentDescription = null, tint = Color(0xFF81D4FA), modifier = Modifier.size(30.dp).offset(x = (-4).dp, y = 4.dp))
+            }
+            else -> {
+                Icon(Icons.Rounded.WbSunny, contentDescription = null, tint = Color(0xFFFFCA28), modifier = Modifier.size(32.dp))
+            }
         }
     }
 }
@@ -667,281 +707,6 @@ private fun AdvisoryPillarRow(
     }
 }
 
-data class FieldGuidance(
-    val headline: String,
-    val summary: String,
-    val badge: String,
-    val badgeColor: Color,
-    val badgeTextColor: Color,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val notSuitableFor: List<String>,
-    val suitableFor: List<String>,
-    val precautions: List<String>
-)
-
-fun generateFieldGuidance(weather: DisplayWeatherData): FieldGuidance {
-    val desc = weather.description.lowercase().trim()
-    val temp = weather.temperature
-    val humidity = weather.humidity
-    val wind = weather.windSpeed
-
-    return when {
-        // 1. Extreme Storm / Thunderstorm / Hail
-        desc.contains("thunder") || desc.contains("storm") || desc.contains("hail") || desc.contains("squall") || desc.contains("lightning") -> {
-            FieldGuidance(
-                headline = "Thunderstorm & Severe Weather Alert",
-                summary = "Severe storm conditions active. High risk of crop lodging, physical damage, and field safety hazards.",
-                badge = "DANGER / PAUSE OPERATIONS",
-                badgeColor = Color(0xFFFFEBEE),
-                badgeTextColor = Color(0xFFC62828),
-                icon = Icons.Rounded.Thunderstorm,
-                notSuitableFor = listOf(
-                    "All open-field manual & tractor operations",
-                    "Chemical spraying or top-dress fertilization",
-                    "Working with metallic machinery or standing under isolated trees"
-                ),
-                suitableFor = listOf(
-                    "Sheltering farm livestock & equipment",
-                    "Inspecting indoor grain storage & seeds"
-                ),
-                precautions = listOf(
-                    "Provide physical staking for tall crops (banana, tomato, sugarcane)",
-                    "Secure greenhouse panels, polytunnels, and nursery shade netting"
-                )
-            )
-        }
-
-        // 2. Heavy Rain
-        desc.contains("heavy rain") || desc.contains("torrential") || desc.contains("heavy shower") || desc.contains("dense drizzle") -> {
-            FieldGuidance(
-                headline = "Heavy Rain Advisory",
-                summary = "Heavy rainfall occurring. Soil saturation is critical with severe runoff and leaching risks.",
-                badge = "HEAVY RAIN / RESTRICTED",
-                badgeColor = Color(0xFFFFEBEE),
-                badgeTextColor = Color(0xFFC62828),
-                icon = Icons.Rounded.BeachAccess,
-                notSuitableFor = listOf(
-                    "Chemical pesticide & fertilizer spraying (immediate wash-off)",
-                    "Grain harvesting and open-air drying",
-                    "Heavy tractor tilling (causes severe soil compaction & tractor stuck)",
-                    "Nitrogen fertilizer broadcasting (causes leaching into groundwater)"
-                ),
-                suitableFor = listOf(
-                    "Rainwater harvesting in farm ponds and recharge pits",
-                    "Checking nursery drainage outlets"
-                ),
-                precautions = listOf(
-                    "Clear field drainage channels immediately to prevent waterlogging & root rot",
-                    "Inspect field bunds to avoid breach and topsoil erosion"
-                )
-            )
-        }
-
-        // 3. Moderate / Light Rain / Drizzle / Showers / Wet Weather
-        desc.contains("rain") || desc.contains("drizzle") || desc.contains("shower") || desc.contains("precipitation") || desc.contains("wet") -> {
-            FieldGuidance(
-                headline = "Rainy Conditions Guidance",
-                summary = "Wet weather and rain showers present. Topsoil is damp with high ambient moisture.",
-                badge = "RAINY / SPRAYING DELAYED",
-                badgeColor = Color(0xFFE3F2FD),
-                badgeTextColor = Color(0xFF1565C0),
-                icon = Icons.Rounded.BeachAccess,
-                notSuitableFor = listOf(
-                    "Foliar pesticide & fungicide spraying (wash-off risk)",
-                    "Harvesting mature grains or fodder hay",
-                    "Applying dry urea or soluble chemical fertilizers"
-                ),
-                suitableFor = listOf(
-                    "Transplanting paddy and rainfed Kharif seedlings",
-                    "Planting tree saplings & agroforestry borders",
-                    "Maintaining farm drainage furrows"
-                ),
-                precautions = listOf(
-                    "Allow foliage to dry for at least 24 hours before scheduling foliar sprays",
-                    "Ensure nursery beds have raised slopes to drain excess water"
-                )
-            )
-        }
-
-        // 4. High Wind / Gale
-        desc.contains("wind") || desc.contains("gale") || desc.contains("breeze") || wind >= 18.0 -> {
-            FieldGuidance(
-                headline = "High Wind Warning",
-                summary = "Elevated wind speeds (${wind.toInt()} km/h). Air turbulence causes chemical drift and uneven droplet deposition.",
-                badge = "HIGH WIND / NO SPRAY",
-                badgeColor = Color(0xFFFFF3E0),
-                badgeTextColor = Color(0xFFE65100),
-                icon = Icons.Rounded.Air,
-                notSuitableFor = listOf(
-                    "Foliar spraying & dusting (causes severe drift to non-target crops)",
-                    "Crop residue burning (extreme wildfire hazard)",
-                    "Sprinkler irrigation (uneven distribution patterns)"
-                ),
-                suitableFor = listOf(
-                    "Soil plowing and manual weeding at ground level",
-                    "Repairing drip irrigation lines and ground pipes"
-                ),
-                precautions = listOf(
-                    "Provide earthing-up and staking for vulnerable standing crops",
-                    "Check and tie down polyhouse plastic sheets & nursery netting"
-                )
-            )
-        }
-
-        // 5. Heatwave / Extreme High Temperature
-        desc.contains("heat") || desc.contains("hot") || temp >= 35 -> {
-            FieldGuidance(
-                headline = "High Heat & Evaporation Stress",
-                summary = "High temperature ($temp°C). Rapid evapotranspiration stress on soil and plant tissues.",
-                badge = "HEAT STRESS / IRRIGATE",
-                badgeColor = Color(0xFFFFF3E0),
-                badgeTextColor = Color(0xFFE65100),
-                icon = Icons.Rounded.WbSunny,
-                notSuitableFor = listOf(
-                    "Midday chemical spraying (rapid evaporation & chemical leaf scorching)",
-                    "Midday seedling transplanting (severe transplant shock)",
-                    "Heavy physical fieldwork during peak noon hours"
-                ),
-                suitableFor = listOf(
-                    "Early morning or late evening drip irrigation",
-                    "Applying organic straw mulching to conserve root moisture",
-                    "Deep summer plowing (soil solarization for pest control)"
-                ),
-                precautions = listOf(
-                    "Irrigate in split doses during cooler morning/evening hours",
-                    "Provide shade covers and clean water for farm livestock"
-                )
-            )
-        }
-
-        // 6. Cold / Frost / Snow / Freezing
-        desc.contains("cold") || desc.contains("frost") || desc.contains("snow") || desc.contains("freeze") || desc.contains("ice") || temp <= 10 -> {
-            FieldGuidance(
-                headline = "Cold Wave & Frost Advisory",
-                summary = "Low temperature ($temp°C). Horticultural and vegetable crops are at risk of frost injury.",
-                badge = "FROST RISK / PROTECT CROPS",
-                badgeColor = Color(0xFFE1F5FE),
-                badgeTextColor = Color(0xFF0277BD),
-                icon = Icons.Rounded.AcUnit,
-                notSuitableFor = listOf(
-                    "Nitrogen fertilizer application (spurs tender growth susceptible to frost)",
-                    "Heavy cold water flooding late at night",
-                    "Exposing tender nursery saplings without cover"
-                ),
-                suitableFor = listOf(
-                    "Light evening irrigation (raises soil thermal mass against frost)",
-                    "Covering vegetable beds with straw/plastic thatch",
-                    "Pruning dormant orchard trees"
-                ),
-                precautions = listOf(
-                    "Generate light smoke on orchard windward boundaries during freezing nights",
-                    "Harvest mature vegetable produce early before night frost"
-                )
-            )
-        }
-
-        // 7. Fog / High Humidity / Mist / Dew
-        desc.contains("fog") || desc.contains("mist") || desc.contains("haze") || humidity >= 80 -> {
-            FieldGuidance(
-                headline = "Fog & High Humidity Advisory",
-                summary = "High relative humidity ($humidity%). Prolonged leaf wetness promotes rapid fungal & bacterial pathogen sporulation.",
-                badge = "HIGH HUMIDITY / DISEASE WATCH",
-                badgeColor = Color(0xFFEDE7F6),
-                badgeTextColor = Color(0xFF512DA8),
-                icon = Icons.Rounded.WaterDrop,
-                notSuitableFor = listOf(
-                    "Overhead sprinkler irrigation (further prolongs canopy wetness)",
-                    "Early morning spraying while heavy dew is dripping",
-                    "Dense storage of damp harvested produce"
-                ),
-                suitableFor = listOf(
-                    "Scouting crops for fungal leaf spots, blights, and powdery mildew",
-                    "Applying prophylactic bio-fungicides (Trichoderma / Pseudomonas)",
-                    "Pruning lower diseased leaves to improve inter-row ventilation"
-                ),
-                precautions = listOf(
-                    "Scout undersides of leaves and crop crowns daily for early disease signs",
-                    "Allow morning dew to completely evaporate before starting harvest"
-                )
-            )
-        }
-
-        // 8. Cloudy / Overcast
-        desc.contains("cloud") || desc.contains("overcast") -> {
-            FieldGuidance(
-                headline = "Cloudy & Overcast Weather",
-                summary = "Diffused sunlight and mild transpiration. Favorable conditions for root establishment.",
-                badge = "MILD / GOOD FOR PLANTING",
-                badgeColor = Color(0xFFF1F8E9),
-                badgeTextColor = Color(0xFF33691E),
-                icon = Icons.Rounded.WbCloudy,
-                notSuitableFor = listOf(
-                    "Sun-drying harvested grains and seeds (slow drying & mold risk)",
-                    "Solar soil disinfestation"
-                ),
-                suitableFor = listOf(
-                    "Transplanting seedlings with minimal wilting shock",
-                    "Inter-cultivation, manual weeding, and hoeing",
-                    "Fertilizer side-dressing and incorporation"
-                ),
-                precautions = listOf(
-                    "Monitor sucking pests (aphids, jassids) which proliferate under overcast skies",
-                    "Maintain proper row spacing for light penetration"
-                )
-            )
-        }
-
-        // 9. Clear / Sunny / Optimal
-        desc.contains("clear") || desc.contains("sun") || desc.contains("bright") -> {
-            FieldGuidance(
-                headline = "Optimal Sunny Conditions",
-                summary = "Clear skies with abundant solar radiation. Ideal day for chemical protection and harvesting.",
-                badge = "OPTIMAL / IDEAL FOR SPRAYING",
-                badgeColor = Color(0xFFE8F5E9),
-                badgeTextColor = Color(0xFF1B5E20),
-                icon = Icons.Rounded.WbSunny,
-                notSuitableFor = listOf(
-                    "Broadcasting uncovered volatile nitrogen fertilizers in peak sunlight",
-                    "Flood irrigation during hot noon hours"
-                ),
-                suitableFor = listOf(
-                    "Foliar pesticide, herbicide, and micronutrient spraying",
-                    "Harvesting and sun-drying agricultural produce",
-                    "Tractor plowing, harrowing, and field bed preparation"
-                ),
-                precautions = listOf(
-                    "Schedule field irrigation in the early morning to minimize evaporation loss",
-                    "Inspect soil moisture depth before scheduling next irrigation"
-                )
-            )
-        }
-
-        // 10. Default General Farm Guidance
-        else -> {
-            FieldGuidance(
-                headline = "General Field Operations Guidance",
-                summary = "Stable seasonal weather conditions. Suitable for routine farm maintenance and crop care.",
-                badge = "FAVORABLE FOR FARM WORK",
-                badgeColor = Color(0xFFE8F5E9),
-                badgeTextColor = Color(0xFF1B5E20),
-                icon = Icons.Rounded.Grass,
-                notSuitableFor = listOf(
-                    "Over-irrigating without assessing soil moisture level"
-                ),
-                suitableFor = listOf(
-                    "Routine crop scouting and pest monitoring",
-                    "Weed removal and intercultural operations",
-                    "Scheduled nutrient management and irrigation"
-                ),
-                precautions = listOf(
-                    "Maintain clear irrigation and drainage channels across the field",
-                    "Keep farm tools clean and disinfected between plots"
-                )
-            )
-        }
-    }
-}
-
 @Composable
 private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
     val guidance = remember(weatherData) { generateFieldGuidance(weatherData) }
@@ -959,7 +724,6 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Header Row: Icon + Title + Status Badge
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -1001,7 +765,6 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                 }
             }
 
-            // Status Badge Chip
             Surface(
                 shape = RoundedCornerShape(12.dp),
                 color = guidance.badgeColor
@@ -1016,7 +779,6 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                 )
             }
 
-            // Summary text
             Text(
                 text = guidance.summary,
                 style = MaterialTheme.typography.bodyMedium.copy(
@@ -1025,7 +787,6 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                 )
             )
 
-            // Block 1: NOT SUITABLE TODAY
             if (guidance.notSuitableFor.isNotEmpty()) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -1079,7 +840,6 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                 }
             }
 
-            // Block 2: RECOMMENDED & SUITABLE FOR TODAY
             if (guidance.suitableFor.isNotEmpty()) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -1133,7 +893,6 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                 }
             }
 
-            // Block 3: KEY PRECAUTIONS
             if (guidance.precautions.isNotEmpty()) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
@@ -1186,44 +945,290 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                     }
                 }
             }
+        }
+    }
+}
 
-            // Block 4: AI Backend Advisory Note
-            if (weatherData.advice.isNotBlank() && !weatherData.advice.equals("Good weather conditions for farm work", ignoreCase = true)) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(14.dp),
-                    color = Color(0xFFFAFAFA),
-                    border = BorderStroke(1.dp, Color(0xFFEEEEEE))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Lightbulb,
-                            contentDescription = null,
-                            tint = Color(0xFFFFA000),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "AI Agro Advisory Note",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF5D4037)
-                                )
-                            )
-                            Text(
-                                text = weatherData.advice,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFF616161)
-                                )
-                            )
-                        }
-                    }
-                }
-            }
+data class FieldGuidance(
+    val headline: String,
+    val summary: String,
+    val badge: String,
+    val badgeColor: Color,
+    val badgeTextColor: Color,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val notSuitableFor: List<String>,
+    val suitableFor: List<String>,
+    val precautions: List<String>
+)
+
+fun generateFieldGuidance(weather: DisplayWeatherData): FieldGuidance {
+    val desc = weather.description.lowercase().trim()
+    val temp = weather.temperature
+    val humidity = weather.humidity
+    val wind = weather.windSpeed
+
+    return when {
+        desc.contains("thunder") || desc.contains("storm") || desc.contains("hail") || desc.contains("squall") || desc.contains("lightning") -> {
+            FieldGuidance(
+                headline = "Thunderstorm & Severe Weather Alert",
+                summary = "Severe storm conditions active. High risk of crop lodging, physical damage, and field safety hazards.",
+                badge = "DANGER / PAUSE OPERATIONS",
+                badgeColor = Color(0xFFFFEBEE),
+                badgeTextColor = Color(0xFFC62828),
+                icon = Icons.Rounded.Thunderstorm,
+                notSuitableFor = listOf(
+                    "All open-field manual & tractor operations",
+                    "Chemical spraying or top-dress fertilization",
+                    "Working with metallic machinery or standing under isolated trees"
+                ),
+                suitableFor = listOf(
+                    "Sheltering farm livestock & equipment",
+                    "Inspecting indoor grain storage & seeds"
+                ),
+                precautions = listOf(
+                    "Provide physical staking for tall crops (banana, tomato, sugarcane)",
+                    "Secure greenhouse panels, polytunnels, and nursery shade netting"
+                )
+            )
+        }
+        desc.contains("heavy rain") || desc.contains("torrential") || desc.contains("heavy shower") || desc.contains("dense drizzle") -> {
+            FieldGuidance(
+                headline = "Heavy Rain Advisory",
+                summary = "Heavy rainfall occurring. Soil saturation is critical with severe runoff and leaching risks.",
+                badge = "HEAVY RAIN / RESTRICTED",
+                badgeColor = Color(0xFFFFEBEE),
+                badgeTextColor = Color(0xFFC62828),
+                icon = Icons.Rounded.BeachAccess,
+                notSuitableFor = listOf(
+                    "Chemical pesticide & fertilizer spraying (immediate wash-off)",
+                    "Grain harvesting and open-air drying",
+                    "Heavy tractor tilling (causes severe soil compaction & tractor stuck)",
+                    "Nitrogen fertilizer broadcasting (causes leaching into groundwater)"
+                ),
+                suitableFor = listOf(
+                    "Rainwater harvesting in farm ponds and recharge pits",
+                    "Checking nursery drainage outlets"
+                ),
+                precautions = listOf(
+                    "Clear field drainage channels immediately to prevent waterlogging & root rot",
+                    "Inspect field bunds to avoid breach and topsoil erosion"
+                )
+            )
+        }
+        desc.contains("rain") || desc.contains("drizzle") || desc.contains("shower") || desc.contains("precipitation") || desc.contains("wet") -> {
+            FieldGuidance(
+                headline = "Rainy Conditions Guidance",
+                summary = "Wet weather and rain showers present. Topsoil is damp with high ambient moisture.",
+                badge = "RAINY / SPRAYING DELAYED",
+                badgeColor = Color(0xFFE3F2FD),
+                badgeTextColor = Color(0xFF1565C0),
+                icon = Icons.Rounded.BeachAccess,
+                notSuitableFor = listOf(
+                    "Foliar pesticide & fungicide spraying (wash-off risk)",
+                    "Harvesting mature grains or fodder hay",
+                    "Applying dry urea or soluble chemical fertilizers"
+                ),
+                suitableFor = listOf(
+                    "Transplanting paddy and rainfed Kharif seedlings",
+                    "Planting tree saplings & agroforestry borders",
+                    "Maintaining farm drainage furrows"
+                ),
+                precautions = listOf(
+                    "Allow foliage to dry for at least 24 hours before scheduling foliar sprays",
+                    "Ensure nursery beds have raised slopes to drain excess water"
+                )
+            )
+        }
+        desc.contains("wind") || desc.contains("gale") || desc.contains("breeze") || wind >= 18.0 -> {
+            FieldGuidance(
+                headline = "High Wind Warning",
+                summary = "Elevated wind speeds (${wind.toInt()} km/h). Air turbulence causes chemical drift and uneven droplet deposition.",
+                badge = "HIGH WIND / NO SPRAY",
+                badgeColor = Color(0xFFFFF3E0),
+                badgeTextColor = Color(0xFFE65100),
+                icon = Icons.Rounded.Air,
+                notSuitableFor = listOf(
+                    "Foliar spraying & dusting (causes severe drift to non-target crops)",
+                    "Crop residue burning (extreme wildfire hazard)",
+                    "Sprinkler irrigation (uneven distribution patterns)"
+                ),
+                suitableFor = listOf(
+                    "Soil plowing and manual weeding at ground level",
+                    "Repairing drip irrigation lines and ground pipes"
+                ),
+                precautions = listOf(
+                    "Provide earthing-up and staking for vulnerable standing crops",
+                    "Check and tie down polyhouse plastic sheets & nursery netting"
+                )
+            )
+        }
+        desc.contains("heat") || desc.contains("hot") || temp >= 35 -> {
+            FieldGuidance(
+                headline = "High Heat & Evaporation Stress",
+                summary = "High temperature ($temp°C). Rapid evapotranspiration stress on soil and plant tissues.",
+                badge = "HEAT STRESS / IRRIGATE",
+                badgeColor = Color(0xFFFFF3E0),
+                badgeTextColor = Color(0xFFE65100),
+                icon = Icons.Rounded.WbSunny,
+                notSuitableFor = listOf(
+                    "Midday chemical spraying (rapid evaporation & chemical leaf scorching)",
+                    "Midday seedling transplanting (severe transplant shock)",
+                    "Heavy physical fieldwork during peak noon hours"
+                ),
+                suitableFor = listOf(
+                    "Early morning or late evening drip irrigation",
+                    "Applying organic straw mulching to conserve root moisture",
+                    "Deep summer plowing (soil solarization for pest control)"
+                ),
+                precautions = listOf(
+                    "Irrigate in split doses during cooler morning/evening hours",
+                    "Provide shade covers and clean water for farm livestock"
+                )
+            )
+        }
+        desc.contains("cold") || desc.contains("frost") || desc.contains("snow") || desc.contains("freeze") || desc.contains("ice") || temp <= 10 -> {
+            FieldGuidance(
+                headline = "Cold Wave & Frost Advisory",
+                summary = "Low temperature ($temp°C). Horticultural and vegetable crops are at risk of frost injury.",
+                badge = "FROST RISK / PROTECT CROPS",
+                badgeColor = Color(0xFFE1F5FE),
+                badgeTextColor = Color(0xFF0277BD),
+                icon = Icons.Rounded.AcUnit,
+                notSuitableFor = listOf(
+                    "Nitrogen fertilizer application (spurs tender growth susceptible to frost)",
+                    "Heavy cold water flooding late at night",
+                    "Exposing tender nursery saplings without cover"
+                ),
+                suitableFor = listOf(
+                    "Light evening irrigation (raises soil thermal mass against frost)",
+                    "Covering vegetable beds with straw/plastic thatch",
+                    "Pruning dormant orchard trees"
+                ),
+                precautions = listOf(
+                    "Generate light smoke on orchard windward boundaries during freezing nights",
+                    "Harvest mature vegetable produce early before night frost"
+                )
+            )
+        }
+        desc.contains("fog") || desc.contains("mist") || desc.contains("haze") || humidity >= 80 -> {
+            FieldGuidance(
+                headline = "Fog & High Humidity Advisory",
+                summary = "High relative humidity ($humidity%). Prolonged leaf wetness promotes rapid fungal & bacterial pathogen sporulation.",
+                badge = "HIGH HUMIDITY / DISEASE WATCH",
+                badgeColor = Color(0xFFEDE7F6),
+                badgeTextColor = Color(0xFF512DA8),
+                icon = Icons.Rounded.WaterDrop,
+                notSuitableFor = listOf(
+                    "Overhead sprinkler irrigation (further prolongs canopy wetness)",
+                    "Early morning spraying while heavy dew is dripping",
+                    "Dense storage of damp harvested produce"
+                ),
+                suitableFor = listOf(
+                    "Scouting crops for fungal leaf spots, blights, and powdery mildew",
+                    "Applying prophylactic bio-fungicides (Trichoderma / Pseudomonas)",
+                    "Pruning lower diseased leaves to improve inter-row ventilation"
+                ),
+                precautions = listOf(
+                    "Scout undersides of leaves and crop crowns daily for early disease signs",
+                    "Allow morning dew to completely evaporate before starting harvest"
+                )
+            )
+        }
+        desc.contains("cloud") || desc.contains("overcast") -> {
+            FieldGuidance(
+                headline = "Cloudy & Overcast Weather",
+                summary = "Diffused sunlight and mild transpiration. Favorable conditions for root establishment.",
+                badge = "MILD / GOOD FOR PLANTING",
+                badgeColor = Color(0xFFF1F8E9),
+                badgeTextColor = Color(0xFF33691E),
+                icon = Icons.Rounded.WbCloudy,
+                notSuitableFor = listOf(
+                    "Sun-drying harvested grains and seeds (slow drying & mold risk)",
+                    "Solar soil disinfestation"
+                ),
+                suitableFor = listOf(
+                    "Transplanting seedlings with minimal wilting shock",
+                    "Inter-cultivation, manual weeding, and hoeing",
+                    "Fertilizer side-dressing and incorporation"
+                ),
+                precautions = listOf(
+                    "Monitor sucking pests (aphids, jassids) which proliferate under overcast skies",
+                    "Maintain proper row spacing for light penetration"
+                )
+            )
+        }
+        desc.contains("clear") || desc.contains("sun") || desc.contains("bright") -> {
+            FieldGuidance(
+                headline = "Optimal Sunny Conditions",
+                summary = "Clear skies with abundant solar radiation. Ideal day for chemical protection and harvesting.",
+                badge = "OPTIMAL / IDEAL FOR SPRAYING",
+                badgeColor = Color(0xFFE8F5E9),
+                badgeTextColor = Color(0xFF1B5E20),
+                icon = Icons.Rounded.WbSunny,
+                notSuitableFor = listOf(
+                    "Broadcasting uncovered volatile nitrogen fertilizers in peak sunlight",
+                    "Flood irrigation during hot noon hours"
+                ),
+                suitableFor = listOf(
+                    "Foliar pesticide, herbicide, and micronutrient spraying",
+                    "Harvesting and sun-drying agricultural produce",
+                    "Tractor plowing, harrowing, and field bed preparation"
+                ),
+                precautions = listOf(
+                    "Schedule field irrigation in the early morning to minimize evaporation loss",
+                    "Inspect soil moisture depth before scheduling next irrigation"
+                )
+            )
+        }
+        else -> {
+            FieldGuidance(
+                headline = "General Field Operations Guidance",
+                summary = "Stable seasonal weather conditions. Suitable for routine farm maintenance and crop care.",
+                badge = "FAVORABLE FOR FARM WORK",
+                badgeColor = Color(0xFFE8F5E9),
+                badgeTextColor = Color(0xFF1B5E20),
+                icon = Icons.Rounded.Grass,
+                notSuitableFor = listOf(
+                    "Over-irrigating without assessing soil moisture level"
+                ),
+                suitableFor = listOf(
+                    "Routine crop scouting and pest monitoring",
+                    "Weed removal and intercultural operations",
+                    "Scheduled nutrient management and irrigation"
+                ),
+                precautions = listOf(
+                    "Maintain clear irrigation and drainage channels across the field",
+                    "Keep farm tools clean and disinfected between plots"
+                )
+            )
+        }
+    }
+}
+
+// Data Handling
+@Composable
+private fun WeatherLoadingState() {
+    NeoCard {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            CircularProgressIndicator(color = Color(0xFF2E7D32))
+            Text("Loading live weather", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+            Text("Fetching your field conditions...", style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@Composable
+private fun WeatherErrorState(message: String, onRetry: () -> Unit) {
+    NeoCard(containerColor = MaterialTheme.colorScheme.errorContainer) {
+        Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(32.dp))
+            Text("Weather unavailable", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            Text(message, style = MaterialTheme.typography.bodyMedium)
+            PremiumButton(text = "Try Again", onClick = onRetry)
         }
     }
 }
@@ -1244,7 +1249,7 @@ suspend fun fetchWeatherFromLocation(
         val farmFusionApi = com.example.farmfusionapp.network.RetrofitInstance.farmFusionApi
         val latitude = location.first
         val longitude = location.second
-        val response = farmFusionApi.getCurrentWeather(latitude, longitude)
+        val response = farmFusionApi.getCurrentWeather(latitude, longitude, language = appLanguage)
 
         if (response.isSuccessful && response.body() != null) {
             val body = response.body()!!
@@ -1263,7 +1268,7 @@ suspend fun fetchWeatherFromLocation(
                 // Fetch real 7-day forecast from backend
                 val realForecastList = mutableListOf<DailyForecast>()
                 try {
-                    val forecastResponse = farmFusionApi.getWeatherForecast(latitude, longitude, days = 7)
+                    val forecastResponse = farmFusionApi.getWeatherForecast(latitude, longitude, days = 7, language = appLanguage)
                     if (forecastResponse.isSuccessful && forecastResponse.body() != null) {
                         val fBody = forecastResponse.body()!!
                         val dailyList = fBody.data?.forecast ?: emptyList()
@@ -1322,17 +1327,19 @@ suspend fun fetchWeatherFromLocation(
 
                 val data = DisplayWeatherData(
                     temperature = backendData.temperature_c.toInt(),
+                    feelsLike = backendData.feels_like_c.toInt(),
                     description = weatherDesc.ifBlank { "Clear" },
                     humidity = backendData.humidity_percent,
                     windSpeed = windSpeed,
                     city = city,
-                    advice = backendData.farming_advice ?: "",
+                    advice = backendData.farming_advice ?: "Good weather conditions for farm work",
                     timestamp = backendData.timestamp,
                     forecast = realForecastList,
                     alerts = alertList,
                     advisory = advisoryObj
                 )
                 WeatherSnapshotStore.latestWeather = data
+                WeatherSnapshotStore.latestLanguage = appLanguage
                 WeatherSnapshotStore.latestError = null
                 WeatherSnapshotStore.lastUpdatedAt = System.currentTimeMillis()
                 onResult(data, null)

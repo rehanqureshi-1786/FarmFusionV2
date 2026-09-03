@@ -29,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -447,7 +446,8 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        // Pushed the content down from the top slightly
+        Spacer(modifier = Modifier.height(64.dp))
 
         Text(
             text = buildAnnotatedString {
@@ -475,7 +475,7 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         // Isolated Background Box
         Box(
@@ -573,21 +573,43 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Cancel Button
+        // Smooth Sweeping Progress Bar
+        LinearProgressIndicator(
+            modifier = Modifier
+                .width(160.dp)
+                .height(6.dp)
+                .clip(CircleShape),
+            color = CropPrimaryDark,
+            trackColor = Color(0xFFE8F5E9)
+        )
+
+        Spacer(modifier = Modifier.height(40.dp))
+
+        // Redesigned Cancel Button (Fits content, Red Fill)
         Surface(
             onClick = onCancel,
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFFFF0F0),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
+            color = CropErrorRed,
+            modifier = Modifier.height(48.dp)
         ) {
-            Box(contentAlignment = Alignment.Center) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Cancel,
+                    contentDescription = "Cancel",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Cancel Upload",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = CropErrorRed
+                        color = Color.White,
+                        fontSize = 15.sp
                     )
                 )
             }
@@ -613,89 +635,135 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
         return
     }
 
-    val diseaseName = result.disease_name ?: "Unknown Disease"
-    val severity = result.severity ?: "unknown"
+    val rawDiseaseName = result.disease_name ?: "Unknown Disease"
+    val isHealthy = result.diagnosis_status.equals("healthy", ignoreCase = true) ||
+            rawDiseaseName.contains("healthy", ignoreCase = true)
+    val isDiseased = !isHealthy
+
+    val diseaseName = if (isHealthy && (rawDiseaseName.equals("healthy", ignoreCase = true) || rawDiseaseName.isBlank())) {
+        "Healthy Plant"
+    } else {
+        rawDiseaseName.replace("_", " ").split(" ").joinToString(" ") { word ->
+            word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }
+        }
+    }
+
+    val statusText = if (isDiseased) "DISEASED" else "HEALTHY"
+    val statusBgColor = if (isDiseased) CropErrorRed else Color(0xFF2E7D32)
+
+    val severity = result.severity ?: if (isHealthy) "No Threat" else "High"
+    val threatText = when {
+        isHealthy -> "NO THREAT"
+        severity.equals("none", ignoreCase = true) -> "NO THREAT"
+        else -> severity.uppercase()
+    }
+    val sevColor = when (threatText.lowercase()) {
+        "no threat", "none", "healthy", "low" -> Color(0xFF2E7D32)
+        "moderate", "medium" -> CropWarningOrange
+        else -> CropErrorRed
+    }
+
     val description = result.description ?: ""
     val treatmentSuggestions = result.treatment_suggestions ?: emptyList()
     val preventionTips = result.prevention_tips ?: emptyList()
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(scrollState).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Surface(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth().height(200.dp).shadow(8.dp)) {
-            Box {
-                if (imageUri != null) Image(painter = rememberAsyncImagePainter(imageUri), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                Surface(color = CropErrorRed, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)) {
-                    Text("DISEASED", modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
+    val treatmentPicks = remember(result.store_recommendations) {
+        result.store_recommendations?.filterNot { item ->
+            val t = item.title.lowercase()
+            t.contains("knapsack") || t.contains("pesticide spraying") || t.contains("ppe safety") || t.contains("sprayer")
+        } ?: emptyList()
+    }
 
-        NeoCard {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = diseaseName,
-                        style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black, color = Color(0xFF1B1B1B))
-                    )
-                }
-
-                val sevColor = when (severity.lowercase()) {
-                    "low" -> CropSuccessGreen
-                    "moderate" -> CropWarningOrange
-                    else -> CropErrorRed
-                }
-                Surface(color = sevColor.copy(alpha = 0.1f), border = BorderStroke(1.dp, sevColor), shape = RoundedCornerShape(8.dp)) {
-                    Text(severity.uppercase(), modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = sevColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
-
-                var expanded by remember { mutableStateOf(false) }
-                Text(
-                    text = description,
-                    maxLines = if (expanded) Int.MAX_VALUE else 3,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp),
-                    modifier = Modifier.clickable { expanded = !expanded }
-                )
-                Text(if (expanded) "Show Less" else "Read More", color = CropPrimaryDark, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        NeoSectionTitle("Recommended Care", "Scientific steps for recovery")
-        NeoCard {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Treatment Steps", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
-                if (treatmentSuggestions.isEmpty()) {
-                    Text("No treatment steps available.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                } else {
-                    treatmentSuggestions.forEach { tip ->
-                        Row(verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Rounded.CheckCircle, null, tint = CropPrimaryDark, modifier = Modifier.size(16.dp).padding(top = 2.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(tip, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-                Text("Prevention Tips", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
-                if (preventionTips.isEmpty()) {
-                    Text("No prevention tips available.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
-                } else {
-                    preventionTips.forEach { tip ->
-                        Row(verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Rounded.Shield, null, tint = CropWarningOrange, modifier = Modifier.size(16.dp).padding(top = 2.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text(tip, style = MaterialTheme.typography.bodySmall)
-                        }
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Surface(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth().height(200.dp).shadow(8.dp)) {
+                Box {
+                    if (imageUri != null) Image(painter = rememberAsyncImagePainter(imageUri), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    Surface(color = statusBgColor, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)) {
+                        Text(statusText, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
 
-        if (!result.store_recommendations.isNullOrEmpty()) {
-            NeoSectionTitle("Buy Treatment", "Amazon affiliate picks for $diseaseName")
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 12.dp)) {
-                items(result.store_recommendations) { item ->
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            NeoCard {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = diseaseName,
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Black, color = Color(0xFF1B1B1B))
+                        )
+                    }
+
+                    Surface(color = sevColor.copy(alpha = 0.12f), border = BorderStroke(1.dp, sevColor), shape = RoundedCornerShape(8.dp)) {
+                        Text(threatText, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = sevColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    if (description.isNotBlank()) {
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 20.sp, color = Color.DarkGray)
+                        )
+                    }
+                }
+            }
+        }
+
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            NeoSectionTitle("Recommended Care", "Scientific steps for recovery")
+        }
+
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            NeoCard {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Treatment Steps", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
+                    if (treatmentSuggestions.isEmpty()) {
+                        Text("No treatment steps available.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    } else {
+                        treatmentSuggestions.forEach { tip ->
+                            Row(verticalAlignment = Alignment.Top) {
+                                Icon(Icons.Rounded.CheckCircle, null, tint = CropPrimaryDark, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(tip, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    Text("Prevention Tips", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
+                    if (preventionTips.isEmpty()) {
+                        Text("No prevention tips available.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                    } else {
+                        preventionTips.forEach { tip ->
+                            Row(verticalAlignment = Alignment.Top) {
+                                Icon(Icons.Rounded.Shield, null, tint = CropWarningOrange, modifier = Modifier.size(16.dp).padding(top = 2.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(tip, style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (treatmentPicks.isNotEmpty()) {
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                NeoSectionTitle("Buy Treatment", "Amazon affiliate picks for $diseaseName")
+            }
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 12.dp)
+            ) {
+                items(treatmentPicks) { item ->
                     StoreMiniCard(item) {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(item.shop_url))
                         context.startActivity(intent)
@@ -704,7 +772,9 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
             }
         }
 
-        PremiumButton(text = "Scan Another Plant", onClick = onScanAgain, icon = Icons.Rounded.Refresh)
+        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+            PremiumButton(text = "Scan Another Plant", onClick = onScanAgain, icon = Icons.Rounded.Refresh)
+        }
         Spacer(Modifier.height(40.dp))
     }
 }
@@ -713,21 +783,63 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
 fun StoreMiniCard(item: StoreRecommendationItem, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        modifier = Modifier.width(160.dp).shadow(4.dp, RoundedCornerShape(20.dp)),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .width(160.dp)
+            .shadow(
+                elevation = 1.dp,
+                shape = RoundedCornerShape(16.dp),
+                spotColor = Color(0x12000000),
+                ambientColor = Color(0x08000000)
+            ),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFE8ECEF)),
         color = Color.White
     ) {
         Column {
-            Box(Modifier.fillMaxWidth().height(100.dp).background(Color(0xFFF5F5F5))) {
-                AsyncImage(model = item.image_url, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(104.dp)
+                    .background(Color(0xFFF8F9FA))
+            ) {
+                AsyncImage(
+                    model = item.image_url,
+                    contentDescription = item.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
             }
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(item.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
-                Text(item.subtitle, color = Color.Gray, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = item.title,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 13.sp,
+                    color = Color(0xFF1E293B)
+                )
+                Text(
+                    text = item.subtitle,
+                    color = Color(0xFF64748B),
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Buy Now", fontWeight = FontWeight.ExtraBold, color = CropPrimaryDark, fontSize = 12.sp)
+                    Text(
+                        text = "Buy Now",
+                        fontWeight = FontWeight.SemiBold,
+                        color = CropPrimaryDark,
+                        fontSize = 12.sp
+                    )
                     Spacer(Modifier.width(4.dp))
-                    Icon(Icons.AutoMirrored.Rounded.OpenInNew, null, modifier = Modifier.size(12.dp), tint = CropPrimaryDark)
+                    Icon(
+                        Icons.AutoMirrored.Rounded.OpenInNew,
+                        contentDescription = null,
+                        modifier = Modifier.size(12.dp),
+                        tint = CropPrimaryDark
+                    )
                 }
             }
         }

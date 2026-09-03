@@ -419,6 +419,25 @@ data class HistoryResponseModel(
     val events: List<DetectionEventModel>
 )
 
+data class DetectionEventCreateRequest(
+    val device_id: String = "NODE_01",
+    val sensor: String,
+    val sensor_type: String,
+    val status: String
+)
+
+data class HeartbeatRequestModel(
+    val device_id: String = "NODE_01",
+    val sensors: Map<String, String>? = null
+)
+
+data class DeviceStatusModel(
+    val device_id: String,
+    val status: String,
+    val last_seen: String? = null,
+    val timeout_seconds: Int = 15
+)
+
 // ============ MANDI PRICE INTELLIGENCE ============
 
 data class MandiProximityItemModel(

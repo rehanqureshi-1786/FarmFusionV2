@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.farmfusionapp.R
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -49,26 +50,31 @@ enum class UserRole { FARMER, BUYER }
 @Composable
 fun LoginScreen(navController: NavController) {
     LoginScreen(
-        onNavigateToPhoneSignUp = { navController.navigate(NavRoutes.Register) },
-        onGoogleIdTokenReceived = { token -> navController.navigate(NavRoutes.Dashboard) }
+        onNavigateToPhoneSignUp = {
+            navController.navigate(NavRoutes.Register)
+        },
+        onGoogleIdTokenReceived = { _ ->
+            navController.navigate(NavRoutes.Dashboard) {
+                popUpTo(NavRoutes.Login) { inclusive = true }
+            }
+        },
+        onSignInWithPhoneClicked = {
+            navController.navigate(NavRoutes.Register)
+        }
     )
 }
 
 @Composable
 fun LoginScreen(
     onNavigateToPhoneSignUp: () -> Unit,
-    onGoogleIdTokenReceived: (String) -> Unit,
+    onGoogleIdTokenReceived: (String) -> Unit = {},
     onSignInWithPhoneClicked: () -> Unit = onNavigateToPhoneSignUp
 ) {
     var selectedRole by remember { mutableStateOf(UserRole.FARMER) }
 
-    // Standard Google Sign-In launcher. Replace the web client id below
-    // with the one from your Firebase project (google-services.json ->
-    // "client_type": 3 entry, or Firebase Console > Authentication > Sign-in method > Google).
     val context = androidx.compose.ui.platform.LocalContext.current
     val googleSignInOptions = remember {
         GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(context.getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
     }
@@ -201,9 +207,10 @@ fun LoginScreen(
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0)),
                     colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White)
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_google_logo),
+                    Icon(
+                        imageVector = Icons.Default.Person,
                         contentDescription = null,
+                        tint = FarmGreenPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))

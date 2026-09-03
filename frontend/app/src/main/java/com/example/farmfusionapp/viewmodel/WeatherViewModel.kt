@@ -32,12 +32,12 @@ class WeatherViewModel : ViewModel() {
      * Get current weather
      * GET /weather/current
      */
-    fun getCurrentWeather(latitude: Double, longitude: Double) {
+    fun getCurrentWeather(latitude: Double, longitude: Double, language: String? = null) {
         viewModelScope.launch {
             _currentState.value = WeatherState.Loading
 
             try {
-                val response = api.getCurrentWeather(latitude, longitude)
+                val response = api.getCurrentWeather(latitude, longitude, language)
 
                 if (response.isSuccessful) {
                     response.body()?.let {
@@ -58,12 +58,12 @@ class WeatherViewModel : ViewModel() {
      * Get weather forecast
      * GET /weather/forecast
      */
-    fun getForecast(latitude: Double, longitude: Double, days: Int = 5) {
+    fun getForecast(latitude: Double, longitude: Double, days: Int = 5, language: String? = null) {
         viewModelScope.launch {
             _forecastState.value = ForecastState.Loading
 
             try {
-                val response = api.getWeatherForecast(latitude, longitude, days)
+                val response = api.getWeatherForecast(latitude, longitude, days, language)
 
                 if (response.isSuccessful) {
                     response.body()?.let {
@@ -84,12 +84,12 @@ class WeatherViewModel : ViewModel() {
      * Get comprehensive farming weather
      * GET /weather/farming
      */
-    fun getFarmingWeather(latitude: Double, longitude: Double, days: Int = 7) {
+    fun getFarmingWeather(latitude: Double, longitude: Double, days: Int = 7, language: String? = null) {
         viewModelScope.launch {
             _farmingState.value = FarmingWeatherState.Loading
 
             try {
-                val response = api.getFarmingWeather(latitude, longitude, days)
+                val response = api.getFarmingWeather(latitude, longitude, days, language)
 
                 if (response.isSuccessful) {
                     response.body()?.let {

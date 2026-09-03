@@ -20,6 +20,11 @@ logger = structlog.get_logger(__name__)
 
 class DiseaseService:
     @staticmethod
+    def get_disease_info(disease_name: str, crop_name: Optional[str] = None) -> Dict[str, Any]:
+        """Look up ICAR/CIBRC aligned symptoms, prevention and treatment for a disease."""
+        return DiseaseKnowledgeService.lookup(disease_name, crop_name)
+
+    @staticmethod
     async def detect_disease(
         image_bytes: bytes,
         db: AsyncSession,
