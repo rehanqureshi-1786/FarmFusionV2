@@ -502,13 +502,13 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // PNG Illustration
+        // PNG Illustration (enlarged for better prominence)
         Image(
             painter = painterResource(id = R.drawable.ill_soil_report_card),
             contentDescription = "Soil Health Card",
             modifier = Modifier
-                .height(240.dp)
-                .padding(bottom = 24.dp),
+                .height(275.dp)
+                .padding(bottom = 20.dp),
             contentScale = ContentScale.Fit
         )
 
@@ -724,25 +724,25 @@ fun UploadSoilReportStep(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
+            .padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         // Title & Description Header
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = "Upload Your Soil Health Card",
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF1B1B1B),
-                    fontSize = 22.sp
+                    fontSize = 21.sp
                 )
             )
             Text(
                 text = "Upload your soil report to get crop recommendations based on your soil condition.",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color.Gray,
-                    lineHeight = 20.sp,
-                    fontSize = 13.5.sp
+                    lineHeight = 18.sp,
+                    fontSize = 13.sp
                 )
             )
         }
@@ -766,19 +766,19 @@ fun UploadSoilReportStep(
                 }
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color(0xFFFAFCF9))
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Soil Card Illustration
+                // Soil Card Illustration (Enlarged for better prominence)
                 Image(
                     painter = painterResource(id = R.drawable.ill_soil_report_card),
                     contentDescription = "Soil Report Illustration",
                     modifier = Modifier
-                        .size(100.dp)
-                        .padding(end = 12.dp),
+                        .size(116.dp)
+                        .padding(end = 10.dp),
                     contentScale = ContentScale.Fit
                 )
 
@@ -902,14 +902,14 @@ fun UploadSoilReportStep(
                 imageVector = Icons.Rounded.Description,
                 contentDescription = null,
                 tint = Color(0xFF4CAF50),
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(15.dp)
             )
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
             Text(
                 text = "You can upload a photo of your Soil Health Card or a PDF report.",
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = Color(0xFF616161),
-                    fontSize = 12.sp
+                    fontSize = 11.5.sp
                 )
             )
         }
@@ -917,13 +917,13 @@ fun UploadSoilReportStep(
         // ========================================
         // FARM SIZE (ACRES) INPUT
         // ========================================
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 text = "Farm Size (Acres)",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1B1B1B),
-                    fontSize = 16.sp
+                    fontSize = 15.sp
                 )
             )
 
@@ -934,7 +934,7 @@ fun UploadSoilReportStep(
                 shadowElevation = 0.5.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp)
+                    .height(52.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -947,10 +947,10 @@ fun UploadSoilReportStep(
                         imageVector = Icons.Rounded.GridOn,
                         contentDescription = null,
                         tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
 
-                    Spacer(modifier = Modifier.width(14.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
 
                     // Farm Size Editable Input
                     androidx.compose.foundation.text.BasicTextField(
@@ -993,69 +993,15 @@ fun UploadSoilReportStep(
         }
 
         // ========================================
-        // AUTO-FETCHED DETAILS BANNER
-        // ========================================
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFF1F8F1),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.AutoAwesome,
-                    contentDescription = null,
-                    tint = Color(0xFF2E7D32),
-                    modifier = Modifier.size(24.dp)
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Some details are automatically fetched",
-                        style = MaterialTheme.typography.titleSmall.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF1B5E20),
-                            fontSize = 13.sp
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Village/District, Annual Rainfall and Avg. Temperature are detected using your location and live weather data.",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFF424242),
-                            fontSize = 11.5.sp,
-                            lineHeight = 16.sp
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-
-                Icon(
-                    imageVector = Icons.Rounded.Info,
-                    contentDescription = null,
-                    tint = Color(0xFF81C784),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-        }
-
-        // ========================================
         // 3 AUTO-FETCHED CARDS ROW
         // ========================================
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 text = "Auto-fetched Details",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF1B1B1B),
-                    fontSize = 16.sp
+                    fontSize = 15.sp
                 )
             )
 
@@ -1089,7 +1035,7 @@ fun UploadSoilReportStep(
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // ========================================
         // ANALYZE & GET CROP ADVICE BUTTON
@@ -1116,7 +1062,7 @@ fun UploadSoilReportStep(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(54.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
