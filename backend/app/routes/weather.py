@@ -133,6 +133,7 @@ async def get_weather_forecast(
             forecast_days=forecast_dict.get("forecast_days", days),
             forecast=items,
             farming_advice=forecast_dict.get("farming_advice"),
+            smart_irrigation=forecast_dict.get("smart_irrigation"),
             source="Open-Meteo",
             generated_at=forecast_dict.get("generated_at", datetime.now(timezone.utc).isoformat()),
             language=req_lang,

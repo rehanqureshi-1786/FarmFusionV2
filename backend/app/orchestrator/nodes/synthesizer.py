@@ -138,18 +138,39 @@ async def response_synthesizer_node(state: OrchestratorState) -> OrchestratorSta
         cond = tool_data.get("condition", "सामान्य")
         loc = tool_data.get("location_name", "आपके क्षेत्र")
         rain = tool_data.get("annual_rainfall_mm", "--")
+        si = tool_data.get("smart_irrigation") or {}
+        si_advice = si.get("actionable_advice", "")
+
         if is_marwari:
-            response = f"आज {loc} में मौसम साफ रैवेला, तापमान {temp}°C अर नमी {hum}% है। वार्षिक बरसात लगभग {rain} mm है।"
+            response = f"आज {loc} में मौसम साफ रैवेला, तापमान {temp}°C अर नमी {hum}% है।"
+            if si_advice:
+                response += f" सिंचाई सलाह: {si_advice}"
+            else:
+                response += f" वार्षिक बरसात लगभग {rain} mm है।"
         elif lang == "hi":
-            response = f"आज {loc} में तापमान {temp}°C और आर्द्रता {hum}% है, मौसम {cond} रहेगा। वार्षिक वर्षा लगभग {rain} mm है।"
+            response = f"आज {loc} में तापमान {temp}°C और आर्द्रता {hum}% है, मौसम {cond} रहेगा।"
+            if si_advice:
+                response += f" {si_advice}"
+            else:
+                response += f" वार्षिक वर्षा लगभग {rain} mm है।"
         elif lang == "gu":
             response = f"આજે {loc}માં તાપમાન {temp}°C અને ભેજ {hum}% છે, વાતાવરણ {cond} રહેશે."
+            if si_advice:
+                response += f" {si_advice}"
         elif lang == "mr":
             response = f"आज {loc} मध्ये तापमान {temp}°C आणि आर्द्रता {hum}% आहे, हवामान {cond} राहील."
+            if si_advice:
+                response += f" {si_advice}"
         elif lang == "pa":
             response = f"ਅੱਜ {loc} ਵਿੱਚ ਤਾਪਮਾਨ {temp}°C ਅਤੇ ਨਮੀ {hum}% ਹੈ, ਮੌਸਮ {cond} ਰਹੇਗਾ।"
+            if si_advice:
+                response += f" {si_advice}"
         else:
-            response = f"Today in {loc}, temperature is {temp}°C with {hum}% humidity and {cond} conditions. Annual rainfall is approx {rain} mm."
+            response = f"Today in {loc}, temperature is {temp}°C with {hum}% humidity and {cond} conditions."
+            if si_advice:
+                response += f" Irrigation advice: {si_advice}"
+            else:
+                response += f" Annual rainfall is approx {rain} mm."
 
     # 5b. Handle 7-Day Disaster Risk Prediction (DisasterPredictorAI ML Ensemble)
     elif intent == "disaster_risk":

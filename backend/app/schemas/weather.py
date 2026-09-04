@@ -7,6 +7,32 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
+class SoilMoistureDepthItem(BaseModel):
+    depth_cm: str = Field(..., description="Depth range e.g. '0-1cm (Surface)', '3-9cm (Root Zone)'")
+    moisture_percentage: float = Field(..., description="Moisture percentage 0-100%")
+    moisture_m3m3: float = Field(..., description="Volumetric water content m3/m3")
+    status: str = Field(..., description="DEFICIT, OPTIMAL, or SATURATED")
+
+
+class SmartIrrigationAdvisor(BaseModel):
+    root_zone_moisture_percent: float = Field(..., description="Volumetric moisture in active 3-9cm root zone (0-100%)")
+    surface_moisture_percent: float = Field(..., description="Moisture in 0-1cm surface crust (0-100%)")
+    deep_moisture_percent: float = Field(..., description="Moisture in 9-27cm subsoil reserve (0-100%)")
+    soil_temperature_c: float = Field(..., description="Soil temperature in Celsius")
+    status: str = Field(..., description="DEFICIT, OPTIMAL, or SATURATED")
+    status_badge: str = Field(..., description="NEEDS_WATER, OPTIMAL, or WATERLOGGED_RISK")
+    status_title: str = Field(..., description="Localized status title (e.g. 'पर्याप्त नमी' / 'Optimal Moisture')")
+    irrigation_need_score: int = Field(..., ge=0, le=100, description="0-100 index where higher means more urgent watering")
+    actionable_advice: str = Field(..., description="Specific farming recommendation for today")
+    actionable_advice_hi: Optional[str] = Field(None, description="Localized Hindi advice")
+    watering_hours_recommended: float = Field(0.0, description="Recommended tube-well/pump hours")
+    next_irrigation_window: str = Field(..., description="When to irrigate (e.g. 'This Evening', 'After 2-3 Days')")
+    tillage_suitability: str = Field(..., description="Ploughing/sowing readiness (Vapsa status)")
+    tillage_suitable: bool = Field(True, description="Boolean flag if field trafficability/tillage is suitable")
+    next_24h_rain_sum_mm: float = Field(0.0, description="Total expected rainfall in upcoming 24 hours")
+    depth_breakdown: List[SoilMoistureDepthItem] = Field(default_factory=list, description="Depth-wise metrics")
+
+
 class CurrentWeather(BaseModel):
     latitude: float = Field(..., description="Latitude coordinate")
     longitude: float = Field(..., description="Longitude coordinate")
@@ -33,6 +59,7 @@ class CurrentWeather(BaseModel):
     sunrise: Optional[str] = Field(None, description="Sunrise ISO timestamp")
     sunset: Optional[str] = Field(None, description="Sunset ISO timestamp")
     source: str = Field("Open-Meteo", description="Underlying NWP weather data provider")
+    smart_irrigation: Optional[SmartIrrigationAdvisor] = Field(None, description="Smart irrigation advisor and soil moisture metrics")
 
     @model_validator(mode="after")
     def populate_compatibility_fields(self):
@@ -101,6 +128,7 @@ class WeatherForecastResponse(BaseModel):
     forecast_days: int
     forecast: List[DailyForecastItem]
     farming_advice: Optional[str] = None
+    smart_irrigation: Optional[SmartIrrigationAdvisor] = None
     source: str = "Open-Meteo"
     generated_at: str
     language: str = "hi"

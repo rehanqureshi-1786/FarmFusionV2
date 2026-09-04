@@ -14,7 +14,9 @@ from app.schemas.weather import (
     WeatherForecastResponse,
     WeatherCurrentResponse,
     AgriculturalAdvisory,
-    WeatherAlertItem
+    WeatherAlertItem,
+    SmartIrrigationAdvisor,
+    SoilMoistureDepthItem
 )
 from app.services.weather_alert_engine import weather_alert_engine
 
@@ -83,6 +85,12 @@ class WeatherAgent:
             weather_code = int(current.get("weather_code", 0))
             condition_text = self._weather_code_to_text(weather_code, language=lang_code)
 
+            smart_irrig = self._calculate_smart_irrigation(
+                payload.get("hourly", {}),
+                daily,
+                language=lang_code
+            )
+
             current_schema = CurrentWeather(
                 latitude=lat,
                 longitude=lon,
@@ -102,7 +110,8 @@ class WeatherAgent:
                 sunrise=sunrise,
                 sunset=sunset,
                 source="Open-Meteo",
-                language=lang_code
+                language=lang_code,
+                smart_irrigation=smart_irrig
             )
 
             advice = self._generate_farming_advice(
@@ -120,6 +129,7 @@ class WeatherAgent:
             res["weather"] = condition_text
             res["farming_advice"] = advice
             res["language"] = lang_code
+            res["smart_irrigation"] = smart_irrig.model_dump() if smart_irrig else None
             return res
 
         except Exception as exc:
@@ -156,6 +166,12 @@ class WeatherAgent:
             daily = payload.get("daily", {})
             forecast_items = self._build_daily_schema_rows(daily, days, language=lang_code)
 
+            smart_irrig = self._calculate_smart_irrigation(
+                payload.get("hourly", {}),
+                daily,
+                language=lang_code
+            )
+
             advice = self._generate_forecast_advice(
                 [item.model_dump() for item in forecast_items],
                 language=lang_code
@@ -172,6 +188,7 @@ class WeatherAgent:
                 "forecast": [item.model_dump() for item in forecast_items],
                 "farming_advice": advice,
                 "language": lang_code,
+                "smart_irrigation": smart_irrig.model_dump() if smart_irrig else None,
                 "source": "Open-Meteo",
                 "generated_at": datetime.now(timezone.utc).isoformat()
             }
@@ -518,6 +535,148 @@ class WeatherAgent:
             assumptions=assumptions
         )
 
+    def _calculate_smart_irrigation(
+        self,
+        hourly: Dict[str, Any],
+        daily: Dict[str, Any],
+        language: str = "hi"
+    ) -> Optional[SmartIrrigationAdvisor]:
+        """
+        Computes deterministic, agronomic smart irrigation advisory based on Open-Meteo
+        volumetric soil moisture across root depths (0-1cm, 3-9cm, 9-27cm) and upcoming precipitation.
+        """
+        try:
+            m_0_1_list = hourly.get("soil_moisture_0_to_1cm", [])
+            m_3_9_list = hourly.get("soil_moisture_3_to_9cm", [])
+            m_9_27_list = hourly.get("soil_moisture_9_to_27cm", [])
+            s_temp_list = hourly.get("soil_temperature_0cm", [])
+
+            if not m_3_9_list:
+                return None
+
+            # Determine index for current hour
+            idx = 0
+            times = hourly.get("time", [])
+            now_hour_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:00")
+            if now_hour_iso in times:
+                idx = times.index(now_hour_iso)
+
+            # Volumetric moisture is m3/m3 (e.g. 0.24 = 24%)
+            m_0_1 = float(m_0_1_list[idx] if idx < len(m_0_1_list) and m_0_1_list[idx] is not None else 0.22)
+            m_3_9 = float(m_3_9_list[idx] if idx < len(m_3_9_list) and m_3_9_list[idx] is not None else 0.25)
+            m_9_27 = float(m_9_27_list[idx] if idx < len(m_9_27_list) and m_9_27_list[idx] is not None else 0.28)
+            s_temp = float(s_temp_list[idx] if idx < len(s_temp_list) and s_temp_list[idx] is not None else 25.0)
+
+            pct_0_1 = round(m_0_1 * 100.0, 1)
+            pct_3_9 = round(m_3_9 * 100.0, 1)
+            pct_9_27 = round(m_9_27 * 100.0, 1)
+
+            # Check next 24 hours rainfall forecast
+            precip_forecast = daily.get("precipitation_sum", [0.0])
+            next_24h_rain = float(precip_forecast[0] or 0.0) if len(precip_forecast) > 0 else 0.0
+
+            # Deterministic thresholds based on 3-9cm active root zone
+            if pct_3_9 < 18.0:
+                if next_24h_rain >= 8.0:
+                    status = "DEFICIT"
+                    status_badge = "NEEDS_WATER"
+                    irrigation_score = 45
+                    hours = 0.0
+                    window = "Wait for Rain" if language == "en" else "बारिश की प्रतीक्षा करें"
+                    advice_hi = f"जड़ क्षेत्र में नमी कम है ({pct_3_9}%), लेकिन आज {next_24h_rain:.1f} मिमी बारिश की संभावना है। पानी और बिजली बचाने के लिए सिंचाई अभी रोकें।"
+                    advice = (
+                        f"Root-zone soil moisture is low ({pct_3_9}%), but {next_24h_rain:.1f} mm rain is forecasted today. Hold irrigation to conserve water and fuel."
+                        if language == "en" else advice_hi
+                    )
+                    title = "Moisture Low (Rain Expected)" if language == "en" else "नमी कम (बारिश संभावित)"
+                else:
+                    status = "DEFICIT"
+                    status_badge = "NEEDS_WATER"
+                    irrigation_score = min(95, int(80 + (18.0 - pct_3_9) * 2))
+                    hours = 2.5
+                    window = "This Evening" if language == "en" else "आज शाम (ड्रिप/नलकूप)"
+                    advice_hi = f"जड़ क्षेत्र में मिट्टी की नमी कम है ({pct_3_9}%)। फसलों में पानी की कमी का तनाव हो सकता है। आज शाम 2-3 घंटे हल्की सिंचाई करें।"
+                    advice = (
+                        f"Active root-zone soil moisture is critically low ({pct_3_9}%). Crops are under moisture stress. Apply light irrigation (2-3 hours) this evening."
+                        if language == "en" else advice_hi
+                    )
+                    title = "Irrigation Recommended" if language == "en" else "सिंचाई की आवश्यकता"
+            elif pct_3_9 > 34.0:
+                status = "SATURATED"
+                status_badge = "WATERLOGGED_RISK"
+                irrigation_score = 10
+                hours = 0.0
+                window = "After 4-5 Days" if language == "en" else "4-5 दिन बाद"
+                advice_hi = f"खेत में अत्यधिक नमी ({pct_3_9}%) है। बिल्कुल सिंचाई न करें। जल निकासी खुली रखें ताकि जलभराव से जड़ें न सड़ें।"
+                advice = (
+                    f"Soil is saturated ({pct_3_9}%). Do NOT irrigate. Keep field drainage open to avoid waterlogging and root asphyxiation."
+                    if language == "en" else advice_hi
+                )
+                title = "Soil Saturated" if language == "en" else "अत्यधिक नमी (जलभराव जोखिम)"
+            else:
+                status = "OPTIMAL"
+                status_badge = "OPTIMAL"
+                irrigation_score = 25
+                hours = 0.0
+                window = "After 2-3 Days" if language == "en" else "2-3 दिन बाद"
+                advice_hi = f"जड़ क्षेत्र में पर्याप्त नमी ({pct_3_9}%) उपलब्ध है। फसल के लिए उत्तम स्थिति है। आज पानी देने की कोई आवश्यकता नहीं है।"
+                advice = (
+                    f"Active root zone has optimal moisture ({pct_3_9}%). Crop hydration is healthy and field capacity is balanced. No watering needed today."
+                    if language == "en" else advice_hi
+                )
+                title = "Optimal Moisture" if language == "en" else "पर्याप्त नमी (उत्तम स्थिति)"
+
+            tillage_suitable = (pct_3_9 <= 33.0 and pct_0_1 <= 32.0)
+            if 20.0 <= pct_3_9 <= 30.0 and pct_0_1 < 30.0:
+                tillage = "Ideal moisture condition for sowing & tillage (वपसा स्थिति)" if language == "en" else "जुताई और बुवाई के लिए आदर्श वपसा स्थिति"
+            elif pct_3_9 > 33.0:
+                tillage = "Soil is too wet for tractor tillage" if language == "en" else "खेत अधिक गीला है, अभी ट्रैक्टर जुताई न करें"
+            else:
+                tillage = "Dry soil - pre-irrigate before ploughing" if language == "en" else "मिट्टी सूखी है, जुताई से पहले पलेवा (हल्की सिंचाई) करें"
+
+            depth_items = [
+                SoilMoistureDepthItem(
+                    depth_cm="0-1 cm (Surface)",
+                    moisture_percentage=pct_0_1,
+                    moisture_m3m3=m_0_1,
+                    status="DRY" if pct_0_1 < 15.0 else ("SATURATED" if pct_0_1 > 35.0 else "OPTIMAL")
+                ),
+                SoilMoistureDepthItem(
+                    depth_cm="3-9 cm (Root Zone)",
+                    moisture_percentage=pct_3_9,
+                    moisture_m3m3=m_3_9,
+                    status="DEFICIT" if pct_3_9 < 18.0 else ("SATURATED" if pct_3_9 > 34.0 else "OPTIMAL")
+                ),
+                SoilMoistureDepthItem(
+                    depth_cm="9-27 cm (Subsoil)",
+                    moisture_percentage=pct_9_27,
+                    moisture_m3m3=m_9_27,
+                    status="DEFICIT" if pct_9_27 < 20.0 else ("SATURATED" if pct_9_27 > 36.0 else "OPTIMAL")
+                )
+            ]
+
+            return SmartIrrigationAdvisor(
+                root_zone_moisture_percent=pct_3_9,
+                surface_moisture_percent=pct_0_1,
+                deep_moisture_percent=pct_9_27,
+                soil_temperature_c=s_temp,
+                status=status,
+                status_badge=status_badge,
+                status_title=title,
+                irrigation_need_score=irrigation_score,
+                actionable_advice=advice,
+                actionable_advice_hi=advice_hi,
+                watering_hours_recommended=hours,
+                next_irrigation_window=window,
+                tillage_suitability=tillage,
+                tillage_suitable=tillage_suitable,
+                next_24h_rain_sum_mm=round(next_24h_rain, 1),
+                depth_breakdown=depth_items
+            )
+        except Exception as exc:
+            logger.warning("smart_irrigation_calculation_failed", error=str(exc))
+            return None
+
     async def _fetch_weather_bundle(
         self,
         lat: float,
@@ -535,6 +694,7 @@ class WeatherAgent:
             "latitude": lat,
             "longitude": lon,
             "current": "temperature_2m,relative_humidity_2m,apparent_temperature,pressure_msl,wind_speed_10m,weather_code,visibility,cloud_cover",
+            "hourly": "soil_moisture_0_to_1cm,soil_moisture_3_to_9cm,soil_moisture_9_to_27cm,soil_temperature_0cm",
             "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,sunrise,sunset",
             "forecast_days": forecast_days,
             "past_days": past_days,

@@ -246,6 +246,32 @@ data class StoreRecommendationItem(
 
 // ============ WEATHER RESPONSES ============
 
+data class SoilMoistureDepthDto(
+    val depth_cm: String = "",
+    val moisture_percentage: Double = 0.0,
+    val moisture_m3m3: Double = 0.0,
+    val status: String = "OPTIMAL"
+)
+
+data class SmartIrrigationAdvisorDto(
+    val root_zone_moisture_percent: Double = 0.0,
+    val surface_moisture_percent: Double = 0.0,
+    val deep_moisture_percent: Double = 0.0,
+    val soil_temperature_c: Double = 0.0,
+    val status: String = "OPTIMAL",
+    val status_badge: String = "OPTIMAL",
+    val status_title: String = "Optimal Moisture",
+    val irrigation_need_score: Int = 25,
+    val actionable_advice: String = "",
+    val actionable_advice_hi: String? = null,
+    val watering_hours_recommended: Double = 0.0,
+    val next_irrigation_window: String = "",
+    val tillage_suitability: String = "",
+    val tillage_suitable: Boolean = true,
+    val next_24h_rain_sum_mm: Double = 0.0,
+    val depth_breakdown: List<SoilMoistureDepthDto> = emptyList()
+)
+
 data class WeatherResponse(
     val success: Boolean,
     val data: WeatherData?
@@ -268,7 +294,8 @@ data class WeatherData(
     val sunset: String? = null,
     val farming_advice: String? = null,
     val source: String? = null,
-    val timestamp: String? = null
+    val timestamp: String? = null,
+    val smart_irrigation: SmartIrrigationAdvisorDto? = null
 )
 
 data class WeatherAlertsResponse(
@@ -305,7 +332,8 @@ data class AgriculturalAdvisoryResponse(
 
 data class WeatherForecastResponse(
     val success: Boolean,
-    val data: ForecastData?
+    val data: ForecastData?,
+    val smart_irrigation: SmartIrrigationAdvisorDto? = null
 )
 
 data class ForecastData(

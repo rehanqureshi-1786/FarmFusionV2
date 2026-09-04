@@ -51,6 +51,8 @@ import com.example.farmfusionapp.data.model.WeatherAlertItemUi
 import com.example.farmfusionapp.data.model.AgriculturalAdvisoryResponse
 import com.example.farmfusionapp.data.model.DisasterRiskRequest
 import com.example.farmfusionapp.data.model.DisasterRiskResponse
+import com.example.farmfusionapp.data.model.SmartIrrigationAdvisorDto
+import java.util.Locale
 
 data class DisplayWeatherData(
     val temperature: Int,
@@ -65,6 +67,7 @@ data class DisplayWeatherData(
     val alerts: List<WeatherAlertItemUi> = emptyList(),
     val advisory: AgriculturalAdvisoryResponse? = null,
     val disasterRisk: DisasterRiskResponse? = null,
+    val smartIrrigation: SmartIrrigationAdvisorDto? = null,
     val pressure: Int? = null
 )
 
@@ -219,6 +222,15 @@ fun WeatherScreen(navController: NavController) {
                         item {
                             Box(modifier = Modifier.padding(horizontal = 24.dp)) {
                                 WeatherHeroCard(weatherData!!)
+                            }
+                        }
+
+                        // 2.5 Smart Irrigation Advisor Card (Dedicated Card following Weather Card)
+                        if (weatherData!!.smartIrrigation != null) {
+                            item {
+                                Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                                    SmartIrrigationCard(weatherData!!.smartIrrigation!!)
+                                }
                             }
                         }
 
@@ -838,6 +850,370 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SmartIrrigationCard(smartIrrigation: SmartIrrigationAdvisorDto) {
+    val currentLang = LocalAppLanguage.current
+    val isHindi = currentLang.equals("hi", ignoreCase = true)
+
+    val isDeficit = smartIrrigation.status_badge.equals("NEEDS_WATER", ignoreCase = true)
+    val isWaterlogged = smartIrrigation.status_badge.equals("WATERLOGGED_RISK", ignoreCase = true)
+    val isOptimal = smartIrrigation.status_badge.equals("OPTIMAL", ignoreCase = true)
+
+    val badgeBgColor = when {
+        isWaterlogged -> Color(0xFFFFEBEE)
+        isDeficit -> Color(0xFFFFF3E0)
+        isOptimal -> Color(0xFFE8F5E9)
+        else -> Color(0xFFE1F5FE)
+    }
+    val badgeBorderColor = when {
+        isWaterlogged -> Color(0xFFEF9A9A)
+        isDeficit -> Color(0xFFFFB74D)
+        isOptimal -> Color(0xFFA5D6A7)
+        else -> Color(0xFF81D4FA)
+    }
+    val themeColor = when {
+        isWaterlogged -> Color(0xFFC62828)
+        isDeficit -> Color(0xFFE65100)
+        isOptimal -> Color(0xFF2E7D32)
+        else -> Color(0xFF0277BD)
+    }
+    val badgeLabel = when {
+        isWaterlogged -> if (isHindi) "जलभराव जोखिम" else "WATERLOGGED RISK"
+        isDeficit -> if (isHindi) "सिंचाई की आवश्यकता" else "NEEDS WATER"
+        isOptimal -> if (isHindi) "अनुकूल नमी (वापसा)" else "OPTIMAL (VAPSA)"
+        else -> if (isHindi) "मध्यम नमी" else "MODERATE"
+    }
+
+    val displayAdvice = if (isHindi && !smartIrrigation.actionable_advice_hi.isNullOrBlank()) {
+        smartIrrigation.actionable_advice_hi
+    } else {
+        smartIrrigation.actionable_advice
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
+        shadowElevation = 3.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Header Row: Title and Status Badge
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color(0xFFE0F2FE), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.WaterDrop,
+                            contentDescription = "Smart Irrigation",
+                            tint = Color(0xFF0288D1),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = if (isHindi) "स्मार्ट सिंचाई सलाहकार" else "SMART IRRIGATION ADVISOR",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF455A64),
+                                letterSpacing = 0.5.sp
+                            )
+                        )
+                        Text(
+                            text = if (isHindi) "रीयल-टाइम मिट्टी की नमी" else "Real-time Soil Moisture NWP",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF78909C))
+                        )
+                    }
+                }
+
+                // Badge Pill
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = badgeBgColor,
+                    border = BorderStroke(1.dp, badgeBorderColor)
+                ) {
+                    Text(
+                        text = badgeLabel,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = themeColor
+                        )
+                    )
+                }
+            }
+
+            // Key Metric Highlight (Root Zone Moisture + Irrigation Need Bar)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFF8FAFC), RoundedCornerShape(16.dp))
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isHindi) "सक्रिय जड़ क्षेत्र (3-9 सेमी)" else "Active Root Zone (3-9 cm)",
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF546E7A)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = String.format(Locale.ROOT, "%.1f%%", smartIrrigation.root_zone_moisture_percent),
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = themeColor
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isHindi) "नमी" else "moisture",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color.Gray
+                            ),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                }
+
+                // Score dial/meter
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text(
+                        text = if (isHindi) "सिंचाई आवश्यकता" else "Irrigation Need",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF546E7A)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "${smartIrrigation.irrigation_need_score}/100",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = themeColor
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    LinearProgressIndicator(
+                        progress = { (smartIrrigation.irrigation_need_score / 100f).coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .width(80.dp)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp)),
+                        color = themeColor,
+                        trackColor = Color(0xFFE2E8F0)
+                    )
+                }
+            }
+
+            // Actionable Advice Box
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = badgeBgColor.copy(alpha = 0.5f),
+                border = BorderStroke(1.dp, badgeBorderColor.copy(alpha = 0.6f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = if (isDeficit) Icons.Rounded.WaterDrop else if (isWaterlogged) Icons.Rounded.Warning else Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint = themeColor,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .padding(top = 2.dp)
+                    )
+                    Text(
+                        text = displayAdvice,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF263238),
+                            lineHeight = 20.sp
+                        )
+                    )
+                }
+            }
+
+            // Multi-Depth Soil Profile Grid
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = if (isHindi) "मिट्टी की परत अनुसार नमी एवं तापमान" else "Soil Profile Breakdown",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF546E7A)
+                    )
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SoilDepthTile(
+                        label = if (isHindi) "सतह (0-1cm)" else "Surface (0-1cm)",
+                        value = String.format(Locale.ROOT, "%.1f%%", smartIrrigation.surface_moisture_percent),
+                        modifier = Modifier.weight(1f)
+                    )
+                    SoilDepthTile(
+                        label = if (isHindi) "जड़ (3-9cm)" else "Root (3-9cm)",
+                        value = String.format(Locale.ROOT, "%.1f%%", smartIrrigation.root_zone_moisture_percent),
+                        isHighlight = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    SoilDepthTile(
+                        label = if (isHindi) "गहरी (9-27cm)" else "Deep (9-27cm)",
+                        value = String.format(Locale.ROOT, "%.1f%%", smartIrrigation.deep_moisture_percent),
+                        modifier = Modifier.weight(1f)
+                    )
+                    SoilDepthTile(
+                        label = if (isHindi) "तापमान" else "Soil Temp",
+                        value = String.format(Locale.ROOT, "%.1f°C", smartIrrigation.soil_temperature_c),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            // Footer Conditions Row (Tillage + 24h Rain forecast context)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Tillage / Vapsa condition chip
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (smartIrrigation.tillage_suitable) Color(0xFFE8F5E9) else Color(0xFFFFF3E0),
+                    border = BorderStroke(1.dp, if (smartIrrigation.tillage_suitable) Color(0xFFA5D6A7) else Color(0xFFFFCC80)),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (smartIrrigation.tillage_suitable) Icons.Rounded.Agriculture else Icons.Rounded.WarningAmber,
+                            contentDescription = null,
+                            tint = if (smartIrrigation.tillage_suitable) Color(0xFF2E7D32) else Color(0xFFE65100),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = if (smartIrrigation.tillage_suitable) {
+                                if (isHindi) "जुताई अनुकूल (वापसा)" else "Tillage Suitable"
+                            } else {
+                                if (isHindi) "खेत गीला / जुताई रोकें" else "Field Wet / Avoid Tillage"
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (smartIrrigation.tillage_suitable) Color(0xFF1B5E20) else Color(0xFFBF360C)
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                // Rain forecast condition chip
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFFF1F5F9),
+                    border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Air,
+                            contentDescription = null,
+                            tint = Color(0xFF475569),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Text(
+                            text = if (smartIrrigation.next_24h_rain_sum_mm > 1.0) {
+                                if (isHindi) "24घं बारिश: ${String.format(Locale.ROOT, "%.1f", smartIrrigation.next_24h_rain_sum_mm)}mm" else "24h Rain: ${String.format(Locale.ROOT, "%.1f", smartIrrigation.next_24h_rain_sum_mm)}mm"
+                            } else {
+                                if (isHindi) "24घं कोई भारी बारिश नहीं" else "24h Rain: 0 mm"
+                            },
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF334155)
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SoilDepthTile(
+    label: String,
+    value: String,
+    isHighlight: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (isHighlight) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
+        border = BorderStroke(1.dp, if (isHighlight) Color(0xFF93C5FD) else Color(0xFFE2E8F0)),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 10.sp,
+                    color = if (isHighlight) Color(0xFF1D4ED8) else Color(0xFF64748B),
+                    fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    color = if (isHighlight) Color(0xFF1E40AF) else Color(0xFF1E293B)
+                )
+            )
         }
     }
 }
@@ -1530,7 +1906,8 @@ suspend fun fetchWeatherFromLocation(
                     forecast = realForecastList,
                     alerts = alertList,
                     advisory = advisoryObj,
-                    disasterRisk = disasterRiskObj
+                    disasterRisk = disasterRiskObj,
+                    smartIrrigation = backendData.smart_irrigation
                 )
                 WeatherSnapshotStore.latestWeather = data
                 WeatherSnapshotStore.latestLanguage = appLanguage

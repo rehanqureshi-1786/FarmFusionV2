@@ -374,6 +374,7 @@ class ToolRegistry:
             "condition": weather_res.get("weather"),
             "annual_rainfall_mm": rainfall_res.get("annual_rainfall_mm"),
             "rainfall_period": rainfall_res.get("rainfall_period", "2025"),
+            "smart_irrigation": weather_res.get("smart_irrigation"),
         }
         return ToolResult(
             status=ToolStatus.SUCCESS,
