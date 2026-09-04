@@ -45,12 +45,25 @@ class OrchestratorState(TypedDict, total=False):
     missing_slots: List[str]
     safety_classification: Optional[str] # READ_ONLY, NAVIGATION, REVERSIBLE, CONSEQUENTIAL
     requires_consequential_confirmation: bool
+    semantic_frame: Optional[Dict[str, Any]] # Phase F2 Canonical SemanticFrame representation
+    image_bytes: Optional[bytes]
+    image_path: Optional[str]
+
+    # Phase F5: Task Planner & Dependency-Aware Orchestration
+    task_plan: Optional[Dict[str, Any]]
+    pending_tasks: List[str]
+    completed_tasks: List[str]
+    failed_tasks: List[str]
+    tool_results: Dict[str, Any]
+    unresolved_inputs: List[str]
+    next_action: Optional[str]
 
     # Tool Execution & Provenance
     last_tool: Optional[str]
     last_tool_result: Optional[Dict[str, Any]]
     tool_output: Optional[Dict[str, Any]]
     tool_status: Optional[str]
+
 
     # Conversational Memory & Multi-Turn References
     last_recommendations: List[Dict[str, Any]]
@@ -64,7 +77,27 @@ class OrchestratorState(TypedDict, total=False):
     clarification_question: Optional[str]
     pending_confirmation: Optional[str]
 
+    # Phase F6: Grounded RAG + Validation + Response Envelope
+    rag_grounding: Optional[Dict[str, Any]]
+    rag_citations: Optional[List[Dict[str, Any]]]
+    validation_result: Optional[Dict[str, Any]]
+    verified_facts: Optional[List[Dict[str, Any]]]
+    confidence_tier: Optional[str]
+    response_envelope: Optional[Dict[str, Any]]
+
+    # Phase F7: Autonomous Replanning & Agent Coordination
+    iteration: int
+    max_iterations: int
+    replan_count: int
+    objective_status: Optional[str]        # OBJECTIVE_COMPLETE, NEEDS_REPLAN, NEEDS_USER_INPUT, BLOCKED, FAILED
+    replan_reason: Optional[str]
+    completed_capabilities: List[str]
+    failed_capabilities: List[str]
+    missing_requirements: List[str]
+    orchestration_traces: List[Dict[str, Any]]
+
     # Final Synthesized Response & History
     messages: List[Dict[str, str]]
     final_response: str
     turn_history: List[Dict[str, Any]]
+

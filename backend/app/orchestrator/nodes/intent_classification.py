@@ -8,19 +8,61 @@ import structlog
 
 from app.orchestrator.state import OrchestratorState
 from app.voice.languages import normalize_crop_name, normalize_soil_name, detect_dialect, normalize_agricultural_term
+from app.schemas.semantic_frame import (
+    SemanticFrame,
+    CanonicalIntent,
+    CapabilityType,
+    RequiredInput,
+    UserContext,
+    ConversationContext,
+    FarmLocation,
+)
+from app.orchestrator.semantic_extractor import extract_semantic_frame
 
 logger = structlog.get_logger(__name__)
 
 
 async def intent_classification_node(state: OrchestratorState) -> OrchestratorState:
     """
-    Classify intent and extract slots from user input while resolving context from previous turns.
-    If intent confidence < 0.6, enforce safety rule #6: route to clarify question.
+    Classify intent and extract slots from user input using Phase F3 Semantic Extraction Layer.
+    Executes hybrid LLM/Deterministic semantic extraction, populating canonical SemanticFrame
+    while maintaining 100% backward compatibility for downstream LangGraph nodes.
     """
-    query = state.get("user_input", "").lower().strip()
+    raw_query = state.get("user_input", "").strip()
+    query = raw_query.lower()
     farmer_ctx = state.get("farmer_context", {}) or {}
     last_recs = state.get("last_recommendations", []) or []
     filled_slots: Dict[str, Any] = dict(state.get("filled_slots", {}) or {})
+
+    # Build typed context for semantic extractor
+    user_context = UserContext(
+        farm_location=FarmLocation(
+            latitude=farmer_ctx.get("latitude"),
+            longitude=farmer_ctx.get("longitude"),
+            district=farmer_ctx.get("district"),
+            state=farmer_ctx.get("state"),
+        ) if farmer_ctx else None,
+        soil_type=farmer_ctx.get("soil_type"),
+    )
+    conversation_context = ConversationContext(
+        active_crop=state.get("active_crop") or (last_recs[0].get("crop_name") if last_recs else None),
+        last_intent=state.get("intent"),
+        accumulated_slots=filled_slots,
+    )
+
+    # 1. Execute Phase F3 Semantic Extractor (LLM with deterministic fallback)
+    semantic_frame = await extract_semantic_frame(
+        raw_text=raw_query,
+        detected_language=state.get("detected_language", "hi"),
+        detected_dialect=state.get("detected_dialect"),
+        user_context=user_context,
+        conversation_context=conversation_context,
+        session_id=state.get("session_id"),
+    )
+    state["semantic_frame"] = semantic_frame.model_dump()
+    state["detected_language"] = semantic_frame.language
+    if semantic_frame.dialect:
+        state["detected_dialect"] = semantic_frame.dialect
 
     # Detect regional dialect & language markers
     dialect_res = detect_dialect(query, detected_language=state.get("detected_language", "hi"))
@@ -441,6 +483,21 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         state["intent_confidence"] = confidence
         if not state.get("requires_clarification"):
             state["requires_clarification"] = False
+
+    # Synchronize entities from semantic frame into filled_slots
+    if semantic_frame.entities.crop and "commodity" not in filled_slots:
+        filled_slots["commodity"] = semantic_frame.entities.crop
+    if semantic_frame.entities.crop and "crop_name" not in filled_slots:
+        filled_slots["crop_name"] = semantic_frame.entities.crop
+    if semantic_frame.entities.market and "location_name" not in filled_slots:
+        filled_slots["location_name"] = semantic_frame.entities.market
+    if len(semantic_frame.entities.markets) >= 2:
+        filled_slots["market_a"] = semantic_frame.entities.markets[0]
+        filled_slots["market_b"] = semantic_frame.entities.markets[1]
+    if semantic_frame.entities.forecast_days and "days" not in filled_slots:
+        filled_slots["days"] = semantic_frame.entities.forecast_days
+    if semantic_frame.entities.timeframe and "timeframe" not in filled_slots:
+        filled_slots["timeframe"] = semantic_frame.entities.timeframe
 
     state["filled_slots"] = filled_slots
     return state
