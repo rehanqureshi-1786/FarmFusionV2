@@ -8,9 +8,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.AcUnit
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Warehouse
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -110,18 +110,18 @@ fun CropHarvestingScreen(navController: NavController) {
                     )
                 }
 
-                // 3. Nearby Cold Storage Card
+                // 3. Crop Storage Card
                 item {
                     PremiumHarvestCard(
-                        title = com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("nearby cold storage", currentLang),
+                        title = com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("crop storage", currentLang),
                         subtitle = com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("nearby cold storage sub", currentLang),
-                        icon = Icons.Rounded.AcUnit,
+                        icon = Icons.Rounded.Warehouse,
                         cardColor = Color(0xFFE3F2FD),
                         iconBgColor = Color(0xFFCBE6FA),
                         iconTintColor = Color(0xFF1565C0),
                         illustration = R.drawable.ill_cold_storage,
                         onClick = {
-                            // TODO: Add Cold Storage route when ready
+                            // TODO: Add Crop Storage route when ready
                         }
                     )
                 }

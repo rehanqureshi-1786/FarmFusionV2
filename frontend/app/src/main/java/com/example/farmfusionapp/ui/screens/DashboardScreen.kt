@@ -88,6 +88,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.NavController
 import java.util.Calendar
 import kotlin.math.absoluteValue
+import kotlin.math.sin
+import kotlin.math.cos
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.Path
 
 // Explicitly importing the R class to resolve drawable and string reference errors
 import com.example.farmfusionapp.R
@@ -361,19 +365,11 @@ fun DashboardScreen(navController: NavController) {
         NeoScaffoldBackground {
             Box(modifier = Modifier.fillMaxSize()) {
 
-                // Header Landscape Background (with Restored Smooth Parallax)
-                Image(
-                    painter = painterResource(id = R.drawable.ill_header_bg),
-                    contentDescription = "Header Landscape",
-                    contentScale = ContentScale.FillWidth,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .align(Alignment.TopCenter)
-                        .graphicsLayer {
-                            alpha = headerOpacity
-                            // Positive translation pushes it slightly down against the scroll direction, creating deep parallax
-                            translationY = parallaxOffset * 0.5f
-                        }
+                // Header Landscape Background with Living Dawn Animation & Flapping Birds
+                AnimatedHeaderLandscape(
+                    headerOpacity = headerOpacity,
+                    parallaxOffset = parallaxOffset,
+                    modifier = Modifier.align(Alignment.TopCenter)
                 )
 
                 LazyColumn(
@@ -497,7 +493,8 @@ private fun HomeHeroHeader(location: String) {
         // Location Pill
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = Color(0xFFFFF3E0).copy(alpha = 0.9f),
+            color = Color(0xFFFFF3E0).copy(alpha = 0.92f),
+            border = BorderStroke(1.dp, Color(0xFFFFE0B2)),
             modifier = Modifier.padding(top = 10.dp)
         ) {
             Row(
@@ -507,18 +504,259 @@ private fun HomeHeroHeader(location: String) {
                 Icon(
                     imageVector = Icons.Rounded.LocationOn,
                     contentDescription = null,
-                    tint = Color(0xFFFFB300),
+                    tint = Color(0xFFFF9800),
                     modifier = Modifier.size(14.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = localizedCity,
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color(0xFF5D4037),
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.SemiBold
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+private data class BirdSpec(
+    val baseRelX: Float,
+    val baseRelY: Float,
+    val wingSpanDp: Float,
+    val flapCycles: Int,
+    val phaseOffset: Float,
+    val thermalOffsetX: Float,
+    val thermalOffsetY: Float,
+    val alpha: Float
+)
+
+@Composable
+private fun AnimatedHeaderLandscape(
+    modifier: Modifier = Modifier,
+    headerOpacity: Float,
+    parallaxOffset: Float
+) {
+    val density = LocalDensity.current.density
+    val transition = rememberInfiniteTransition(label = "landscape_sky_anim")
+
+    // Master harmonic loop (16 seconds) - everything syncs smoothly to exact integer harmonics
+    val masterProgress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 16000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "master_progress"
+    )
+
+    val masterRad = masterProgress * 2f * Math.PI.toFloat()
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = headerOpacity
+                translationY = parallaxOffset * 0.5f
+            }
+    ) {
+        // Base Clean Landscape Artwork
+        Image(
+            painter = painterResource(id = R.drawable.ill_header_bg),
+            contentDescription = "Header Landscape",
+            contentScale = ContentScale.FillWidth,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Dynamic Sky Animation Layer (Sun Aura + Morning Mist + Flapping Birds in Formation)
+        Canvas(
+            modifier = Modifier.matchParentSize()
+        ) {
+            val w = size.width
+            val h = size.height
+            if (w <= 0f || h <= 0f) return@Canvas
+
+            // --- A. Warm Sun Dawn Aura & Breathing Rays ---
+            val sunPulse = 0.90f + 0.16f * (sin(masterRad * 2f) * 0.5f + 0.5f)
+            val sunCenterX = w * 0.785f
+            val sunCenterY = h * 0.575f
+            val baseSunRadius = w * 0.17f
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFFFEE58).copy(alpha = 0.25f * sunPulse),
+                        Color(0xFFFFB300).copy(alpha = 0.08f * sunPulse),
+                        Color.Transparent
+                    ),
+                    center = Offset(sunCenterX, sunCenterY),
+                    radius = baseSunRadius * sunPulse
+                ),
+                center = Offset(sunCenterX, sunCenterY),
+                radius = baseSunRadius * sunPulse
+            )
+
+            // Ambient warmth halo
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFFFF9C4).copy(alpha = 0.12f),
+                        Color.Transparent
+                    ),
+                    center = Offset(sunCenterX, sunCenterY),
+                    radius = baseSunRadius * 1.7f
+                ),
+                center = Offset(sunCenterX, sunCenterY),
+                radius = baseSunRadius * 1.7f
+            )
+
+            // --- B. Gentle Mountain Mist Drift (Harmonic sway, no teleport) ---
+            val mistOffsetX = sin(masterRad) * (w * 0.12f)
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.14f),
+                        Color.Transparent
+                    ),
+                    center = Offset(w * 0.45f + mistOffsetX, h * 0.67f),
+                    radius = w * 0.35f
+                ),
+                topLeft = Offset(w * 0.15f + mistOffsetX, h * 0.64f),
+                size = androidx.compose.ui.geometry.Size(w * 0.70f, h * 0.06f)
+            )
+
+            // --- C. Animated Flock of Birds Flapping Wings in Harmonic Flight ---
+            // Each bird has an integer number of flap cycles in 16 seconds (e.g. 6 to 8 flaps = ~2.0-2.6s per flap).
+            // Because flapCycles is an integer, sin(masterRad * cycles) is mathematically 100% continuous
+            // across the loop restart with ZERO jump or reset twitch.
+            val birds = listOf(
+                // Lead bird (majestic, prominent)
+                BirdSpec(
+                    baseRelX = 0.74f,
+                    baseRelY = 0.42f,
+                    wingSpanDp = 18f,
+                    flapCycles = 8,
+                    phaseOffset = 0f,
+                    thermalOffsetX = 0f,
+                    thermalOffsetY = 0f,
+                    alpha = 0.88f
+                ),
+                // Left flank
+                BirdSpec(
+                    baseRelX = 0.68f,
+                    baseRelY = 0.45f,
+                    wingSpanDp = 15f,
+                    flapCycles = 7,
+                    phaseOffset = 0.8f,
+                    thermalOffsetX = 0.4f,
+                    thermalOffsetY = 0.6f,
+                    alpha = 0.82f
+                ),
+                // Right high soarer
+                BirdSpec(
+                    baseRelX = 0.80f,
+                    baseRelY = 0.39f,
+                    wingSpanDp = 16f,
+                    flapCycles = 7,
+                    phaseOffset = 1.6f,
+                    thermalOffsetX = 0.8f,
+                    thermalOffsetY = 1.1f,
+                    alpha = 0.85f
+                ),
+                // Distant high bird
+                BirdSpec(
+                    baseRelX = 0.84f,
+                    baseRelY = 0.46f,
+                    wingSpanDp = 12f,
+                    flapCycles = 6,
+                    phaseOffset = 2.4f,
+                    thermalOffsetX = 1.2f,
+                    thermalOffsetY = 1.5f,
+                    alpha = 0.65f
+                ),
+                // Trailing left
+                BirdSpec(
+                    baseRelX = 0.63f,
+                    baseRelY = 0.48f,
+                    wingSpanDp = 13f,
+                    flapCycles = 8,
+                    phaseOffset = 3.2f,
+                    thermalOffsetX = 1.6f,
+                    thermalOffsetY = 2.0f,
+                    alpha = 0.70f
+                ),
+                // Trailing right
+                BirdSpec(
+                    baseRelX = 0.70f,
+                    baseRelY = 0.50f,
+                    wingSpanDp = 11f,
+                    flapCycles = 6,
+                    phaseOffset = 4.0f,
+                    thermalOffsetX = 2.0f,
+                    thermalOffsetY = 2.5f,
+                    alpha = 0.62f
+                )
+            )
+
+            for (bird in birds) {
+                // Exact integer harmonic angle guarantees perfect continuity across loop boundary
+                val birdFlapAngle = (masterRad * bird.flapCycles) + bird.phaseOffset
+                val sinVal = sin(birdFlapAngle)
+                // Aerodynamic glide shaping: gently extends glide at top of upstroke
+                val flap = if (sinVal > 0.72f) 0.72f + (sinVal - 0.72f) * 0.35f else sinVal
+
+                // Closed-curve thermal soaring drift: continuous harmonic oscillation so flock floats majestically
+                val driftX = (sin(masterRad + bird.thermalOffsetX) * 16f * density) +
+                             (cos(masterRad * 2f + bird.thermalOffsetY) * 4f * density)
+                val driftY = (cos(masterRad + bird.thermalOffsetY) * 5f * density) +
+                             (sin(masterRad * 2f) * 2f * density)
+
+                // Thermal bobbing: slight lift on power stroke
+                val bobbing = sinVal * (bird.wingSpanDp * density * 0.12f)
+                val birdX = w * bird.baseRelX + driftX
+                val birdY = h * bird.baseRelY + driftY + bobbing
+
+                val spanPx = bird.wingSpanDp * density
+                val tipDy = -spanPx * 0.44f * flap
+                val elbowDy = -spanPx * 0.32f * (flap + 0.35f)
+
+                val birdPath = Path().apply {
+                    // Left Wing
+                    moveTo(birdX, birdY - 1.2f * density)
+                    quadraticTo(
+                        birdX - spanPx * 0.5f,
+                        birdY + elbowDy - 1.8f * density,
+                        birdX - spanPx,
+                        birdY + tipDy
+                    )
+                    quadraticTo(
+                        birdX - spanPx * 0.45f,
+                        birdY + elbowDy + 1.6f * density,
+                        birdX,
+                        birdY + 1.8f * density
+                    )
+                    // Right Wing
+                    quadraticTo(
+                        birdX + spanPx * 0.45f,
+                        birdY + elbowDy + 1.6f * density,
+                        birdX + spanPx,
+                        birdY + tipDy
+                    )
+                    quadraticTo(
+                        birdX + spanPx * 0.5f,
+                        birdY + elbowDy - 1.8f * density,
+                        birdX,
+                        birdY - 1.2f * density
+                    )
+                    close()
+                }
+
+                drawPath(
+                    path = birdPath,
+                    color = Color(0xFF263627).copy(alpha = bird.alpha)
                 )
             }
         }

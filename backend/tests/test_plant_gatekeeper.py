@@ -94,3 +94,44 @@ async def test_api_endpoint_non_plant_rejection():
         assert result["is_plant_image"] is False
         assert result["can_analyze"] is False
         assert result["diagnosis_status"] == "no_plant"
+
+
+def test_plant_gatekeeper_rejects_person_foreground():
+    """Verify person portrait with background foliage is rejected with 'No Plant Detected'."""
+    from pathlib import Path
+    img_path = Path(r"C:\Users\janar\.gemini\antigravity-ide\brain\47946171-010f-4bc2-b10b-4e46edf0a9d3\.user_uploaded\media_1788505580340.jpg")
+    if img_path.exists():
+        with open(img_path, "rb") as f:
+            res = PlantGatekeeperService.verify_plant(f.read())
+        assert res["is_plant"] is False
+        assert "Person" in res["reason"] or "Non-plant" in res["reason"]
+
+
+@pytest.mark.asyncio
+async def test_disease_localization_hindi():
+    """Verify full localization in Hindi for early blight, advice, and store subtitles."""
+    from app.services.disease_translation import localize_disease_response
+    sample = {
+        "disease_name": "Early Blight",
+        "crop_type": "Tomato",
+        "treatment_suggestions": [
+            "Biological: Foliar application of Trichoderma viride @ 5 g/L or Pseudomonas fluorescens @ 5 g/L",
+            "Chemical: Foliar spray of Mancozeb 75% WP @ 2.5 g/L or Chlorothalonil 75% WP @ 2.0 g/L as preventive spray"
+        ],
+        "prevention_tips": [
+            "Stake tomato plants and mulch soil surface to prevent soil splash onto lower foliage",
+            "Prune bottom leaves (15-20 cm above ground) to improve air circulation"
+        ],
+        "store_recommendations": [
+            {"title": "Mancozeb", "subtitle": "Targeted active ingredient for Early Blight"}
+        ]
+    }
+    localized = localize_disease_response(sample, "hi")
+    assert localized["disease_name"] == "अगेती झुलसा रोग"
+    assert localized["crop_type"] == "टमाटर"
+    assert "ट्राइकोडर्मा विरिडी" in localized["treatment_suggestions"][0]
+    assert "मैंकोजेब" in localized["treatment_suggestions"][1]
+    assert "मल्चिंग" in localized["prevention_tips"][0]
+    assert "छंटाई" in localized["prevention_tips"][1]
+    assert "लक्षित सक्रिय घटक" in localized["store_recommendations"][0]["subtitle"]
+

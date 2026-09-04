@@ -43,6 +43,14 @@ import com.example.farmfusionapp.utils.LocaleHelper
 import com.example.farmfusionapp.viewmodel.UserViewModel
 import kotlinx.coroutines.launch
 
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
+
 data class AppLanguageUi(
     val code: String,
     val nativeName: String,
@@ -59,6 +67,10 @@ fun LanguageSelectionScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val density = LocalDensity.current
+
+    val hazeState = remember { HazeState() }
+    var headerHeightDp by remember { mutableStateOf(210.dp) }
 
     // 14 requested languages with targeted custom colors and distinct illustrations
     val uiLanguages = remember {
@@ -80,67 +92,96 @@ fun LanguageSelectionScreen(
         )
     }
 
+    // 14-language title map for bilingual header (selected language bigger + English smaller)
+    val localizedTitles = remember {
+        mapOf(
+            "en" to "Select your Language",
+            "hi" to "अपनी भाषा चुनें",
+            "mr" to "आपली भाषा निवडा",
+            "gu" to "તમારી ભાષા પસંદ કરો",
+            "pa" to "ਆਪਣੀ ਭਾਸ਼ਾ ਚੁਣੋ",
+            "bn" to "আপনার ভাষা নির্বাচন করুন",
+            "ta" to "உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்",
+            "te" to "మీ భాషను ఎంచుకోండి",
+            "kn" to "ನಿಮ್ಮ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ",
+            "ml" to "നിങ്ങളുടെ ഭാഷ തിരഞ്ഞെടുക്കുക",
+            "or" to "ଆପଣଙ୍କର ଭାଷା ଚୟନ କରନ୍ତୁ",
+            "od" to "ଆପଣଙ୍କର ଭାଷା ଚୟନ କରନ୍ତୁ",
+            "as" to "আপোনাৰ ভাষা বাছনি কৰক",
+            "ur" to "अपनी زبان منتخب کریں",
+            "mai" to "अपन भाषा चुनू"
+        )
+    }
+
+    // 14-language audio guidance prompt
+    val audioInstructions = remember {
+        mapOf(
+            "en" to "Select the languages you're comfortable with",
+            "hi" to "जिस भाषा में आप सहज हों, उसे चुनें",
+            "mr" to "ज्या भाषेत तुम्हाला सोपे वाटते ती निवडा",
+            "gu" to "તમે જેમાં સરળતા અનુભવો તે ભાષા પસંદ કરો",
+            "pa" to "ਜਿਸ ਭਾਸ਼ਾ ਵਿੱਚ ਤੁਸੀਂ ਸਹਿਜ ਹੋ, ਉਸਨੂੰ ਚੁਣੋ",
+            "bn" to "যে ভাষায় আপনি স্বাচ্ছন্দ্যবোধ করেন তা বেছে নিন",
+            "ta" to "நீங்கள் விரும்பும் மொழியைத் தேர்ந்தெடுக்கவும்",
+            "te" to "మీకు అనుకూలమైన భాషను ఎంచుకోండి",
+            "kn" to "ನಿಮಗೆ ಅನುಕೂಲಕರವಾದ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ",
+            "ml" to "നിങ്ങൾക്ക് സൗകര്യಪ್ರദമായ ഭാഷ തിരഞ്ഞെടുക്കുക",
+            "or" to "ଆପଣ ଯେଉଁ ଭାଷାରେ ସହଜ, ତାହା ବାଛନ୍ତୁ",
+            "od" to "ଆପଣ ଯେଉଁ ଭାଷାରେ ସହଜ, ତାହା ବାଛନ୍ତୁ",
+            "as" to "আপুনি যিটো ভাষাত স্বাচ্ছন্দ্যবোধ কৰে বাছক",
+            "ur" to "جس زبان میں آپ کو سہولت ہو، اسے منتخب کریں",
+            "mai" to "जाहि भाषा मे अहाँ सहज होइ, से चुनू"
+        )
+    }
+
+    // 14-language continue button labels
+    val continueButtons = remember {
+        mapOf(
+            "en" to "Continue",
+            "hi" to "आगे बढ़ें",
+            "mr" to "पुढे जा",
+            "gu" to "આગળ વધો",
+            "pa" to "ਅੱਗੇ ਵਧੋ",
+            "bn" to "এগিয়ে যান",
+            "ta" to "தொடரவும்",
+            "te" to "కొనసాగించండి",
+            "kn" to "ಮುಂದುವರಿಯಿರಿ",
+            "ml" to "തുടരുക",
+            "or" to "ଆଗକୁ ବଢ଼ନ୍ତୁ",
+            "od" to "ଆଗକୁ ବଢ଼ନ୍ତୁ",
+            "as" to "আগবাঢ়ক",
+            "ur" to "آگے بڑھیں",
+            "mai" to "आगे बढ़ू"
+        )
+    }
+
     val savedLang = remember { AuthStore.getLanguage(context) ?: "en" }
     val savedDialect = remember { AuthStore.getDialect(context) }
     var selectedCode by remember { mutableStateOf(savedDialect ?: savedLang) }
     var isSaving by remember { mutableStateOf(false) }
 
-    Column(
+    val isEnglish = selectedCode.equals("en", ignoreCase = true)
+    val currentTitle = localizedTitles[selectedCode.lowercase()] ?: "अपनी भाषा चुनें"
+    val currentAudioPrompt = audioInstructions[selectedCode.lowercase()] ?: "Select the languages you're comfortable with"
+    val currentContinue = continueButtons[selectedCode.lowercase()] ?: "Continue"
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFFAFAFA)) // Clean off-white background
-            .statusBarsPadding()
-            .padding(top = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(Color.White)
     ) {
-        // --- Header Section ---
-        Icon(
-            imageVector = Icons.Rounded.Language,
-            contentDescription = "Globe Icon",
-            tint = Color(0xFF2E7D32),
-            modifier = Modifier.size(42.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Select your Language",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.ExtraBold,
-                color = Color(0xFF1B3B22)
-            )
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
-                contentDescription = "Audio Instructions",
-                tint = Color(0xFF4CAF50),
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "Select the languages you're comfortable with",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = Color(0xFF6B7B6B)
-                )
-            )
-        }
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // --- Grid Section ---
+        // --- Continuous Grid Canvas (Cards scroll behind header and button) ---
         LazyVerticalGrid(
             columns = GridCells.Fixed(2),
             modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+                .fillMaxSize()
+                .haze(state = hazeState),
+            contentPadding = PaddingValues(
+                top = headerHeightDp + 12.dp,
+                bottom = 104.dp,
+                start = 20.dp,
+                end = 20.dp
+            ),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -153,68 +194,192 @@ fun LanguageSelectionScreen(
             }
         }
 
-        // --- Bottom Sticky Button ---
+        // --- Top Frosted Glass Header (iOS Style) ---
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .onGloballyPositioned { coordinates ->
+                    val measured = with(density) { coordinates.size.height.toDp() }
+                    if (measured > 0.dp && measured != headerHeightDp) {
+                        headerHeightDp = measured
+                    }
+                }
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp),
+                    spotColor = Color.Black.copy(alpha = 0.03f),
+                    ambientColor = Color.Transparent
+                )
+                .hazeChild(
+                    state = hazeState,
+                    shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp),
+                    style = HazeStyle(
+                        tint = Color.White.copy(alpha = 0.45f),
+                        blurRadius = 20.dp
+                    )
+                ),
+            shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp),
             color = Color.Transparent,
-            shadowElevation = 0.dp
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.60f)),
+            tonalElevation = 0.dp
         ) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 24.dp)
+                    .statusBarsPadding()
+                    .padding(top = 16.dp, bottom = 18.dp, start = 20.dp, end = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Button(
-                    onClick = {
-                        val chosen = LanguageRegistry.findByCode(selectedCode) ?: LanguageRegistry.scheduledLanguages.first()
-                        val primaryLang = if (chosen.isDialect) (chosen.parentLanguage ?: "hi") else chosen.code
-                        val dialect = if (chosen.isDialect) chosen.code else null
+                Icon(
+                    imageVector = Icons.Rounded.Language,
+                    contentDescription = "Globe Icon",
+                    tint = Color(0xFF2E7D32),
+                    modifier = Modifier.size(40.dp)
+                )
 
-                        isSaving = true
-                        AuthStore.saveLanguageAndDialect(context, primaryLang, dialect)
-                        LocaleHelper.applyLocale(context)
-                        LocaleHelper.wrap(context, primaryLang)
+                Spacer(modifier = Modifier.height(10.dp))
 
-                        coroutineScope.launch {
-                            try {
-                                val token = AuthStore.getAuthToken(context)
-                                if (!token.isNullOrBlank()) {
-                                    userViewModel.updateLanguage(token, chosen.code) { _, _ -> }
-                                }
-                            } catch (_: Exception) {}
-                            finally {
-                                isSaving = false
-                                if (navController.previousBackStackEntry != null) {
-                                    navController.popBackStack()
-                                } else {
-                                    navController.navigate(NavRoutes.Dashboard) {
-                                        popUpTo(navController.graph.id) {
-                                            inclusive = true
-                                        }
-                                        launchSingleTop = true
+                if (isEnglish) {
+                    Text(
+                        text = "Select your Language",
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF1B3B22),
+                            fontSize = 24.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = "Choose the language for the whole app",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF5A6E5D),
+                            fontSize = 14.sp
+                        )
+                    )
+                } else {
+                    // Bigger heading in the selected language
+                    Text(
+                        text = currentTitle,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF1B3B22),
+                            fontSize = 25.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    // Smaller heading right under it in English
+                    Text(
+                        text = "Select your Language",
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF5A6E5D),
+                            fontSize = 14.sp
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.VolumeUp,
+                        contentDescription = "Audio Instructions",
+                        tint = Color(0xFF4CAF50),
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = currentAudioPrompt,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Color(0xFF6B7B6B),
+                            fontSize = 13.sp
+                        )
+                    )
+                }
+            }
+        }
+
+        // --- Bottom Floating Continue Button (Cards go behind it, no opaque canvas) ---
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp, vertical = 20.dp)
+        ) {
+            Button(
+                onClick = {
+                    val chosen = LanguageRegistry.findByCode(selectedCode) ?: LanguageRegistry.scheduledLanguages.first()
+                    val primaryLang = if (chosen.isDialect) (chosen.parentLanguage ?: "hi") else chosen.code
+                    val dialect = if (chosen.isDialect) chosen.code else null
+
+                    isSaving = true
+                    AuthStore.saveLanguageAndDialect(context, primaryLang, dialect)
+                    LocaleHelper.applyLocale(context)
+                    LocaleHelper.wrap(context, primaryLang)
+
+                    coroutineScope.launch {
+                        try {
+                            val token = AuthStore.getAuthToken(context)
+                            if (!token.isNullOrBlank()) {
+                                userViewModel.updateLanguage(token, chosen.code) { _, _ -> }
+                            }
+                        } catch (_: Exception) {}
+                        finally {
+                            isSaving = false
+                            if (navController.previousBackStackEntry != null) {
+                                navController.popBackStack()
+                            } else {
+                                navController.navigate(NavRoutes.Dashboard) {
+                                    popUpTo(navController.graph.id) {
+                                        inclusive = true
                                     }
+                                    launchSingleTop = true
                                 }
                             }
                         }
-                    },
-                    enabled = !isSaving,
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    if (isSaving) {
-                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                    } else {
-                        Row(
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("Continue", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.White)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Icon(Icons.AutoMirrored.Rounded.ArrowForward, contentDescription = "Continue", tint = Color.White)
-                        }
+                    }
+                },
+                enabled = !isSaving,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 6.dp,
+                    pressedElevation = 2.dp
+                ),
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = currentContinue,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = "Continue",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                 }
             }
