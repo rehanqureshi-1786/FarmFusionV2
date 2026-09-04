@@ -13,6 +13,7 @@ from app.agents.disease_agent import DiseaseDetectionAgent
 from app.db.models import DiseaseDetection
 from app.services.disease_knowledge_service import DiseaseKnowledgeService
 from app.services.disease_ml_service import DiseaseMLService
+from app.services.plant_gatekeeper_service import PlantGatekeeperService
 from app.services.store_recommendation_service import StoreRecommendationService
 
 logger = structlog.get_logger(__name__)
@@ -56,6 +57,54 @@ class DiseaseService:
         top_predictions = []
         model_version = "v2_38class"
         is_reliable = False
+
+        # Step 0: Gatekeeper - Verify image depicts a genuine plant, leaf, crop, or fruit
+        gate_res = PlantGatekeeperService.verify_plant(image_bytes)
+        if not gate_res.get("is_plant", False):
+            logger.info("disease_detection_rejected_non_plant", reason=gate_res.get("reason"), object=gate_res.get("detected_object"))
+            reason_text = gate_res.get("reason", "non-plant object")
+            invalid_reason = f"No Plant Detected ({reason_text}). Please upload a clear photo of a plant leaf or crop."
+            response_data = {
+                "disease_name": "No Plant Detected",
+                "crop_type": "None",
+                "scientific_name": None,
+                "confidence": 0.0,
+                "confidence_tier": "unclear",
+                "diagnosis_status": "no_plant",
+                "severity": "none",
+                "description": "No crop leaf, plant, or agricultural foliage was detected in this image. The disease detection system only analyzes plants and crops. Please point your camera directly at a plant leaf, stem, or fruit in good lighting.",
+                "symptoms": [],
+                "causes": [],
+                "favorable_conditions": [],
+                "prevention_tips": [
+                    "Point camera directly at a plant leaf, stem, or fruit in good lighting.",
+                    "Ensure the plant is in focus without excessive blur or glare.",
+                    "Avoid scanning non-agricultural objects, electronic devices, or general indoor surfaces."
+                ],
+                "treatment_suggestions": [],
+                "treatment": {
+                    "biological": [],
+                    "cultural": [],
+                    "chemical": [],
+                    "active_ingredients": [],
+                    "treatment_notes": ["No plant detected. No chemical or biological treatment is required."]
+                },
+                "product_categories": [],
+                "store_recommendations": [],
+                "sources": [],
+                "ai_analyzed": True,
+                "can_analyze": False,
+                "is_plant_image": False,
+                "invalid_image_reason": invalid_reason,
+                "is_reliable": False,
+                "model_version": "plant_gatekeeper_v1",
+                "top_predictions": [],
+                "inference_source": "PLANT_GATEKEEPER",
+                "message": "No Plant Detected. Please upload or capture a clear photo of a plant leaf.",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+            from app.services.disease_translation import localize_disease_response
+            return localize_disease_response(response_data, response_language)
 
         # Step 1: Try local EfficientNet-B3 ML model
         ml_result = DiseaseMLService.predict(image_bytes, crop_hint=crop_type)

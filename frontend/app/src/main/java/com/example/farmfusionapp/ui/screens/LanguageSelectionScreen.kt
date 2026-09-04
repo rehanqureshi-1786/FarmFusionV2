@@ -256,7 +256,7 @@ fun LanguageGridCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(0.9f) // Tall rectangular shape matching concept
+            .aspectRatio(1.05f) // Slightly reduced height
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -268,16 +268,16 @@ fun LanguageGridCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
 
-            // Background Illustration (Right Aligned, Scaled down initially)
+            // Background Illustration (Restored to original size, touching bottom & right edges)
             Image(
                 painter = painterResource(id = language.illustration),
                 contentDescription = null,
+                alignment = Alignment.BottomEnd,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .fillMaxWidth(0.65f) // Reduced size by default
+                    .fillMaxWidth(0.65f)
                     .fillMaxHeight(0.75f)
-                    .padding(end = 8.dp, bottom = 4.dp)
                     .graphicsLayer {
                         transformOrigin = TransformOrigin(1f, 1f)
                         scaleX = animatedScale

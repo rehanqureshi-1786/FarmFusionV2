@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.blur
@@ -1059,6 +1060,11 @@ fun StepIndicator(
     totalSteps: Int,
     modifier: Modifier = Modifier
 ) {
+    val primaryColor = Color(0xFF1B5E20)
+    val activeBorderColor = Color(0xFF2E7D32)
+    val inactiveColor = Color(0xFFE0E0E0)
+    val activeContainerColor = Color(0xFFE8F5E9)
+
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -1068,37 +1074,78 @@ fun StepIndicator(
             val isCompleted = step < currentStep
             val isCurrent = step == currentStep
 
+            // Smooth dot scaling animation
+            val dotScale by animateFloatAsState(
+                targetValue = if (isCurrent) 1.25f else 1.0f,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "dotScale_$step"
+            )
+
+            // Smooth dot background color animation
+            val dotColor by animateColorAsState(
+                targetValue = when {
+                    isCompleted -> primaryColor
+                    isCurrent -> activeContainerColor
+                    else -> Color.White
+                },
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "dotColor_$step"
+            )
+
+            // Smooth border color animation
+            val borderColor by animateColorAsState(
+                targetValue = when {
+                    isCompleted -> primaryColor
+                    isCurrent -> activeBorderColor
+                    else -> inactiveColor
+                },
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "borderColor_$step"
+            )
+
+            // Smooth border width animation
+            val borderWidth by animateDpAsState(
+                targetValue = when {
+                    isCurrent -> 2.dp
+                    isCompleted -> 0.dp
+                    else -> 1.5.dp
+                },
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "borderWidth_$step"
+            )
+
+            // Animated Dot
             Box(
                 modifier = Modifier
                     .size(10.dp)
-                    .background(
-                        color = when {
-                            isCompleted -> MaterialTheme.colorScheme.primary
-                            isCurrent -> MaterialTheme.colorScheme.primaryContainer
-                            else -> MaterialTheme.colorScheme.surfaceVariant
-                        },
-                        shape = CircleShape
-                    )
-                    .border(
-                        width = if (isCurrent) 2.dp else 0.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = CircleShape
-                    )
+                    .scale(dotScale)
+                    .background(color = dotColor, shape = CircleShape)
+                    .border(width = borderWidth, color = borderColor, shape = CircleShape)
             )
 
+            // Animated Connecting Line Segment
             if (step < totalSteps) {
+                val lineProgress by animateFloatAsState(
+                    targetValue = if (step < currentStep) 1f else 0f,
+                    animationSpec = tween(durationMillis = 400, easing = FastOutSlowInEasing),
+                    label = "lineProgress_$step"
+                )
+
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(2.dp)
-                        .background(
-                            color = if (isCompleted) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
-                            }
-                        )
-                )
+                        .height(2.5.dp)
+                        .padding(horizontal = 4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(inactiveColor)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .fillMaxWidth(lineProgress)
+                            .background(primaryColor)
+                    )
+                }
             }
         }
     }

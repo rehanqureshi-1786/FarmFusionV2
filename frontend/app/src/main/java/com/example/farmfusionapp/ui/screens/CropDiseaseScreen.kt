@@ -609,6 +609,164 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
         return
     }
 
+    // ============================================
+    // DEDICATED NO PLANT DETECTED VIEW
+    // ============================================
+    val isNoPlant = result.is_plant_image == false ||
+            result.can_analyze == false ||
+            result.diagnosis_status.equals("no_plant", ignoreCase = true) ||
+            result.disease_name.equals("No Plant Detected", ignoreCase = true)
+
+    if (isNoPlant) {
+        val noPlantTitle = AppLocalizer.localizeDisease("No Plant Detected", currentLang).ifBlank { "No Plant Detected" }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Image with NO PLANT warning badge
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier.fillMaxWidth().height(200.dp).shadow(8.dp)
+                ) {
+                    Box {
+                        if (imageUri != null) {
+                            Image(
+                                painter = rememberAsyncImagePainter(imageUri),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        Surface(
+                            color = CropWarningOrange,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)
+                        ) {
+                            Text(
+                                text = "NO PLANT",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Main No Plant Detected Card
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                NeoCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = noPlantTitle,
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF1B1B1B)
+                                )
+                            )
+                        }
+
+                        Surface(
+                            color = CropWarningOrange.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, CropWarningOrange),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "NOT A PLANT",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                color = CropWarningOrange,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Text(
+                            text = result.description?.takeIf { it.isNotBlank() }
+                                ?: "No crop leaf, plant, or agricultural foliage was detected in this image. The disease detection system only analyzes plants and crops.\n\nPlease point your camera directly at a plant leaf, stem, or fruit in good lighting.",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                lineHeight = 20.sp,
+                                color = Color.DarkGray
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Photo Guidelines Card
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                NeoCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "Photo Guidelines for Best Diagnosis",
+                            fontWeight = FontWeight.Bold,
+                            color = CropPrimaryDark
+                        )
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint = CropPrimaryDark,
+                                modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Point camera directly at the affected crop leaf, stem, or fruit",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint = CropPrimaryDark,
+                                modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Ensure the plant is in focus with natural, even lighting",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(
+                                Icons.Rounded.Cancel,
+                                contentDescription = null,
+                                tint = CropErrorRed,
+                                modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Avoid photographing electronic devices, indoor surfaces, or general objects",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Scan Another Plant Button
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                PremiumButton(
+                    text = strings.disease.scanAnotherPlant,
+                    onClick = onScanAgain,
+                    icon = Icons.Rounded.Refresh
+                )
+            }
+            Spacer(Modifier.height(40.dp))
+        }
+        return
+    }
+
     val rawDiseaseName = result.disease_name ?: "Unknown Disease"
     val isHealthy = result.diagnosis_status.equals("healthy", ignoreCase = true) ||
             rawDiseaseName.contains("healthy", ignoreCase = true)

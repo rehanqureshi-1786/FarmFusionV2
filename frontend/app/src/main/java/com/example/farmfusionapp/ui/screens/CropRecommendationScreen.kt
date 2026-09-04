@@ -498,17 +498,18 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .padding(horizontal = 24.dp)
+            .offset(y = (-28).dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // PNG Illustration (enlarged for better prominence)
+        // PNG Illustration (enlarged and positioned higher)
         Image(
             painter = painterResource(id = R.drawable.ill_soil_report_card),
             contentDescription = "Soil Health Card",
             modifier = Modifier
-                .height(275.dp)
-                .padding(bottom = 20.dp),
+                .height(265.dp)
+                .padding(bottom = 12.dp),
             contentScale = ContentScale.Fit
         )
 
@@ -522,7 +523,7 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Tiny Leaf Divider
         Row(
@@ -541,24 +542,24 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
             HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE0E0E0))
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         // Subtitle
         Text(
             text = AppLocalizer.localizeCropAdvicePhrase("soil report subtitle", currentLang),
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = Color.DarkGray,
-                lineHeight = 22.sp
+                lineHeight = 20.sp
             ),
             textAlign = TextAlign.Center
         )
 
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Narrowed Capsule Buttons
         Column(
             modifier = Modifier.width(280.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // YES Button (Primary)
             PremiumButton(
@@ -577,7 +578,7 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
                 onClick = { onChoice(false) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(54.dp),
                 shape = CircleShape,
                 border = BorderStroke(1.dp, Color(0xFF1B5E20)),
                 colors = ButtonDefaults.outlinedButtonColors(
@@ -592,9 +593,9 @@ fun CropRecommendationReportCheckStep(onChoice: (Boolean) -> Unit) {
                     Icon(
                         imageVector = Icons.Rounded.AutoAwesome,
                         contentDescription = null,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = strings.cropAdvice.noUseAutoAnalysis,
                         style = MaterialTheme.typography.labelLarge.copy(
@@ -621,7 +622,6 @@ fun UploadSoilReportStep(
     val currentLang = LocalAppLanguage.current
     val scrollState = rememberScrollState()
 
-    var farmSizeInput by remember { mutableStateOf(formInputs.farmSizeAcres) }
     var locationDisplay by remember { mutableStateOf(formInputs.location.ifBlank { LocationSnapshotStore.latestCity ?: "Detecting..." }) }
     var rainfallDisplay by remember { mutableStateOf(formInputs.rainfallMm.ifBlank { "" }) }
     var tempDisplay by remember {
@@ -635,6 +635,19 @@ fun UploadSoilReportStep(
     var documentName by remember { mutableStateOf(formInputs.documentFilename) }
     var documentBytes by remember { mutableStateOf(formInputs.documentBytes) }
     var documentMime by remember { mutableStateOf(formInputs.documentMimeType) }
+
+    val hasValidDocument = documentBytes != null && documentBytes!!.isNotEmpty() && documentName != null && (
+        documentName!!.endsWith(".pdf", ignoreCase = true) ||
+        documentName!!.endsWith(".jpg", ignoreCase = true) ||
+        documentName!!.endsWith(".jpeg", ignoreCase = true) ||
+        documentName!!.endsWith(".png", ignoreCase = true) ||
+        (documentMime != null && (
+            documentMime!!.contains("pdf", ignoreCase = true) ||
+            documentMime!!.contains("jpeg", ignoreCase = true) ||
+            documentMime!!.contains("jpg", ignoreCase = true) ||
+            documentMime!!.contains("png", ignoreCase = true)
+        ))
+    )
 
     // File picker launcher for images and PDFs
     val filePickerLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -715,7 +728,7 @@ fun UploadSoilReportStep(
                 location = locationDisplay,
                 rainfallMm = rainfallDisplay,
                 temperatureC = tempDisplay,
-                farmSizeAcres = farmSizeInput
+                farmSizeAcres = formInputs.farmSizeAcres.ifBlank { "1.0" }
             )
         )
     }
@@ -915,84 +928,6 @@ fun UploadSoilReportStep(
         }
 
         // ========================================
-        // FARM SIZE (ACRES) INPUT
-        // ========================================
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(
-                text = "Farm Size (Acres)",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1B1B1B),
-                    fontSize = 15.sp
-                )
-            )
-
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Color(0xFFE0E0E0)),
-                shadowElevation = 0.5.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Green Farm Icon
-                    Icon(
-                        imageVector = Icons.Rounded.GridOn,
-                        contentDescription = null,
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(22.dp)
-                    )
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    // Farm Size Editable Input
-                    androidx.compose.foundation.text.BasicTextField(
-                        value = farmSizeInput,
-                        onValueChange = { input ->
-                            farmSizeInput = input
-                            onInputsChange(formInputs.copy(farmSizeAcres = input))
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF1B1B1B),
-                            fontSize = 15.sp
-                        ),
-                        modifier = Modifier.weight(1f),
-                        decorationBox = { innerTextField ->
-                            if (farmSizeInput.isEmpty()) {
-                                Text(
-                                    text = "Enter farm size",
-                                    style = MaterialTheme.typography.bodyLarge.copy(
-                                        color = Color(0xFF9E9E9E),
-                                        fontSize = 15.sp
-                                    )
-                                )
-                            }
-                            innerTextField()
-                        }
-                    )
-
-                    // Trailing unit label
-                    Text(
-                        text = "acres",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            color = Color(0xFF757575),
-                            fontSize = 14.sp
-                        )
-                    )
-                }
-            }
-        }
-
-        // ========================================
         // 3 AUTO-FETCHED CARDS ROW
         // ========================================
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1037,28 +972,46 @@ fun UploadSoilReportStep(
 
         Spacer(modifier = Modifier.height(4.dp))
 
+        // Document upload requirement message if document not picked yet
+        if (!hasValidDocument) {
+            Text(
+                text = "Please upload your Soil Health Card (PDF, JPG, or PNG) to continue.",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFFE65100),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
+
         // ========================================
         // ANALYZE & GET CROP ADVICE BUTTON
         // ========================================
         Button(
             onClick = {
-                onInputsChange(
-                    formInputs.copy(
-                        location = locationDisplay,
-                        rainfallMm = rainfallDisplay,
-                        temperatureC = tempDisplay,
-                        farmSizeAcres = farmSizeInput,
-                        documentBytes = documentBytes,
-                        documentFilename = documentName,
-                        documentMimeType = documentMime
+                if (hasValidDocument) {
+                    onInputsChange(
+                        formInputs.copy(
+                            location = locationDisplay,
+                            rainfallMm = rainfallDisplay,
+                            temperatureC = tempDisplay,
+                            farmSizeAcres = formInputs.farmSizeAcres.ifBlank { "1.0" },
+                            documentBytes = documentBytes,
+                            documentFilename = documentName,
+                            documentMimeType = documentMime
+                        )
                     )
-                )
-                onAnalyze()
+                    onAnalyze()
+                }
             },
+            enabled = hasValidDocument,
             shape = RoundedCornerShape(28.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF1B5E20),
-                contentColor = Color.White
+                contentColor = Color.White,
+                disabledContainerColor = Color(0xFFA5D6A7),
+                disabledContentColor = Color.White.copy(alpha = 0.8f)
             ),
             modifier = Modifier
                 .fillMaxWidth()

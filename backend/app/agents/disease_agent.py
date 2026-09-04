@@ -44,12 +44,14 @@ class DiseaseDetectionAgent:
 
         prompt += (
             "Instructions:\n"
-            "1. ALWAYS provide a disease name - never say 'unknown' or 'unable to determine'\n"
-            "2. If plant is healthy, respond with 'Healthy Plant'\n"
-            "3. If you see disease symptoms, provide the most likely disease name\n"
-            "4. Confidence score: 0.0-1.0 (your certainty level)\n"
-            "5. Describe visible symptoms clearly\n"
-            "6. Provide actionable treatment recommendations after you describe the problem\n\n"
+            "1. First, check if the image depicts a real agricultural crop, leaf, plant, fruit, or flower. "
+            "If the image shows a non-plant object (e.g. computer mouse, electronic gadget, keyboard, furniture, vehicle, clothing, human, or animal), "
+            "set disease to 'No Plant Detected', confidence to 0.0, and treatment and prevention to empty lists.\n"
+            "2. If a plant is present and healthy, respond with 'Healthy Plant'.\n"
+            "3. If disease symptoms are visible, provide the specific crop disease name.\n"
+            "4. Confidence score: 0.0-1.0 (your certainty level).\n"
+            "5. Describe visible symptoms clearly.\n"
+            "6. Provide actionable treatment recommendations if diseased.\n\n"
             "Return ONLY valid JSON with keys in this order: disease, confidence, severity, description, treatment, prevention"
         )
 

@@ -775,10 +775,10 @@ private fun PerimeterSensorMatrixSection(
         )
 
         val irSensors = listOf("IR_1", "IR_2", "IR_3", "IR_4", "IR_5", "IR_6")
-        irSensors.chunked(2).forEach { rowSensors ->
+        irSensors.chunked(3).forEach { rowSensors ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 rowSensors.forEach { sensorKey ->
                     val detail = sensorsMap[sensorKey]
@@ -796,17 +796,14 @@ private fun PerimeterSensorMatrixSection(
                         zoneDesc = zoneDesc,
                         status = status,
                         health = health,
-                        currentLang = currentLang,
-                        onClickToggle = {
-                            onTriggerSensor(sensorKey, "IR", status)
-                        }
+                        currentLang = currentLang
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         // 2 PIR Thermal Motion Detectors
         Text(
@@ -819,7 +816,7 @@ private fun PerimeterSensorMatrixSection(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             listOf("PIR_1", "PIR_2").forEach { sensorKey ->
                 val detail = sensorsMap[sensorKey]
@@ -837,10 +834,7 @@ private fun PerimeterSensorMatrixSection(
                     zoneDesc = zoneDesc,
                     status = status,
                     health = health,
-                    currentLang = currentLang,
-                    onClickToggle = {
-                        onTriggerSensor(sensorKey, "PIR", status)
-                    }
+                    currentLang = currentLang
                 )
             }
         }
@@ -856,8 +850,7 @@ private fun SensorTileCard(
     zoneDesc: String,
     status: String,
     health: String,
-    currentLang: String,
-    onClickToggle: () -> Unit
+    currentLang: String
 ) {
     val isDetected = status == "detected"
     val isOnline = health == "online"
@@ -881,21 +874,31 @@ private fun SensorTileCard(
     }
 
     Card(
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(14.dp),
         modifier = modifier
-            .shadow(if (isDetected) 4.dp else 1.dp, RoundedCornerShape(18.dp)),
+            .shadow(if (isDetected) 3.dp else 0.5.dp, RoundedCornerShape(14.dp)),
         colors = CardDefaults.cardColors(containerColor = cardBg),
-        border = BorderStroke(1.5.dp, borderColor)
+        border = BorderStroke(1.dp, borderColor)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Status Pill (top right, keeping top-left position blank)
+                Text(
+                    text = sensorKey,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = NeutralDark
+                )
+
+                // Status Pill
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(6.dp),
                     color = stateColor.copy(alpha = 0.15f)
                 ) {
                     Text(
@@ -904,64 +907,30 @@ private fun SensorTileCard(
                             !isOnline -> AppLocalizer.localizeAnimalDetectionPhrase("offline", currentLang)
                             else -> AppLocalizer.localizeAnimalDetectionPhrase("clear", currentLang)
                         },
-                        fontSize = 10.sp,
+                        fontSize = 8.5.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = stateColor,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.5.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = sensorKey,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = NeutralDark
-            )
             Text(
                 text = zoneTitle,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.DarkGray,
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF263238),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+
             Text(
                 text = zoneDesc,
-                fontSize = 10.sp,
+                fontSize = 8.5.sp,
                 color = NeutralGray,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Action Button (ONLY this element is tappable)
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = stateColor.copy(alpha = 0.08f),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable(onClick = onClickToggle)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (isDetected) AppLocalizer.localizeAnimalDetectionPhrase("tap to clear", currentLang) else AppLocalizer.localizeAnimalDetectionPhrase("tap to test trigger", currentLang),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = stateColor
-                    )
-                }
-            }
         }
     }
 }
