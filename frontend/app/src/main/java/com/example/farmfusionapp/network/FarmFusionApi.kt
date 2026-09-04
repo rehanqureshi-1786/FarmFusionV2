@@ -151,6 +151,11 @@ interface FarmFusionApi {
         @Query("language") language: String? = null
     ): Response<FarmingWeatherResponse>
 
+    @POST("api/v1/weather/disaster-risk")
+    suspend fun getDisasterRisk(
+        @Body request: DisasterRiskRequest
+    ): Response<DisasterRiskResponse>
+
     // ============ VOICE ASSISTANT ============
 
     @POST("api/v1/voice")

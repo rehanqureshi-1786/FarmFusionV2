@@ -49,6 +49,8 @@ import kotlinx.coroutines.launch
 
 import com.example.farmfusionapp.data.model.WeatherAlertItemUi
 import com.example.farmfusionapp.data.model.AgriculturalAdvisoryResponse
+import com.example.farmfusionapp.data.model.DisasterRiskRequest
+import com.example.farmfusionapp.data.model.DisasterRiskResponse
 
 data class DisplayWeatherData(
     val temperature: Int,
@@ -62,6 +64,7 @@ data class DisplayWeatherData(
     val forecast: List<DailyForecast> = emptyList(),
     val alerts: List<WeatherAlertItemUi> = emptyList(),
     val advisory: AgriculturalAdvisoryResponse? = null,
+    val disasterRisk: DisasterRiskResponse? = null,
     val pressure: Int? = null
 )
 
@@ -197,6 +200,15 @@ fun WeatherScreen(navController: NavController) {
                             item {
                                 Box(modifier = Modifier.padding(horizontal = 24.dp)) {
                                     WeatherAlertsBanner(weatherData!!.alerts)
+                                }
+                            }
+                        }
+
+                        // 1.5. Disaster Risk & Early Warning
+                        if (weatherData!!.disasterRisk != null && weatherData!!.disasterRisk!!.predictions.isNotEmpty()) {
+                            item {
+                                Box(modifier = Modifier.padding(horizontal = 24.dp)) {
+                                    DisasterRiskCard(weatherData!!.disasterRisk!!)
                                 }
                             }
                         }
@@ -597,6 +609,221 @@ private fun WeatherAlertsBanner(alerts: List<WeatherAlertItemUi>) {
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
+    val prediction = disasterRisk.predictions.firstOrNull() ?: return
+    val alert = disasterRisk.alert
+    val isCritical = prediction.risk_level.equals("CRITICAL", ignoreCase = true)
+    val isHigh = prediction.risk_level.equals("HIGH", ignoreCase = true)
+    val isMedium = prediction.risk_level.equals("MEDIUM", ignoreCase = true)
+    var showDetails by remember { mutableStateOf(false) }
+
+    val containerColor = when {
+        isCritical -> Color(0xFFFFEBEE)
+        isHigh -> Color(0xFFFFF3E0)
+        isMedium -> Color(0xFFFFFDE7)
+        else -> Color(0xFFE8F5E9)
+    }
+    val borderColor = when {
+        isCritical -> Color(0xFFE53935)
+        isHigh -> Color(0xFFFF9800)
+        isMedium -> Color(0xFFFFD54F)
+        else -> Color(0xFF81C784)
+    }
+    val primaryColor = when {
+        isCritical -> Color(0xFFB71C1C)
+        isHigh -> Color(0xFFE65100)
+        isMedium -> Color(0xFFF57F17)
+        else -> Color(0xFF2E7D32)
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        color = containerColor,
+        border = BorderStroke(1.5.dp, borderColor),
+        shadowElevation = if (isCritical || isHigh) 4.dp else 2.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header Row: Badge & Horizon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isCritical || isHigh) Icons.Rounded.Warning else Icons.Rounded.Info,
+                        contentDescription = "Disaster Risk",
+                        tint = primaryColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = "DISASTER RISK",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Black,
+                            color = primaryColor,
+                            letterSpacing = 1.sp
+                        )
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = primaryColor
+                ) {
+                    Text(
+                        text = "${prediction.risk_level} (${prediction.risk_score.toInt()}%)",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        ),
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            // Hazard Type and Window
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = prediction.disaster_type,
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1B1B1B)
+                    )
+                )
+                Text(
+                    text = "Probability: ${(prediction.probability * 100).toInt()}% • Next 48 hours",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontWeight = FontWeight.Medium,
+                        color = Color.DarkGray
+                    )
+                )
+            }
+
+            // Trigger Factors
+            if (prediction.trigger_factors.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White.copy(alpha = 0.7f),
+                    border = BorderStroke(0.8.dp, borderColor.copy(alpha = 0.5f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "Observed Key Triggers:",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = primaryColor
+                            )
+                        )
+                        prediction.trigger_factors.forEach { factor ->
+                            Row(
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text("•", style = MaterialTheme.typography.bodySmall.copy(color = primaryColor, fontWeight = FontWeight.Bold))
+                                Text(factor, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF2E2E2E)))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Outbound Calling Notice (if active)
+            if (alert.alert_status == "TRIGGERED") {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFEDE7F6),
+                    border = BorderStroke(1.dp, Color(0xFFB39DDB)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Phone,
+                            contentDescription = "Calling Active",
+                            tint = Color(0xFF512DA8),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Priority emergency voice alert initiated via Kisan Calling Agent.",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF311B92),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Recommendations Section
+            if (prediction.recommendations.isNotEmpty()) {
+                if (showDetails) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Actionable Farm Precautions:",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF1B1B1B)
+                            )
+                        )
+                        prediction.recommendations.forEach { rec ->
+                            Row(
+                                verticalAlignment = Alignment.Top,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = primaryColor,
+                                    modifier = Modifier.size(14.dp).padding(top = 2.dp)
+                                )
+                                Text(
+                                    text = rec,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = Color(0xFF212121),
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Action Button: Take Precautions
+                Button(
+                    onClick = { showDetails = !showDetails },
+                    colors = ButtonDefaults.buttonColors(containerColor = primaryColor),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = if (showDetails) "Hide Precautions" else "Take Precautions",
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
                 }
             }
         }
@@ -1318,6 +1545,24 @@ suspend fun fetchWeatherFromLocation(
                     // Fallback: advisory remains null, does not break current weather
                 }
 
+                // Fetch AI Disaster Risk & Early Warning from backend
+                var disasterRiskObj: DisasterRiskResponse? = null
+                try {
+                    val disResponse = farmFusionApi.getDisasterRisk(
+                        DisasterRiskRequest(
+                            lat = latitude,
+                            lon = longitude,
+                            location_name = city,
+                            language = appLanguage
+                        )
+                    )
+                    if (disResponse.isSuccessful && disResponse.body() != null) {
+                        disasterRiskObj = disResponse.body()
+                    }
+                } catch (de: Exception) {
+                    // Fallback: disasterRisk remains null, does not break current weather
+                }
+
                 val weatherDesc = (backendData.weather ?: backendData.condition ?: "").trim()
                 val windSpeed = if (backendData.wind_speed_ms > 0.0) {
                     backendData.wind_speed_ms
@@ -1336,7 +1581,8 @@ suspend fun fetchWeatherFromLocation(
                     timestamp = backendData.timestamp,
                     forecast = realForecastList,
                     alerts = alertList,
-                    advisory = advisoryObj
+                    advisory = advisoryObj,
+                    disasterRisk = disasterRiskObj
                 )
                 WeatherSnapshotStore.latestWeather = data
                 WeatherSnapshotStore.latestLanguage = appLanguage

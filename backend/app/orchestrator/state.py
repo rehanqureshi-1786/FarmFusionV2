@@ -55,6 +55,7 @@ class OrchestratorState(TypedDict, total=False):
     # Conversational Memory & Multi-Turn References
     last_recommendations: List[Dict[str, Any]]
     last_weather_result: Optional[Dict[str, Any]]
+    last_disaster_result: Optional[Dict[str, Any]]
     last_market_result: Optional[Dict[str, Any]]
     last_navigation_destination: Optional[str]
     last_final_response: Optional[str]

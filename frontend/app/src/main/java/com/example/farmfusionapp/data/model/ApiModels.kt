@@ -559,4 +559,59 @@ data class PriceAlertResponseModel(
     val notification_status: String
 )
 
+// ============ DISASTER RISK & EARLY WARNING ============
+
+data class DisasterRiskRequest(
+    val lat: Double? = null,
+    val lon: Double? = null,
+    val location_name: String? = null,
+    val farmer_phone: String? = null,
+    val farmer_name: String? = "Farmer",
+    val language: String? = "hi",
+    val crop_name: String? = null,
+    val temperature: Double? = null,
+    val humidity: Double? = null,
+    val rainfall: Double? = null,
+    val wind_speed: Double? = null,
+    val pressure: Double? = null
+)
+
+data class DisasterPredictionItem(
+    val disaster_type: String,
+    val risk_level: String,
+    val risk_score: Double,
+    val probability: Double,
+    val confidence: Double,
+    val prediction_horizon: String = "24-48 hours",
+    val trigger_factors: List<String> = emptyList(),
+    val recommendations: List<String> = emptyList(),
+    val probabilities: Map<String, Double> = emptyMap()
+)
+
+data class DisasterAlertInfo(
+    val should_alert: Boolean,
+    val severity: String,
+    val reason: String,
+    val alert_status: String,
+    val call_id: String? = null,
+    val alert_message: String? = null,
+    val cooldown_remaining_seconds: Int? = null
+)
+
+data class DisasterModelMeta(
+    val name: String = "DisasterPredictorAI-Ensemble",
+    val version: String = "1.0.0",
+    val ensemble_members: List<String> = emptyList(),
+    val accuracy: String = "99.92%"
+)
+
+data class DisasterRiskResponse(
+    val location: Map<String, Any?> = emptyMap(),
+    val weather_metrics: Map<String, Double> = emptyMap(),
+    val predictions: List<DisasterPredictionItem> = emptyList(),
+    val alert: DisasterAlertInfo,
+    val model: DisasterModelMeta? = null,
+    val generated_at: String = ""
+)
+
 

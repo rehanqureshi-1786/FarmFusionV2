@@ -92,6 +92,7 @@ async def tool_router_node(state: OrchestratorState) -> OrchestratorState:
     # 4. Map Intent to Tool Name
     tool_map = {
         "weather": "weather_tool",
+        "disaster_risk": "disaster_risk_tool",
         "crop_recommendation": "crop_recommendation_tool",
         "what_if": "crop_recommendation_tool",
         "disease": "disease_info_tool",
@@ -131,6 +132,8 @@ async def tool_router_node(state: OrchestratorState) -> OrchestratorState:
             state["active_crop"] = recs[0].get("crop_name")
     elif tool_name == "weather_tool" and tool_res.data:
         state["last_weather_result"] = tool_res.data
+    elif tool_name == "disaster_risk_tool" and tool_res.data:
+        state["last_disaster_result"] = tool_res.data
     elif tool_name == "market_price_tool" and tool_res.data:
         state["last_market_result"] = tool_res.data
         if slots.get("commodity"):

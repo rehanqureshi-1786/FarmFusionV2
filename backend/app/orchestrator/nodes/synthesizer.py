@@ -151,6 +151,82 @@ async def response_synthesizer_node(state: OrchestratorState) -> OrchestratorSta
         else:
             response = f"Today in {loc}, temperature is {temp}°C with {hum}% humidity and {cond} conditions. Annual rainfall is approx {rain} mm."
 
+    # 5b. Handle 7-Day Disaster Risk Prediction (DisasterPredictorAI ML Ensemble)
+    elif intent == "disaster_risk":
+        loc = tool_data.get("location", "आपके क्षेत्र")
+        days = tool_data.get("forecast_days", 7)
+        peak_hazard = tool_data.get("peak_disaster_type", "Low Risk")
+        peak_level = tool_data.get("peak_risk_level", "LOW")
+        peak_score = tool_data.get("peak_risk_score", 0.0)
+        peak_date = tool_data.get("peak_risk_date", "")
+        has_critical = tool_data.get("has_critical_alert", False)
+
+        hazard_hi = {
+            "Flood Risk": "बाढ़ और भारी बारिश",
+            "Cyclone Risk": "चक्रवाती तूफान",
+            "Drought Risk": "सूखे और लू",
+            "Low Risk": "सामान्य और सुरक्षित मौसम"
+        }.get(peak_hazard, peak_hazard)
+
+        hazard_gu = {
+            "Flood Risk": "પૂર અને ભારે વરસાદ",
+            "Cyclone Risk": "વાવાઝોડું",
+            "Drought Risk": "દુષ્કાળ અને ગરમી",
+            "Low Risk": "સામાન્ય અને સુરક્ષિત વાતાવરણ"
+        }.get(peak_hazard, peak_hazard)
+
+        hazard_mr = {
+            "Flood Risk": "पूर आणि मुसळधार पाऊस",
+            "Cyclone Risk": "चक्रीवादळ",
+            "Drought Risk": "दुष्काळ आणि उष्णता",
+            "Low Risk": "सामान्य आणि सुरक्षित हवामान"
+        }.get(peak_hazard, peak_hazard)
+
+        hazard_pa = {
+            "Flood Risk": "ਹੜ੍ਹ ਅਤੇ ਭਾਰੀ ਮੀਂਹ",
+            "Cyclone Risk": "ਚੱਕਰਵਾਤੀ ਤੂਫਾਨ",
+            "Drought Risk": "ਸੋਕਾ ਅਤੇ ਲੂ",
+            "Low Risk": "ਸਧਾਰਣ ਅਤੇ ਸੁਰੱਖਿਅਤ ਮੌਸਮ"
+        }.get(peak_hazard, peak_hazard)
+
+        if has_critical:
+            if is_marwari:
+                response = f"सावधान किसान भाई! {loc} में {peak_date} ने {hazard_hi} रो भारी खतरा ({peak_level} स्तर, स्कोर {peak_score:.0f}) है। आपरी फसल अर पशुआं री सुरक्षा करो।"
+            elif lang == "hi":
+                response = f"सावधान किसान भाई! अगले {days} दिनों में {loc} में {peak_date} को {hazard_hi} का गंभीर खतरा ({peak_level} स्तर, स्कोर {peak_score:.0f}) है। कृपया तुरंत फसल सुरक्षा के उपाय करें।"
+            elif lang == "gu":
+                response = f"સાવધાન ખેડૂત મિત્ર! આગામી {days} દિવસમાં {loc}માં {peak_date}ના રોજ {hazard_gu}નું ગંભીર જોખમ ({peak_level} સ્તર, સ્કોર {peak_score:.0f}) છે. તાત્કાલિક સાવચેતીનાં પગલાં ભરો."
+            elif lang == "mr":
+                response = f"सावधान शेतकरी मित्र! पुढील {days} दिवसांत {loc} मध्ये {peak_date} रोजी {hazard_mr}चा गंभीर धोका ({peak_level} स्तर, स्कोअर {peak_score:.0f}) आहे. कृपया पिकांची काळजी घ्या."
+            elif lang == "pa":
+                response = f"ਸਾਵਧਾਨ ਕਿਸਾਨ ਵੀਰ! ਅਗਲੇ {days} ਦਿਨਾਂ ਵਿੱਚ {loc} ਵਿੱਚ {peak_date} ਨੂੰ {hazard_pa} ਦਾ ਵੱਡਾ ਖ਼ਤਰਾ ({peak_level} ਪੱਧਰ) ਹੈ। ਤੁਰੰਤ ਸੁਰੱਖਿਆ ਪ੍ਰਬੰਧ ਕਰੋ।"
+            else:
+                response = f"Warning for {loc}! Over the next {days} days, a {peak_level} hazard of {peak_hazard} (risk score {peak_score:.0f}) is forecast on {peak_date}. Immediate precautions advised."
+        elif peak_level == "MEDIUM":
+            if is_marwari:
+                response = f"किसान भाई, {loc} में अगला {days} दिन में {peak_date} ने मध्यम स्तर रो {hazard_hi} रैवेला। खेत री निगरानी राखो।"
+            elif lang == "hi":
+                response = f"किसान भाई, अगले {days} दिनों में {loc} में स्थिति सामान्यतः ठीक रहेगी, लेकिन {peak_date} को मध्यम स्तर का {hazard_hi} (स्कोर {peak_score:.0f}) अनुमानित है। निगरानी रखें।"
+            elif lang == "gu":
+                response = f"ખેડૂત મિત્ર, આગામી {days} દિવસમાં {loc}માં સ્થિતિ મોટાભાગે સામાન્ય રહેશે, પણ {peak_date}ના રોજ મધ્યમ સ્તરનું {hazard_gu} અનુમાનિત છે."
+            elif lang == "mr":
+                response = f"शेतकरी मित्र, पुढील {days} दिवसांत {loc} मध्ये हवामान सामान्य राहील, पण {peak_date} रोजी मध्यम स्वरूपाचा {hazard_mr} संभवतो."
+            else:
+                response = f"Farmer advisory for {loc}: Generally normal conditions over the next {days} days, with a moderate {peak_hazard} predicted on {peak_date}."
+        else:
+            if is_marwari:
+                response = f"किसान भाई, खुशी री बात है! {loc} में अगला {days} दिन मौसम एकदम सुरक्षित अर सामान्य (Low Risk) रैवेला। आप बेधड़क खेती रो काम कर सको हो।"
+            elif lang == "hi":
+                response = f"किसान भाई, अच्छी खबर है! अगले {days} दिनों में {loc} में मौसम पूरी तरह सुरक्षित और सामान्य (Low Risk) रहेगा। आप अपने कृषि कार्य निश्चिंत होकर कर सकते हैं।"
+            elif lang == "gu":
+                response = f"ખેડૂત મિત્ર, સારા સમાચાર! આગામી {days} દિવસમાં {loc}માં વાતાવરણ સુરક્ષિત અને સામાન્ય (Low Risk) રહેશે. આપ ખેતીકામ શાંતિથી કરી શકો છો."
+            elif lang == "mr":
+                response = f"शेतकरी मित्र, आनंदाची बातमी! पुढील {days} दिवसांत {loc} मध्ये हवामान पूर्णपणे सुरक्षित (Low Risk) राहील. आपण शेतीची कामे निर्धास्तपणे करू शकता."
+            elif lang == "pa":
+                response = f"ਕਿਸਾਨ ਵੀਰ, ਚੰਗੀ ਖ਼ਬਰ! ਅਗਲੇ {days} ਦਿਨਾਂ ਵਿੱਚ {loc} ਵਿੱਚ ਮੌਸਮ ਬਿਲਕੁਲ ਸੁਰੱਖਿਅਤ (Low Risk) ਰਹੇਗਾ। ਤੁਸੀਂ ਖੇਤੀ ਦੇ ਕੰਮ ਆਰਾਮ ਨਾਲ ਕਰ ਸਕਦੇ ਹੋ।"
+            else:
+                response = f"Good news for {loc}! Over the next {days} days, weather conditions are favorable with Low Risk. Normal agricultural operations can proceed safely."
+
     # 6. Handle Crop Recommendation & What-if
     elif intent in ["crop_recommendation", "what_if"]:
         recs = tool_data.get("recommendations") or tool_data.get("top_crops") or []
@@ -429,6 +505,7 @@ async def response_synthesizer_node(state: OrchestratorState) -> OrchestratorSta
             response = "Welcome to FarmFusion AI. You can ask me about weather, mandi prices, crop suitability, or government schemes."
 
     state["final_response"] = response
+    state["last_final_response"] = response
     state["response_language"] = lang
     state["response_dialect"] = dialect
     state["tts_language"] = lang if profile.tts.native_supported else profile.fallback_language

@@ -7,7 +7,7 @@ GET /api/v1/weather/advisory - Actionable agricultural weather advisory
 GET /api/v1/weather/farming - Comprehensive farming weather bundle
 """
 from typing import Optional, List
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, HTTPException, Query, Depends, BackgroundTasks
 from datetime import datetime, timezone
 
 from app.core.language import get_language_context, LanguageContext
@@ -21,6 +21,15 @@ from app.schemas.weather import (
     WeatherAlertItem,
     AgriculturalAdvisory
 )
+from app.schemas.disaster import (
+    DisasterRiskRequest,
+    DisasterRiskResponse,
+    DisasterPredictionItem,
+    DisasterAlertInfo,
+    DisasterModelMeta
+)
+from app.ml.disaster.inference import disaster_predictor
+from app.services.disaster_alert_service import disaster_alert_service
 
 router = APIRouter(prefix="/weather", tags=["weather"])
 
@@ -237,6 +246,168 @@ async def test_weather_api():
             "forecast": "GET /api/v1/weather/forecast?lat=26.9124&lon=75.7873&days=7",
             "alerts": "GET /api/v1/weather/alerts?lat=26.9124&lon=75.7873",
             "advisory": "GET /api/v1/weather/advisory?lat=26.9124&lon=75.7873&crop_name=Wheat",
-            "farming": "GET /api/v1/weather/farming?lat=26.9124&lon=75.7873&days=7"
+            "farming": "GET /api/v1/weather/farming?lat=26.9124&lon=75.7873&days=7",
+            "disaster_risk": "POST /api/v1/weather/disaster-risk"
         }
     }
+
+
+@router.post("/disaster-risk", response_model=DisasterRiskResponse)
+async def analyze_disaster_risk(
+    body: DisasterRiskRequest,
+    background_tasks: BackgroundTasks,
+    lang_ctx: LanguageContext = Depends(get_language_context)
+):
+    """
+    Evaluates disaster risk (Flood, Cyclone, Drought, Low Risk) using the DisasterPredictorAI ensemble.
+    Reuses existing FarmFusion Weather Agent / Open-Meteo pipeline to avoid duplicate weather fetches.
+    Triggers the existing Vobiz calling agent asynchronously if risk is HIGH or CRITICAL.
+    """
+    req_lang = body.language or lang_ctx.canonical_code
+
+    # 1. Obtain weather parameters (either from explicit override or existing WeatherService)
+    temperature = body.temperature
+    humidity = body.humidity
+    rainfall = body.rainfall
+    wind_speed = body.wind_speed
+    pressure = body.pressure
+
+    resolved_location_name = body.location_name or "Farm"
+
+    if any(param is None for param in [temperature, humidity, rainfall, wind_speed, pressure]):
+        if body.lat is None or body.lon is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Either full meteorological parameters (temperature, humidity, rainfall, wind_speed, pressure) or GPS coordinates (lat, lon) must be provided."
+            )
+
+        try:
+            # Fetch current physical weather
+            current_weather = await WeatherService.get_current_weather(
+                lat=body.lat,
+                lon=body.lon,
+                location_name=body.location_name,
+                language=req_lang
+            )
+            # Fetch 2-day forecast to capture 24-48h cumulative rainfall and max wind
+            forecast_data = await WeatherService.get_forecast(
+                lat=body.lat,
+                lon=body.lon,
+                days=2,
+                location_name=body.location_name,
+                language=req_lang
+            )
+
+            resolved_location_name = (
+                current_weather.get("location") or 
+                body.location_name or 
+                f"Lat {body.lat:.2f}, Lon {body.lon:.2f}"
+            )
+
+            if temperature is None:
+                temperature = float(current_weather.get("temperature_c", 25.0))
+            if humidity is None:
+                humidity = float(current_weather.get("humidity_percent", 50.0))
+            if pressure is None:
+                pressure = float(current_weather.get("pressure_hpa", 1013.0))
+
+            forecast_list = forecast_data.get("forecast", [])
+            if rainfall is None:
+                if forecast_list:
+                    # 24-hour expected precipitation for the current day
+                    rainfall = float(forecast_list[0].get("precipitation_mm", 0.0))
+                else:
+                    rainfall = float(current_weather.get("precipitation_mm", 0.0))
+
+            if wind_speed is None:
+                curr_wind = float(current_weather.get("wind_speed_kmh", 0.0))
+                forecast_wind = max([float(day.get("wind_speed_max_kmh", 0.0)) for day in forecast_list], default=0.0)
+                wind_speed = max(curr_wind, forecast_wind)
+
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Failed to retrieve weather context from Open-Meteo Weather Agent: {str(exc)}"
+            )
+
+    # 2. Run DisasterPredictorAI ML Inference
+    try:
+        prediction_result = disaster_predictor.predict(
+            temperature=temperature,
+            humidity=humidity,
+            rainfall=rainfall,
+            wind_speed=wind_speed,
+            pressure=pressure,
+            crop_name=body.crop_name
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Disaster prediction model inference failed: {str(exc)}"
+        )
+
+    # 3. Evaluate Deterministic Alert Decision
+    alert_decision = disaster_alert_service.evaluate_alert_decision(
+        prediction=prediction_result,
+        farmer_phone=body.farmer_phone,
+        farmer_name=body.farmer_name or "Farmer",
+        location_name=resolved_location_name,
+        language=req_lang
+    )
+
+    # 4. Asynchronously Dispatch Vobiz Call if qualified
+    call_id = None
+    alert_status = alert_decision["alert_status"]
+    if alert_decision["should_alert"]:
+        alert_status = "TRIGGERED"
+        background_tasks.add_task(
+            disaster_alert_service.dispatch_vobiz_alert_async,
+            decision=alert_decision,
+            farmer_name=body.farmer_name or "Farmer",
+            location_name=resolved_location_name,
+            crop_name=body.crop_name,
+            language=req_lang
+        )
+
+    # 5. Assemble Response
+    pred_item = DisasterPredictionItem(
+        disaster_type=prediction_result["disaster_type"],
+        risk_level=prediction_result["risk_level"],
+        risk_score=prediction_result["risk_score"],
+        probability=prediction_result["probability"],
+        confidence=prediction_result["confidence"],
+        prediction_horizon=prediction_result["prediction_horizon"],
+        trigger_factors=prediction_result["trigger_factors"],
+        recommendations=prediction_result["recommendations"],
+        probabilities=prediction_result["probabilities"],
+        xgboost=prediction_result.get("xgboost")
+    )
+
+    alert_info = DisasterAlertInfo(
+        should_alert=alert_decision["should_alert"],
+        severity=alert_decision["severity"],
+        reason=alert_decision["reason"],
+        alert_status=alert_status,
+        call_id=call_id,
+        alert_message=alert_decision.get("alert_message"),
+        cooldown_remaining_seconds=alert_decision.get("cooldown_remaining_seconds")
+    )
+
+    return DisasterRiskResponse(
+        location={
+            "name": resolved_location_name,
+            "lat": body.lat if body.lat is not None else 0.0,
+            "lon": body.lon if body.lon is not None else 0.0
+        },
+        weather_metrics={
+            "temperature": round(temperature, 1),
+            "humidity": round(humidity, 1),
+            "rainfall": round(rainfall, 1),
+            "wind_speed": round(wind_speed, 1),
+            "pressure": round(pressure, 1)
+        },
+        predictions=[pred_item],
+        alert=alert_info,
+        model=DisasterModelMeta(),
+        generated_at=datetime.now(timezone.utc).isoformat()
+    )

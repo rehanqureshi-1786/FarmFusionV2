@@ -110,6 +110,49 @@ class WeatherViewModel : ViewModel() {
         }
     }
 
+    // State for disaster risk
+    private val _disasterRiskState = mutableStateOf<DisasterRiskState>(DisasterRiskState.Idle)
+    val disasterRiskState: State<DisasterRiskState> = _disasterRiskState
+
+    /**
+     * Get AI Disaster Risk Assessment
+     * POST /api/v1/weather/disaster-risk
+     */
+    fun getDisasterRisk(
+        latitude: Double,
+        longitude: Double,
+        locationName: String? = null,
+        farmerPhone: String? = null,
+        cropName: String? = null,
+        language: String? = null
+    ) {
+        viewModelScope.launch {
+            _disasterRiskState.value = DisasterRiskState.Loading
+            try {
+                val req = DisasterRiskRequest(
+                    lat = latitude,
+                    lon = longitude,
+                    location_name = locationName,
+                    farmer_phone = farmerPhone,
+                    crop_name = cropName,
+                    language = language
+                )
+                val response = api.getDisasterRisk(req)
+                if (response.isSuccessful) {
+                    response.body()?.let {
+                        _disasterRiskState.value = DisasterRiskState.Success(it)
+                    } ?: run {
+                        _disasterRiskState.value = DisasterRiskState.Error("Empty response")
+                    }
+                } else {
+                    _disasterRiskState.value = DisasterRiskState.Error("Error: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                _disasterRiskState.value = DisasterRiskState.Error(e.message ?: "Unknown error")
+            }
+        }
+    }
+
     // State classes
     sealed class WeatherState {
         object Idle : WeatherState()
@@ -130,5 +173,12 @@ class WeatherViewModel : ViewModel() {
         object Loading : FarmingWeatherState()
         data class Success(val response: FarmingWeatherResponse) : FarmingWeatherState()
         data class Error(val message: String) : FarmingWeatherState()
+    }
+
+    sealed class DisasterRiskState {
+        object Idle : DisasterRiskState()
+        object Loading : DisasterRiskState()
+        data class Success(val response: DisasterRiskResponse) : DisasterRiskState()
+        data class Error(val message: String) : DisasterRiskState()
     }
 }

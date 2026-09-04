@@ -135,7 +135,7 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         filled_slots["target_index"] = 1
 
     # 8. "What-if" Counterfactual: "अगर बारिश कम हो जाए तो?", "अगर पानी कम मिले तो?"
-    elif any(p in query for p in ["अगर बारिश", "यदि बारिश", "what if rain", "कम बारिश", "पानी कम", "सूखा"]):
+    elif any(p in query for p in ["अगर बारिश", "यदि बारिश", "what if rain", "कम बारिश", "पानी कम", "अगर सूखा", "सूखे में क्या", "सूखा पड़े तो"]):
         intent = "what_if"
         confidence = 0.93
         filled_slots["condition_type"] = "rainfall"
@@ -332,6 +332,49 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
                 if c_word in query:
                     filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
                     break
+
+    # 12g. Disaster & Extreme Weather Hazard Intent (DisasterPredictorAI ML Ensemble & 7-Day Forecasting)
+    elif any(kw in query for kw in [
+        "बाढ़", "तूफान", "चक्रवात", "सूखा", "आपदा", "खतरा", "जोखिम", "भारी बारिश का खतरा", "आंधी तूफान", "अलर्ट",
+        "flood", "cyclone", "drought", "disaster", "storm risk", "severe weather", "hazard", "calamity",
+        "badh", "toofan", "sukha", "khatra", "jokhim",
+        "પૂર", "વાવાઝોડું", "દુષ્કાળ", "पूर", "पुराचा", "पुराची", "वादळ", "वादळाचा", "दुष्काळ", "धोका", "चक्रीवादळ", "ਹੜ੍ਹ", "ਤੂਫਾਨ", "ਸੋਕਾ", "ਬন্যা", "ঘূর্ণিঝড়"
+    ]):
+        intent = "disaster_risk"
+        confidence = 0.96
+        city_lookup = {
+            "jaipur": "Jaipur", "जयपुर": "Jaipur",
+            "udaipur": "Udaipur", "उदयपुर": "Udaipur",
+            "jodhpur": "Jodhpur", "जोधपुर": "Jodhpur",
+            "kota": "Kota", "कोटा": "Kota",
+            "nagaur": "Nagaur", "नागौर": "Nagaur",
+            "delhi": "Delhi", "दिल्ली": "Delhi",
+            "patna": "Patna", "पटना": "Patna",
+            "lucknow": "Lucknow", "लखनऊ": "Lucknow",
+            "bhopal": "Bhopal", "भोपाल": "Bhopal",
+            "ahmedabad": "Ahmedabad", "अहमदाबाद": "Ahmedabad", "અમદાવાદ": "Ahmedabad",
+            "kolkata": "Kolkata", "कोलकाता": "Kolkata", "কলকাতা": "Kolkata",
+            "chennai": "Chennai", "चेन्नई": "Chennai", "சென்னை": "Chennai",
+            "hyderabad": "Hyderabad", "हैदराबाद": "Hyderabad", "హైదరాబాద్": "Hyderabad",
+            "bengaluru": "Bengaluru", "बेंगलुरु": "Bengaluru",
+            "kochi": "Kochi", "कोच्चि": "Kochi",
+            "guwahati": "Guwahati", "गुवाहाटी": "Guwahati",
+            "bhubaneswar": "Bhubaneswar", "भुवनेश्वर": "Bhubaneswar",
+            "pune": "Pune", "पुणे": "Pune",
+        }
+        for city_token, canonical_city in city_lookup.items():
+            if city_token in query:
+                filled_slots["location_name"] = canonical_city
+                break
+
+        if any(d in query for d in ["7 दिन", "7 days", "हफ्ते", "week", "अगले हफ्ते", "सात दिन", "seven days"]):
+            filled_slots["days"] = 7
+        elif any(d in query for d in ["3 दिन", "3 days", "तीन दिन"]):
+            filled_slots["days"] = 3
+        elif any(d in query for d in ["कल", "tomorrow", "48 घंटे", "48 hours", "दो दिन"]):
+            filled_slots["days"] = 2
+        else:
+            filled_slots["days"] = 7
 
     # 13. Weather Intent (Multi-lingual: Hindi, Punjabi 'ਮੌਸਮ', Marathi 'हवामान', Gujarati 'વાતાવરણ', Bengali 'আবহাওয়া', Telugu 'వాతావరణం', Tamil 'வானிலை', Kannada 'ಹವಾಮಾನ', Malayalam 'കാലാവസ്ഥ', Odia 'ପାଣିପାଗ', Assamese 'বতৰ', Urdu 'موسم')
     elif any(kw in query for kw in [

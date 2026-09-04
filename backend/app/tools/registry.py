@@ -20,6 +20,7 @@ from app.services.disease_knowledge_service import DiseaseKnowledgeService
 from app.services.market_service import MarketService
 from app.workflows.market_forecasting import run_mandi_forecasting_pipeline, MandiForecastRequest
 from app.services.crop_agent_v2.agriculture_db import agriculture_repo
+from app.tools.disaster_risk_tool import disaster_risk_tool, DisasterRiskInput
 
 logger = structlog.get_logger(__name__)
 
@@ -142,6 +143,18 @@ class ToolRegistry:
                 confirmation_policy=ConfirmationPolicy.NONE,
             ),
             self._execute_weather_alerts,
+        )
+
+        # 1d. Disaster Risk Tool (7-Day DisasterPredictorAI ML Ensemble)
+        self.register(
+            ToolDefinition(
+                name="disaster_risk_tool",
+                description="Predicts 1 to 7-day disaster hazards (Flood, Cyclone, Drought, Low Risk) using the DisasterPredictorAI ML ensemble and Open-Meteo physical NWP.",
+                required_slots=["latitude", "longitude"],
+                optional_slots=["days", "location_name", "crop_name"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_disaster_risk,
         )
 
         # 2. Crop Recommendation Tool (Branches Mode A / Mode B)
@@ -422,6 +435,45 @@ class ToolRegistry:
                 location=loc_name,
             ),
             message=msg,
+        )
+
+    async def _execute_disaster_risk(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        lat = float(slots.get("latitude") or context.get("latitude") or 26.9124)
+        lon = float(slots.get("longitude") or context.get("longitude") or 75.7873)
+        loc_name = slots.get("location_name") or context.get("location_name") or "Your Farm"
+        crop_name = slots.get("crop_name") or context.get("crop_name")
+        days = int(slots.get("days") or 7)
+
+        input_data = DisasterRiskInput(
+            latitude=lat,
+            longitude=lon,
+            location_name=loc_name,
+            crop_name=crop_name,
+            days=days
+        )
+        res = await disaster_risk_tool(input_data)
+        if res.error:
+            return ToolResult(
+                status=ToolStatus.UNAVAILABLE,
+                data=None,
+                provenance=ProvenanceMetadata(
+                    source="DisasterPredictorAI ML Ensemble + Open-Meteo NWP",
+                    estimated_vs_measured="unavailable",
+                    location=loc_name
+                ),
+                message=f"Disaster risk assessment unavailable: {res.error}",
+            )
+
+        return ToolResult(
+            status=ToolStatus.SUCCESS,
+            data=res.model_dump(),
+            provenance=ProvenanceMetadata(
+                source="DisasterPredictorAI 4-Model ML Ensemble (XGBoost 97.17%) + Open-Meteo NWP",
+                confidence=round(res.daily_timeline[0].probability if res.daily_timeline else 0.95, 4),
+                estimated_vs_measured="measured",
+                location=loc_name,
+            ),
+            message=res.summary,
         )
 
     async def _execute_crop_recommendation(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
