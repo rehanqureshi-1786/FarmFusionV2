@@ -60,6 +60,30 @@ class DiseaseService:
 
         # Step 0: Gatekeeper - Verify image depicts a genuine plant, leaf, crop, or fruit
         gate_res = PlantGatekeeperService.verify_plant(image_bytes)
+        gate_metrics = gate_res.get("metrics", {})
+        botanical_ratio = gate_metrics.get("botanical_ratio", 0.0)
+        exg_ratio = gate_metrics.get("exg_ratio", 0.0)
+        center_skin = gate_metrics.get("center_skin_ratio", 0.0)
+        person_prob = gate_metrics.get("person_apparel_prob", 0.0)
+
+        # Specialist cross-validation: If gatekeeper hesitated or rejected, but the image has
+        # botanical traits (not a human/device portrait) and the specialized disease model detects
+        # a confident crop disease, override the gatekeeper.
+        ml_result = None
+        if not gate_res.get("is_plant", False):
+            is_definitely_human_or_manmade = (center_skin > 0.25 and person_prob > 0.10) or (botanical_ratio < 0.05 and exg_ratio < 0.02)
+            if not is_definitely_human_or_manmade:
+                candidate_ml = DiseaseMLService.predict(image_bytes, crop_hint=crop_type)
+                if candidate_ml and candidate_ml.get("is_reliable", False) and candidate_ml.get("confidence", 0.0) >= 0.45:
+                    logger.info(
+                        "disease_gatekeeper_overridden_by_specialist_ml",
+                        detected_crop=candidate_ml.get("crop"),
+                        detected_disease=candidate_ml.get("disease"),
+                        confidence=candidate_ml.get("confidence"),
+                    )
+                    ml_result = candidate_ml
+                    gate_res["is_plant"] = True
+
         if not gate_res.get("is_plant", False):
             logger.info("disease_detection_rejected_non_plant", reason=gate_res.get("reason"), object=gate_res.get("detected_object"))
             reason_text = gate_res.get("reason", "non-plant object")
@@ -106,8 +130,9 @@ class DiseaseService:
             from app.services.disease_translation import localize_disease_response
             return localize_disease_response(response_data, response_language)
 
-        # Step 1: Try local EfficientNet-B3 ML model
-        ml_result = DiseaseMLService.predict(image_bytes, crop_hint=crop_type)
+        # Step 1: Try local EfficientNet-B3 ML model (if not already retrieved during cross-validation)
+        if ml_result is None:
+            ml_result = DiseaseMLService.predict(image_bytes, crop_hint=crop_type)
         if ml_result:
             detected_crop = ml_result.get("crop") or crop_type or "General Crop"
             detected_disease = ml_result.get("disease", "Unknown")

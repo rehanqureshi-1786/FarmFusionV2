@@ -17,6 +17,7 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.core.config import get_settings
 from app.db.database import init_db
@@ -61,6 +62,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.middleware("http")
@@ -79,7 +81,10 @@ async def language_context_middleware(request, call_next):
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup."""
-    await init_db()
+    try:
+        await init_db()
+    except Exception as e:
+        logging.warning("Database initialization deferred (PostgreSQL offline or unreachable): %s", e)
     print("FarmFusion Backend Started")
     print("API Documentation: http://localhost:8000/docs")
     print(f"Debug Mode: {settings.debug}")

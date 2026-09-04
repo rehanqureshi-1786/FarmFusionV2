@@ -92,47 +92,52 @@ class PlantGatekeeperService:
 
         hsv = cv2.cvtColor(arr, cv2.COLOR_RGB2HSV)
 
-        # 1. Healthy green foliage (chlorophyll): Hue 30-88 in OpenCV (true green chlorophyll), Sat >= 35, Val >= 35
-        green_mask = cv2.inRange(hsv, np.array([30, 35, 35]), np.array([88, 255, 255]))
+        # 1. Healthy green foliage (chlorophyll): Hue 28-95 in OpenCV, Sat >= 30, Val >= 30
+        green_mask = cv2.inRange(hsv, np.array([28, 30, 30]), np.array([95, 255, 255]))
         green_ratio = float(np.sum(green_mask > 0) / total_pixels)
 
-        # 2. Chlorosis, yellow rust, blighted leaf tissue: Hue 20-32 (yellow-green), Sat >= 35, Val >= 35
-        yellow_mask = cv2.inRange(hsv, np.array([20, 35, 35]), np.array([32, 255, 255]))
+        # 2. Chlorosis, yellow rust, blighted leaf tissue: Hue 18-35, Sat >= 30, Val >= 30
+        yellow_mask = cv2.inRange(hsv, np.array([18, 30, 30]), np.array([35, 255, 255]))
         yellow_ratio = float(np.sum(yellow_mask > 0) / total_pixels)
 
-        # 3. Necrotic / brown lesion leaf tissue: Hue 4-16, Sat in [40, 200], Val in [30, 180]
-        brown_mask = cv2.inRange(hsv, np.array([4, 40, 30]), np.array([16, 200, 180]))
+        # 3. Necrotic / brown lesion leaf tissue: Hue 4-18, Sat in [30, 255], Val in [25, 200]
+        brown_mask = cv2.inRange(hsv, np.array([4, 30, 25]), np.array([18, 255, 200]))
         brown_ratio = float(np.sum(brown_mask > 0) / total_pixels)
 
-        # 4. Fruit pigments (Tomato, Apple, Bell Pepper, Orange): Red & deep Orange hues
-        red1 = cv2.inRange(hsv, np.array([0, 60, 50]), np.array([9, 255, 255]))
-        red2 = cv2.inRange(hsv, np.array([168, 60, 50]), np.array([180, 255, 255]))
+        # 4. Dark necrotic spots / black rot / severe blights (low brightness diseased patches on leaves)
+        dark_necrotic_mask = ((hsv[:, :, 0] <= 30) | (hsv[:, :, 0] >= 155)) & (hsv[:, :, 1] >= 15) & (hsv[:, :, 2] >= 10) & (hsv[:, :, 2] <= 110)
+        necrotic_ratio = float(np.sum(dark_necrotic_mask > 0) / total_pixels)
+
+        # 5. Fruit pigments (Tomato, Apple, Bell Pepper, Orange): Red & deep Orange hues
+        red1 = cv2.inRange(hsv, np.array([0, 50, 40]), np.array([12, 255, 255]))
+        red2 = cv2.inRange(hsv, np.array([160, 50, 40]), np.array([180, 255, 255]))
         fruit_ratio = float(np.sum((red1 | red2) > 0) / total_pixels)
 
-        # 5. Excess Green Index (ExG = 2G - R - B) - true biological vegetation indicator
+        # 6. Excess Green Index (ExG = 2G - R - B) - true biological vegetation indicator
         r = arr[:, :, 0].astype(np.float32)
         g = arr[:, :, 1].astype(np.float32)
         b = arr[:, :, 2].astype(np.float32)
         exg = 2.0 * g - r - b
         exg_ratio = float(np.sum(exg > 15.0) / total_pixels)
 
-        # 6. Low-saturation neutral tones (plastics, metals, office desks, keyboards, gray objects)
+        # 7. Low-saturation neutral tones (plastics, metals, office desks, keyboards, gray objects)
         sat = hsv[:, :, 1]
         neutral_ratio = float(np.sum(sat < 20) / total_pixels)
 
-        # 7. Human skin chromaticity in YCrCb: Cr in [133, 173] and Cb in [77, 127]
+        # 8. Human skin chromaticity in YCrCb: Cr in [133, 173] and Cb in [77, 127]
         ycrcb = cv2.cvtColor(arr, cv2.COLOR_RGB2YCrCb)
         skin_mask = (ycrcb[:, :, 1] >= 133) & (ycrcb[:, :, 1] <= 173) & (ycrcb[:, :, 2] >= 77) & (ycrcb[:, :, 2] <= 127)
         skin_ratio = float(np.sum(skin_mask > 0) / total_pixels)
 
         # Total botanical color presence
-        botanical_mask = green_mask | yellow_mask | brown_mask | red1 | red2
+        botanical_mask = green_mask | yellow_mask | brown_mask | dark_necrotic_mask | red1 | red2
         botanical_ratio = float(np.sum(botanical_mask > 0) / total_pixels)
 
         return {
             "green_ratio": round(green_ratio, 4),
             "yellow_ratio": round(yellow_ratio, 4),
             "brown_ratio": round(brown_ratio, 4),
+            "necrotic_ratio": round(necrotic_ratio, 4),
             "fruit_ratio": round(fruit_ratio, 4),
             "exg_ratio": round(exg_ratio, 4),
             "neutral_ratio": round(neutral_ratio, 4),
@@ -183,6 +188,13 @@ class PlantGatekeeperService:
         metrics["center_skin_ratio"] = center_skin_ratio
         metrics["center_botanical_ratio"] = center_metrics["botanical_ratio"]
 
+        # Strong botanical presence indicator
+        has_strong_botanical = (
+            botanical_ratio >= 0.35
+            or (botanical_ratio >= 0.20 and exg_ratio >= 0.12)
+            or center_metrics["botanical_ratio"] >= 0.38
+        )
+
         # If MobileNet is available, run open-world category classification
         mobilenet_available = cls.initialize()
         top_cat = "Unknown"
@@ -191,6 +203,7 @@ class PlantGatekeeperService:
         manmade_prob = 0.0
         person_apparel_prob = 0.0
         c_top_cat = "Unknown"
+        c_top_prob = 0.0
         c_bot_prob = 0.0
         c_man_prob = 0.0
         c_apparel_prob = 0.0
@@ -208,11 +221,11 @@ class PlantGatekeeperService:
                 top_cat = cls._categories[top_idx] if cls._categories else f"class_{top_idx}"
 
                 botanical_prob = float(sum(probs[i].item() for i in cls.BOTANICAL_SYNSET_INDICES))
-                # Man-made items: classes 400 to 935 in ImageNet
+                # Man-made items: strictly classes 400 to 935 in ImageNet (do NOT include 0-397 animals/insects)
                 manmade_prob = float(sum(probs[i].item() for i in range(400, 936)))
                 person_apparel_prob = float(sum(probs[i].item() for i in cls.PERSON_APPAREL_INDICES))
 
-                top_is_manmade = (400 <= top_idx <= 935) or (0 <= top_idx <= 397)
+                top_is_manmade = (400 <= top_idx <= 935)
 
                 # 2. Center crop classification (focal subject)
                 batch_c = cls._preprocess(center_crop).unsqueeze(0).to(cls._device)
@@ -248,6 +261,7 @@ class PlantGatekeeperService:
             (center_skin_ratio > 0.20 or person_apparel_prob > 0.08 or c_apparel_prob > 0.08)
             and manmade_prob > 0.40
             and botanical_prob < 0.20
+            and not (has_strong_botanical and center_skin_ratio < 0.15)
         ):
             logger.info("plant_gatekeeper_rejected_person_foreground", object=top_cat, **metrics)
             return {
@@ -261,8 +275,9 @@ class PlantGatekeeperService:
         # Rule 2: Dominant Man-Made Object (computer mouse, electronic device, car, furniture, etc.)
         # MobileNet identifies a specific manmade item, or manmade probability dominates non-vegetation images
         if (
-            (top_prob > 0.20 and top_is_manmade)
-            or (manmade_prob > 0.55 and botanical_ratio < 0.30)
+            (top_prob > 0.40 and top_is_manmade and not has_strong_botanical)
+            or (manmade_prob > 0.65 and botanical_ratio < 0.25 and exg_ratio < 0.15)
+            or (top_prob > 0.20 and top_is_manmade and botanical_ratio < 0.20 and botanical_prob < 0.10)
         ) and botanical_prob < 0.15:
             logger.info("plant_gatekeeper_rejected_manmade_dominant", object=top_cat, **metrics)
             return {
@@ -274,11 +289,11 @@ class PlantGatekeeperService:
             }
 
         # Rule 3: Central Focus is Non-Plant (center crop is dominated by a recognized manmade object)
-        c_top_is_manmade = (400 <= c_top_idx <= 935) or (0 <= c_top_idx <= 397) if 'c_top_idx' in locals() else False
+        c_top_is_manmade = (400 <= c_top_idx <= 935) if 'c_top_idx' in locals() else False
         if (
-            (c_top_prob > 0.20 and c_top_is_manmade)
-            or (c_man_prob > 0.60 and metrics["center_botanical_ratio"] < 0.30)
-        ) and c_bot_prob < 0.12:
+            (c_top_prob > 0.45 and c_top_is_manmade and metrics["center_botanical_ratio"] < 0.30)
+            or (c_man_prob > 0.70 and metrics["center_botanical_ratio"] < 0.25)
+        ) and c_bot_prob < 0.10:
             logger.info("plant_gatekeeper_rejected_center_non_plant", object=c_top_cat, **metrics)
             return {
                 "is_plant": False,
@@ -289,7 +304,7 @@ class PlantGatekeeperService:
             }
 
         # Rule 4: Very low botanical foliage presence across the frame
-        if botanical_ratio < 0.08:
+        if botanical_ratio < 0.08 and exg_ratio < 0.05:
             logger.info("plant_gatekeeper_rejected_low_botanical", **metrics)
             return {
                 "is_plant": False,
@@ -300,7 +315,7 @@ class PlantGatekeeperService:
             }
 
         # Rule 5: Dominant neutral surfaces (white desk, plastics, keyboards)
-        if neutral_ratio > 0.55 and botanical_ratio < 0.15:
+        if neutral_ratio > 0.55 and botanical_ratio < 0.15 and exg_ratio < 0.08:
             logger.info("plant_gatekeeper_rejected_neutral_surface", **metrics)
             return {
                 "is_plant": False,
@@ -311,7 +326,7 @@ class PlantGatekeeperService:
             }
 
         # Rule 6: Insufficient plant foliage & zero ImageNet botanical alignment
-        if botanical_ratio < 0.15 and botanical_prob < 0.03:
+        if botanical_ratio < 0.15 and exg_ratio < 0.10 and botanical_prob < 0.03:
             logger.info("plant_gatekeeper_rejected_insufficient_plant_traits", **metrics)
             return {
                 "is_plant": False,

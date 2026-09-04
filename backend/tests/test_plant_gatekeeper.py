@@ -135,3 +135,18 @@ async def test_disease_localization_hindi():
     assert "छंटाई" in localized["prevention_tips"][1]
     assert "लक्षित सक्रिय घटक" in localized["store_recommendations"][0]["subtitle"]
 
+
+def test_plant_gatekeeper_accepts_diseased_spotted_leaf():
+    """Verify diseased leaf with black necrotic lesions and yellow halo is accepted as plant."""
+    from pathlib import Path
+    img_path = Path(r"C:\Users\janar\.gemini\antigravity-ide\brain\a852f880-3edf-4b9b-bfff-8f0740f00db2\.user_uploaded\media_1788533156246.png")
+    if img_path.exists():
+        orig = Image.open(img_path).convert("RGB")
+        w, h = orig.size
+        crop = orig.crop((int(0.05 * w), int(0.12 * h), int(0.95 * w), int(0.35 * h)))
+        buf = io.BytesIO()
+        crop.save(buf, format="JPEG")
+        res = PlantGatekeeperService.verify_plant(buf.getvalue())
+        assert res["is_plant"] is True
+        assert res["confidence"] > 0.6
+

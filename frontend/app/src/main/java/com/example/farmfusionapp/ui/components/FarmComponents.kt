@@ -377,52 +377,12 @@ fun NeoScaffoldBackground(
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
-                        0.0f to Color(0xFFE8F5E9).copy(alpha = 0.4f),
-                        0.5f to Color(0xFFF1F8E9).copy(alpha = 0.2f),
-                        1.0f to Color(0xFFE3F2FD).copy(alpha = 0.5f)
+                        0.0f to Color(0xFFE8F5E9).copy(alpha = 0.45f),
+                        0.5f to Color(0xFFF1F8E9).copy(alpha = 0.25f),
+                        1.0f to Color(0xFFE3F2FD).copy(alpha = 0.50f)
                     )
                 )
         )
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .size(500.dp)
-                .offset(x = 100.dp, y = (-100).dp)
-                .background(
-                    Brush.radialGradient(
-                        0.0f to Color(0xFF81D4FA).copy(alpha = 0.25f),
-                        1.0f to Color.Transparent
-                    )
-                )
-        )
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .size(600.dp)
-                .offset(x = (-150).dp, y = 150.dp)
-                .background(
-                    Brush.radialGradient(
-                        0.0f to Color(0xFFA5D6A7).copy(alpha = 0.35f),
-                        1.0f to Color.Transparent
-                    )
-                )
-        )
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .size(350.dp)
-                .offset(x = 80.dp, y = 40.dp)
-                .background(
-                    Brush.radialGradient(
-                        0.0f to Color(0xFFFFE082).copy(alpha = 0.2f),
-                        1.0f to Color.Transparent
-                    )
-                )
-        )
-
         Box(modifier = Modifier.fillMaxSize(), content = content)
     }
 }
@@ -1581,20 +1541,21 @@ fun HomeBottomBar(
             .shadow(
                 elevation = shadowElevation,
                 shape = RoundedCornerShape(50.dp),
-                spotColor = Color.Black.copy(alpha = 0.05f),
-                ambientColor = Color.Transparent
+                spotColor = Color.Black.copy(alpha = 0.08f),
+                ambientColor = Color(0xFF2E7D32).copy(alpha = 0.04f)
             )
-            .hazeChild(
-                state = hazeState,
-                shape = RoundedCornerShape(50.dp),
-                style = HazeStyle(
-                    tint = Color.White.copy(alpha = 0.65f),
-                    blurRadius = 24.dp
-                )
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.92f),
+                        Color(0xFFF7FCF7).copy(alpha = 0.95f)
+                    )
+                ),
+                shape = RoundedCornerShape(50.dp)
             ),
         shape = RoundedCornerShape(50.dp),
         color = Color.Transparent,
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.8f)),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.9f)),
         tonalElevation = 0.dp
     ) {
         Row(

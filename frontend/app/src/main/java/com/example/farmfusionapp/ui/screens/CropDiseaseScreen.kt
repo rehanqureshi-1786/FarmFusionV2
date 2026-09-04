@@ -97,23 +97,24 @@ fun CropDiseaseScreen(navController: NavController) {
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
         if (success) {
             capturedImageUri = fileProviderUri
-            startAnalysis()
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                optimizeImageFile(tempFile)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    startAnalysis()
+                }
+            }
         }
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { selectedUri ->
         if (selectedUri != null) {
             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                try {
-                    val success = copyUriToTempFile(context, selectedUri, tempFile)
-                    if (success) {
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            capturedImageUri = selectedUri
-                            startAnalysis()
-                        }
+                val success = prepareImageFromUri(context, selectedUri, tempFile)
+                if (success) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        capturedImageUri = selectedUri
+                        startAnalysis()
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("CropDisease", "Error copying file: ${e.message}")
                 }
             }
         }
@@ -983,6 +984,96 @@ fun StoreMiniCard(item: StoreRecommendationItem, onClick: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+private fun optimizeImageFile(file: File, maxDimension: Int = 1280, quality: Int = 82) {
+    try {
+        if (!file.exists() || file.length() == 0L) return
+        val boundsOptions = android.graphics.BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        android.graphics.BitmapFactory.decodeFile(file.absolutePath, boundsOptions)
+        val origW = boundsOptions.outWidth
+        val origH = boundsOptions.outHeight
+        if (origW <= 0 || origH <= 0) return
+
+        var sampleSize = 1
+        while ((origW / sampleSize) > maxDimension * 2 || (origH / sampleSize) > maxDimension * 2) {
+            sampleSize *= 2
+        }
+
+        val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+        }
+        val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath, decodeOptions) ?: return
+
+        val scale = minOf(1.0f, maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height).toFloat())
+        val finalBitmap = if (scale < 1.0f) {
+            val destW = (bitmap.width * scale).toInt()
+            val destH = (bitmap.height * scale).toInt()
+            android.graphics.Bitmap.createScaledBitmap(bitmap, destW, destH, true).also {
+                if (it != bitmap) bitmap.recycle()
+            }
+        } else {
+            bitmap
+        }
+
+        FileOutputStream(file).use { out ->
+            finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+        }
+        finalBitmap.recycle()
+        android.util.Log.d("CropDisease", "Optimized camera image size: ${file.length()} bytes")
+    } catch (e: Exception) {
+        android.util.Log.e("CropDisease", "Image optimization failed, using original", e)
+    }
+}
+
+private fun prepareImageFromUri(context: Context, uri: Uri, targetFile: File, maxDimension: Int = 1280, quality: Int = 82): Boolean {
+    return try {
+        val boundsOptions = android.graphics.BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            android.graphics.BitmapFactory.decodeStream(stream, null, boundsOptions)
+        }
+        val origW = boundsOptions.outWidth
+        val origH = boundsOptions.outHeight
+
+        var sampleSize = 1
+        if (origW > 0 && origH > 0) {
+            while ((origW / sampleSize) > maxDimension * 2 || (origH / sampleSize) > maxDimension * 2) {
+                sampleSize *= 2
+            }
+        }
+
+        val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+        }
+        val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+            android.graphics.BitmapFactory.decodeStream(stream, null, decodeOptions)
+        } ?: return copyUriToTempFile(context, uri, targetFile)
+
+        val scale = minOf(1.0f, maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height).toFloat())
+        val finalBitmap = if (scale < 1.0f) {
+            val destW = (bitmap.width * scale).toInt()
+            val destH = (bitmap.height * scale).toInt()
+            android.graphics.Bitmap.createScaledBitmap(bitmap, destW, destH, true).also {
+                if (it != bitmap) bitmap.recycle()
+            }
+        } else {
+            bitmap
+        }
+
+        FileOutputStream(targetFile).use { out ->
+            finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+        }
+        finalBitmap.recycle()
+        android.util.Log.d("CropDisease", "Optimized gallery image saved: ${targetFile.length()} bytes")
+        true
+    } catch (e: Exception) {
+        android.util.Log.e("CropDisease", "Optimized load failed, fallback to raw copy", e)
+        copyUriToTempFile(context, uri, targetFile)
     }
 }
 

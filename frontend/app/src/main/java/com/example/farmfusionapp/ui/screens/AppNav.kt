@@ -1,9 +1,7 @@
 package com.example.farmfusionapp.ui.screens
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -119,7 +117,7 @@ fun AppNav() {
                 containerColor = Color(0xFFF4F9F4),
                 modifier = Modifier
                     .fillMaxSize()
-                    .blur(radius = globalBlurRadius),
+                    .then(if (globalBlurRadius > 0.dp) Modifier.blur(radius = globalBlurRadius) else Modifier),
                 bottomBar = {
                     if (showBottomBar) {
                         Box(
@@ -140,7 +138,31 @@ fun AppNav() {
                 NavHost(
                     navController = navController,
                     startDestination = startDestination,
-                    modifier = Modifier.fillMaxSize().haze(state = hazeState)
+                    modifier = Modifier.fillMaxSize(),
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> fullWidth },
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        )
+                    },
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> -fullWidth },
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        )
+                    },
+                    popEnterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> -fullWidth },
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        )
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> fullWidth },
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        )
+                    }
                 ) {
                     composable(NavRoutes.LanguageSelection) { LanguageSelectionScreen(navController) }
                     composable(NavRoutes.Splash) { SplashScreen(navController, authViewModel) }

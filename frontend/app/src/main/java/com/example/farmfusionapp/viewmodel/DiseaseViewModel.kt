@@ -56,8 +56,6 @@ class DiseaseViewModel : ViewModel() {
 
                 android.util.Log.d("DiseaseViewModel", "Uploading image: ${imageFile.name} (${fileSize} bytes)")
 
-                runCatching { api.checkHealth() }
-
                 val requestFile = try {
                     imageFile.asRequestBody(mimeType.toMediaTypeOrNull())
                 } catch (e: Exception) {

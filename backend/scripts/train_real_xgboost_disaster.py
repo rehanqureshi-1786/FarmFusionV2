@@ -100,7 +100,7 @@ def main():
         "extreme_conditions", "wind_rain_interaction", "heat_stress",
         "atmospheric_instability"
     ]
-    X = df_feat[feature_columns].values
+    X = df_feat[feature_columns]
     y_raw = df_feat["label"].values
 
     # 4. Encoding and Scaling

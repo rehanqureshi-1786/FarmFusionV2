@@ -55,6 +55,28 @@ async def run_disease_detection_workflow(input_data: DiseaseDetectionInput) -> D
 
     # Step 0: Gatekeeper plant check
     gate_res = PlantGatekeeperService.verify_plant(input_data.image_bytes)
+    gate_metrics = gate_res.get("metrics", {})
+    botanical_ratio = gate_metrics.get("botanical_ratio", 0.0)
+    exg_ratio = gate_metrics.get("exg_ratio", 0.0)
+    center_skin = gate_metrics.get("center_skin_ratio", 0.0)
+    person_prob = gate_metrics.get("person_apparel_prob", 0.0)
+
+    # Specialist cross-validation
+    ml_res = None
+    if not gate_res.get("is_plant", False):
+        is_definitely_human_or_manmade = (center_skin > 0.25 and person_prob > 0.10) or (botanical_ratio < 0.05 and exg_ratio < 0.02)
+        if not is_definitely_human_or_manmade:
+            candidate_ml = DiseaseMLService.predict(input_data.image_bytes, crop_hint=input_data.crop_name)
+            if candidate_ml and candidate_ml.get("is_reliable", False) and candidate_ml.get("confidence", 0.0) >= 0.45:
+                logger.info(
+                    "disease_workflow_gatekeeper_overridden_by_specialist_ml",
+                    detected_crop=candidate_ml.get("crop"),
+                    detected_disease=candidate_ml.get("disease"),
+                    confidence=candidate_ml.get("confidence"),
+                )
+                ml_res = candidate_ml
+                gate_res["is_plant"] = True
+
     if not gate_res.get("is_plant", False):
         return DiseaseDetectionResult(
             disease_name="No Plant Detected",
@@ -67,8 +89,9 @@ async def run_disease_detection_workflow(input_data: DiseaseDetectionInput) -> D
             farmer_message="कोई पौधा नहीं मिला। कृपया पौधे की पत्ती की स्पष्ट तस्वीर लें।" if input_data.language == "hi" else "No Plant Detected. Please upload or capture a clear photo of a plant leaf.",
         )
 
-    # Step 1: Image ML classification
-    ml_res = DiseaseMLService.predict(input_data.image_bytes, crop_hint=input_data.crop_name)
+    # Step 1: Image ML classification (if not already retrieved during cross-validation)
+    if ml_res is None:
+        ml_res = DiseaseMLService.predict(input_data.image_bytes, crop_hint=input_data.crop_name)
     if ml_res:
         disease_name = ml_res.get("disease", "Unknown Disease")
         detected_crop = ml_res.get("crop") or input_data.crop_name or "General Crop"

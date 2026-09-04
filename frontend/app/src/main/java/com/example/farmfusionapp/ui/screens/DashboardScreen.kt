@@ -173,41 +173,41 @@ fun DashboardScreen(navController: NavController) {
     // Standard map to cache exact pixel heights of items before they scroll off-screen
     val itemHeights = remember { mutableMapOf<Int, Int>() }
 
-    // Unified continuous scroll tracker for smooth animations
-    val totalScrollPx by remember {
-        derivedStateOf {
-            // Update cache with currently visible items
+    // Fast continuous scroll tracker via lambda providers (zero recomposition on scroll)
+    val headerOpacityProvider: () -> Float = remember {
+        {
             listState.layoutInfo.visibleItemsInfo.forEach { itemInfo ->
                 itemHeights[itemInfo.index] = itemInfo.size
             }
 
             val index = listState.firstVisibleItemIndex
             val offset = listState.firstVisibleItemScrollOffset.toFloat()
-            val spacingPx = 22f * density // Accounts for Arrangement.spacedBy(22.dp)
+            val spacingPx = 22f * density
 
             var accumulated = 0f
-            // Accumulate exact heights of all scrolled-off items
+            for (i in 0 until index) {
+                accumulated += (itemHeights[i] ?: 0) + spacingPx
+            }
+
+            val totalScroll = accumulated + offset
+            val fadeDistancePx = 300f * density
+            val progress = (1f - (totalScroll / fadeDistancePx)).coerceIn(0f, 1f)
+            0.7f * progress
+        }
+    }
+
+    val parallaxOffsetProvider: () -> Float = remember {
+        {
+            val index = listState.firstVisibleItemIndex
+            val offset = listState.firstVisibleItemScrollOffset.toFloat()
+            val spacingPx = 22f * density
+
+            var accumulated = 0f
             for (i in 0 until index) {
                 accumulated += (itemHeights[i] ?: 0) + spacingPx
             }
 
             accumulated + offset
-        }
-    }
-
-    // Opacity calculation fading out smoothly on scroll
-    val headerOpacity by remember {
-        derivedStateOf {
-            val fadeDistancePx = 300f * density
-            val progress = (1f - (totalScrollPx / fadeDistancePx)).coerceIn(0f, 1f)
-            0.7f * progress
-        }
-    }
-
-    // Parallax Math for 3D Depth
-    val parallaxOffset by remember {
-        derivedStateOf {
-            totalScrollPx
         }
     }
 
@@ -260,15 +260,6 @@ fun DashboardScreen(navController: NavController) {
                 colors = listOf(Color(0xFFF0F7E8), Color(0xFFDCECC5)),
                 iconTint = Color(0xFF4D7A1F),
                 illustration = R.drawable.ill_crop_services
-            ),
-            HomeAction(
-                title = strings.dashboard.farmStore,
-                subtitle = strings.dashboard.farmStoreSub,
-                iconVector = Icons.Rounded.Storefront,
-                route = NavRoutes.ProductStore,
-                colors = listOf(Color(0xFFFFF1E8), Color(0xFFF6D7C0)),
-                iconTint = Color(0xFFA65411),
-                illustration = R.drawable.ill_farm_store
             ),
             HomeAction(
                 title = strings.dashboard.labourHelp,
@@ -367,8 +358,8 @@ fun DashboardScreen(navController: NavController) {
 
                 // Header Landscape Background with Living Dawn Animation & Flapping Birds
                 AnimatedHeaderLandscape(
-                    headerOpacity = headerOpacity,
-                    parallaxOffset = parallaxOffset,
+                    headerOpacity = headerOpacityProvider,
+                    parallaxOffset = parallaxOffsetProvider,
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
 
@@ -411,9 +402,6 @@ fun DashboardScreen(navController: NavController) {
                             ActionGroup(
                                 actions = groupedActions,
                                 onActionClick = {
-                                    if (it.route == NavRoutes.ProductStore) {
-                                        AgriStoreContext.setBrowse()
-                                    }
                                     navController.navigate(it.route)
                                 }
                             )
@@ -536,11 +524,12 @@ private data class BirdSpec(
 @Composable
 private fun AnimatedHeaderLandscape(
     modifier: Modifier = Modifier,
-    headerOpacity: Float,
-    parallaxOffset: Float
+    headerOpacity: () -> Float,
+    parallaxOffset: () -> Float
 ) {
     val density = LocalDensity.current.density
     val transition = rememberInfiniteTransition(label = "landscape_sky_anim")
+    val reusableBirdPath = remember { Path() }
 
     // Master harmonic loop (16 seconds) - everything syncs smoothly to exact integer harmonics
     val masterProgress by transition.animateFloat(
@@ -559,8 +548,8 @@ private fun AnimatedHeaderLandscape(
         modifier = modifier
             .fillMaxWidth()
             .graphicsLayer {
-                alpha = headerOpacity
-                translationY = parallaxOffset * 0.5f
+                alpha = headerOpacity()
+                translationY = parallaxOffset() * 0.5f
             }
     ) {
         // Base Clean Landscape Artwork
@@ -575,6 +564,9 @@ private fun AnimatedHeaderLandscape(
         Canvas(
             modifier = Modifier.matchParentSize()
         ) {
+            val currentAlpha = headerOpacity()
+            if (currentAlpha <= 0.01f) return@Canvas
+
             val w = size.width
             val h = size.height
             if (w <= 0f || h <= 0f) return@Canvas
@@ -723,39 +715,38 @@ private fun AnimatedHeaderLandscape(
                 val tipDy = -spanPx * 0.44f * flap
                 val elbowDy = -spanPx * 0.32f * (flap + 0.35f)
 
-                val birdPath = Path().apply {
-                    // Left Wing
-                    moveTo(birdX, birdY - 1.2f * density)
-                    quadraticTo(
-                        birdX - spanPx * 0.5f,
-                        birdY + elbowDy - 1.8f * density,
-                        birdX - spanPx,
-                        birdY + tipDy
-                    )
-                    quadraticTo(
-                        birdX - spanPx * 0.45f,
-                        birdY + elbowDy + 1.6f * density,
-                        birdX,
-                        birdY + 1.8f * density
-                    )
-                    // Right Wing
-                    quadraticTo(
-                        birdX + spanPx * 0.45f,
-                        birdY + elbowDy + 1.6f * density,
-                        birdX + spanPx,
-                        birdY + tipDy
-                    )
-                    quadraticTo(
-                        birdX + spanPx * 0.5f,
-                        birdY + elbowDy - 1.8f * density,
-                        birdX,
-                        birdY - 1.2f * density
-                    )
-                    close()
-                }
+                reusableBirdPath.reset()
+                // Left Wing
+                reusableBirdPath.moveTo(birdX, birdY - 1.2f * density)
+                reusableBirdPath.quadraticTo(
+                    birdX - spanPx * 0.5f,
+                    birdY + elbowDy - 1.8f * density,
+                    birdX - spanPx,
+                    birdY + tipDy
+                )
+                reusableBirdPath.quadraticTo(
+                    birdX - spanPx * 0.45f,
+                    birdY + elbowDy + 1.6f * density,
+                    birdX,
+                    birdY + 1.8f * density
+                )
+                // Right Wing
+                reusableBirdPath.quadraticTo(
+                    birdX + spanPx * 0.45f,
+                    birdY + elbowDy + 1.6f * density,
+                    birdX + spanPx,
+                    birdY + tipDy
+                )
+                reusableBirdPath.quadraticTo(
+                    birdX + spanPx * 0.5f,
+                    birdY + elbowDy - 1.8f * density,
+                    birdX,
+                    birdY - 1.2f * density
+                )
+                reusableBirdPath.close()
 
                 drawPath(
-                    path = birdPath,
+                    path = reusableBirdPath,
                     color = Color(0xFF263627).copy(alpha = bird.alpha)
                 )
             }

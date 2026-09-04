@@ -68,8 +68,6 @@ dependencies {
 
     implementation("com.google.firebase:firebase-auth-ktx:22.3.1")
     implementation("com.google.android.gms:play-services-auth:21.2.0")
-    implementation("androidx.navigation:navigation-compose:2.7.7")
-    implementation("androidx.compose.material:material-icons-extended")
 
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
