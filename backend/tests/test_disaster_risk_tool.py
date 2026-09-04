@@ -3,7 +3,7 @@ Tests for 7-Day Disaster Risk Prediction Tool, Intent Classification,
 Tool Registry Integration, and Multilingual Synthesis.
 """
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, AsyncMock
 
 from app.tools.disaster_risk_tool import disaster_risk_tool, DisasterRiskInput
 from app.tools.registry import tool_registry, ToolStatus
@@ -12,33 +12,59 @@ from app.orchestrator.nodes.tool_router import tool_router_node
 from app.orchestrator.nodes.synthesizer import response_synthesizer_node
 
 
+MOCK_FORECAST = {
+    "success": True,
+    "location": "Jaipur",
+    "forecast": [
+        {
+            "date": f"2026-09-0{i+1}",
+            "temperature_c": 32.0,
+            "temperature_max_c": 36.0,
+            "temperature_min_c": 26.0,
+            "precipitation_mm": 2.0 if i < 3 else 0.0,
+            "wind_speed_kmh": 15.0,
+            "condition": "Partly Cloudy",
+        }
+        for i in range(7)
+    ],
+}
+MOCK_CURRENT = {
+    "success": True,
+    "temperature_c": 31.0,
+    "humidity_percent": 55.0,
+    "pressure_hpa": 1010.0,
+}
+
+
 @pytest.mark.asyncio
 async def test_disaster_risk_tool_7day_execution():
     """Verify disaster_risk_tool runs inference across a 7-day horizon with physical weather data."""
-    input_data = DisasterRiskInput(
-        latitude=26.9124,
-        longitude=75.7873,
-        location_name="Jaipur",
-        crop_name="Wheat",
-        days=7
-    )
-    result = await disaster_risk_tool(input_data)
+    with patch("app.services.weather_service.WeatherService.get_forecast", new=AsyncMock(return_value=MOCK_FORECAST)), \
+         patch("app.services.weather_service.WeatherService.get_current_weather", new=AsyncMock(return_value=MOCK_CURRENT)):
+        input_data = DisasterRiskInput(
+            latitude=26.9124,
+            longitude=75.7873,
+            location_name="Jaipur",
+            crop_name="Wheat",
+            days=7
+        )
+        result = await disaster_risk_tool(input_data)
 
-    assert result.error is None
-    assert result.location == "Jaipur"
-    assert result.forecast_days >= 1
-    assert result.current_disaster_type in ["Low Risk", "Flood Risk", "Cyclone Risk", "Drought Risk"]
-    assert result.peak_disaster_type in ["Low Risk", "Flood Risk", "Cyclone Risk", "Drought Risk"]
-    assert result.peak_risk_level in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
-    assert 0.0 <= result.peak_risk_score <= 100.0
-    assert len(result.daily_timeline) == result.forecast_days
+        assert result.error is None
+        assert result.location == "Jaipur"
+        assert result.forecast_days >= 1
+        assert result.current_disaster_type in ["Low Risk", "Flood Risk", "Cyclone Risk", "Drought Risk"]
+        assert result.peak_disaster_type in ["Low Risk", "Flood Risk", "Cyclone Risk", "Drought Risk"]
+        assert result.peak_risk_level in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        assert 0.0 <= result.peak_risk_score <= 100.0
+        assert len(result.daily_timeline) == result.forecast_days
 
-    day1 = result.daily_timeline[0]
-    assert day1.temperature_c is not None
-    assert day1.rainfall_mm is not None
-    assert day1.wind_speed_kmh is not None
-    assert 0.0 <= day1.probability <= 1.0
-    assert isinstance(day1.recommendations, list)
+        day1 = result.daily_timeline[0]
+        assert day1.temperature_c is not None
+        assert day1.rainfall_mm is not None
+        assert day1.wind_speed_kmh is not None
+        assert 0.0 <= day1.probability <= 1.0
+        assert isinstance(day1.recommendations, list)
 
 
 @pytest.mark.asyncio
@@ -69,15 +95,17 @@ async def test_disaster_intent_classification_multilingual():
 @pytest.mark.asyncio
 async def test_tool_registry_disaster_risk_execution():
     """Verify tool_registry executes disaster_risk_tool with proper provenance."""
-    slots = {"latitude": 26.9124, "longitude": 75.7873, "location_name": "Jaipur", "days": 7}
-    context = {}
+    with patch("app.services.weather_service.WeatherService.get_forecast", new=AsyncMock(return_value=MOCK_FORECAST)), \
+         patch("app.services.weather_service.WeatherService.get_current_weather", new=AsyncMock(return_value=MOCK_CURRENT)):
+        slots = {"latitude": 26.9124, "longitude": 75.7873, "location_name": "Jaipur", "days": 7}
+        context = {}
 
-    tool_res = await tool_registry.execute("disaster_risk_tool", slots, context)
-    assert tool_res.status == ToolStatus.SUCCESS
-    assert tool_res.data is not None
-    assert "DisasterPredictorAI" in tool_res.provenance.source
-    assert tool_res.data["forecast_days"] >= 1
-    assert "summary" in tool_res.data
+        tool_res = await tool_registry.execute("disaster_risk_tool", slots, context)
+        assert tool_res.status == ToolStatus.SUCCESS
+        assert tool_res.data is not None
+        assert "DisasterPredictorAI" in tool_res.provenance.source
+        assert tool_res.data["forecast_days"] >= 1
+        assert "summary" in tool_res.data
 
 
 @pytest.mark.asyncio

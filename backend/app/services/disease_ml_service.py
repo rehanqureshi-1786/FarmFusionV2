@@ -276,6 +276,21 @@ class DiseaseMLService:
             top_idx = int(top_indices[0].item())
             class_name = classes[top_idx]
 
+            # If crop_hint is specified, check crop-conditioned prior
+            if crop_hint and crop_hint.strip():
+                hint_clean = crop_hint.lower().strip()
+                crop_indices = [
+                    i for i, c in enumerate(classes)
+                    if hint_clean in c.lower() or c.lower().startswith(hint_clean)
+                ]
+                if crop_indices:
+                    crop_best_idx = max(crop_indices, key=lambda idx: probs[idx].item())
+                    crop_best_prob = float(probs[crop_best_idx].item())
+                    if crop_best_prob >= 0.15 or top_prob < 0.50:
+                        top_idx = crop_best_idx
+                        top_prob = crop_best_prob
+                        class_name = classes[top_idx]
+
             # Top-3 predictions list
             top_predictions = []
             for prob_t, idx_t in zip(top_probs, top_indices):

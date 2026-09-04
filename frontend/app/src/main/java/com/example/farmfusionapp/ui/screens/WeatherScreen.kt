@@ -108,6 +108,8 @@ suspend fun refreshWeatherSnapshotIfNeeded(
 fun WeatherScreen(navController: NavController) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val strings = LocalStrings.current
+    val currentLang = LocalAppLanguage.current
     var weatherData by remember { mutableStateOf(WeatherSnapshotStore.latestWeather) }
     var errorMessage by remember { mutableStateOf<String?>(WeatherSnapshotStore.latestError) }
     var isLoading by remember { mutableStateOf(weatherData == null) }
@@ -145,7 +147,7 @@ fun WeatherScreen(navController: NavController) {
             CenterAlignedTopAppBar(
                 title = {
                     Text(
-                        text = "Weather",
+                        text = AppLocalizer.localizeWeatherPhrase("weather", currentLang),
                         style = MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1B5E20)
@@ -228,8 +230,8 @@ fun WeatherScreen(navController: NavController) {
                                     .padding(horizontal = 24.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                WeatherStatCard("Humidity", "${weatherData!!.humidity}%", Icons.Rounded.WaterDrop, Modifier.weight(1f))
-                                WeatherStatCard("Wind", "${weatherData!!.windSpeed.toInt()} km/h", Icons.Rounded.Air, Modifier.weight(1f))
+                                WeatherStatCard(strings.weather.humidity, "${weatherData!!.humidity}%", Icons.Rounded.WaterDrop, Modifier.weight(1f))
+                                WeatherStatCard(strings.weather.windSpeed, "${weatherData!!.windSpeed.toInt()} km/h", Icons.Rounded.Air, Modifier.weight(1f))
                             }
                         }
 
@@ -238,11 +240,11 @@ fun WeatherScreen(navController: NavController) {
                             item {
                                 Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)) {
                                     Text(
-                                        text = "Agricultural Advisory",
+                                        text = strings.weather.agriculturalAdvisory,
                                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B))
                                     )
                                     Text(
-                                        text = "Actionable agronomic guidance for field operations",
+                                        text = AppLocalizer.localizeWeatherPhrase("agronomic guidance sub", currentLang),
                                         style = MaterialTheme.typography.bodyMedium.copy(color = Color.DarkGray)
                                     )
                                 }
@@ -256,11 +258,11 @@ fun WeatherScreen(navController: NavController) {
                             item {
                                 Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)) {
                                     Text(
-                                        text = "Field guidance",
+                                        text = strings.weather.agriculturalAdvisory,
                                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B))
                                     )
                                     Text(
-                                        text = "Actionable farm operations & suitability for today",
+                                        text = AppLocalizer.localizeWeatherPhrase("farm operations sub", currentLang),
                                         style = MaterialTheme.typography.bodyMedium.copy(color = Color.DarkGray)
                                     )
                                 }
@@ -276,11 +278,11 @@ fun WeatherScreen(navController: NavController) {
                         item {
                             Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 8.dp, bottom = 4.dp)) {
                                 Text(
-                                    text = "Outlook",
+                                    text = strings.weather.forecast7Days,
                                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF1B1B1B))
                                 )
                                 Text(
-                                    text = "7-day forecast for farm planning",
+                                    text = AppLocalizer.localizeWeatherPhrase("7day forecast sub", currentLang),
                                     style = MaterialTheme.typography.bodyMedium.copy(color = Color.DarkGray)
                                 )
                             }
@@ -306,6 +308,15 @@ fun WeatherScreen(navController: NavController) {
 
 @Composable
 private fun WeatherHeroCard(weatherData: DisplayWeatherData) {
+    val currentLang = LocalAppLanguage.current
+    val strings = LocalStrings.current
+    val localizedCity = remember(weatherData.city, currentLang) {
+        AppLocalizer.localizeCity(weatherData.city, currentLang)
+    }
+    val localizedCondition = remember(weatherData.description, currentLang) {
+        AppLocalizer.localizeWeatherCondition(weatherData.description, currentLang)
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
@@ -340,23 +351,23 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData) {
                             Icon(Icons.Rounded.LocationOn, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = weatherData.city,
+                                text = localizedCity,
                                 style = MaterialTheme.typography.titleMedium.copy(color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                             )
                         }
-                        val timeLabel = remember(weatherData.timestamp) {
+                        val timeLabel = remember(weatherData.timestamp, strings) {
                             if (!weatherData.timestamp.isNullOrBlank()) {
                                 try {
                                     if (weatherData.timestamp.contains("T")) {
-                                        "Updated at " + weatherData.timestamp.substringAfter("T").take(5)
+                                        "${strings.weather.weatherForecast} • " + weatherData.timestamp.substringAfter("T").take(5)
                                     } else {
-                                        "Updated " + weatherData.timestamp
+                                        "${strings.weather.weatherForecast} • " + weatherData.timestamp
                                     }
                                 } catch (e: Exception) {
-                                    "Current Conditions"
+                                    strings.weather.weatherForecast
                                 }
                             } else {
-                                "Current Conditions"
+                                strings.weather.weatherForecast
                             }
                         }
                         Text(
@@ -402,7 +413,7 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData) {
 
                     Column(verticalArrangement = Arrangement.Center) {
                         Text(
-                            text = weatherData.description.replaceFirstChar { it.uppercase() },
+                            text = localizedCondition.ifBlank { weatherData.description.replaceFirstChar { it.uppercase() } },
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
@@ -411,7 +422,7 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData) {
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Feels like ${weatherData.feelsLike ?: weatherData.temperature}°C",
+                            text = "${strings.weather.feelsLike} ${weatherData.feelsLike ?: weatherData.temperature}°C",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Color.White.copy(alpha = 0.8f)
                             )
@@ -465,6 +476,7 @@ private fun WeatherStatCard(label: String, value: String, icon: androidx.compose
 
 @Composable
 private fun OutlookCard(forecast: DailyForecast, modifier: Modifier = Modifier) {
+    val currentLang = LocalAppLanguage.current
     Surface(
         modifier = modifier.height(116.dp),
         shape = RoundedCornerShape(20.dp),
@@ -476,7 +488,7 @@ private fun OutlookCard(forecast: DailyForecast, modifier: Modifier = Modifier) 
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(forecast.day, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Color.DarkGray))
+            Text(AppLocalizer.localizeDay(forecast.day, currentLang), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Color.DarkGray))
 
             RealWeatherIcon(condition = forecast.condition)
 
@@ -832,6 +844,7 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
 
 @Composable
 private fun AgriculturalAdvisoryCard(advisory: AgriculturalAdvisoryResponse) {
+    val currentLang = LocalAppLanguage.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -854,7 +867,7 @@ private fun AgriculturalAdvisoryCard(advisory: AgriculturalAdvisoryResponse) {
                 AdvisoryPillarRow(
                     icon = Icons.Rounded.WaterDrop,
                     iconTint = Color(0xFF0288D1),
-                    title = "Irrigation Guidance",
+                    title = AppLocalizer.localizeWeatherPhrase("irrigation guidance", currentLang),
                     content = advisory.irrigation_advice,
                     containerColor = Color(0xFFE1F5FE),
                     borderColor = Color(0xFFB3E5FC)
@@ -865,7 +878,7 @@ private fun AgriculturalAdvisoryCard(advisory: AgriculturalAdvisoryResponse) {
                 AdvisoryPillarRow(
                     icon = Icons.Rounded.Spa,
                     iconTint = Color(0xFF689F38),
-                    title = "Spraying Window",
+                    title = AppLocalizer.localizeWeatherPhrase("spraying window", currentLang),
                     content = advisory.spraying_advice,
                     containerColor = Color(0xFFF1F8E9),
                     borderColor = Color(0xFFDCEDC8)
@@ -876,7 +889,7 @@ private fun AgriculturalAdvisoryCard(advisory: AgriculturalAdvisoryResponse) {
                 AdvisoryPillarRow(
                     icon = Icons.Rounded.Agriculture,
                     iconTint = Color(0xFFE65100),
-                    title = "Field Operations & Harvest",
+                    title = AppLocalizer.localizeWeatherPhrase("field operations harvest", currentLang),
                     content = advisory.fieldwork_advice,
                     containerColor = Color(0xFFFFF3E0),
                     borderColor = Color(0xFFFFE0B2)
@@ -884,8 +897,9 @@ private fun AgriculturalAdvisoryCard(advisory: AgriculturalAdvisoryResponse) {
             }
 
             if (advisory.assumptions.isNotEmpty()) {
+                val localizedAssumptions = advisory.assumptions.map { AppLocalizer.localizeWeatherPhrase(it, currentLang) }
                 Text(
-                    text = "Assumptions: ${advisory.assumptions.joinToString(" • ")}",
+                    text = "${AppLocalizer.localizeWeatherPhrase("assumptions", currentLang)} ${localizedAssumptions.joinToString(" • ")}",
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = Color.Gray,
                         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
@@ -936,7 +950,8 @@ private fun AdvisoryPillarRow(
 
 @Composable
 private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
-    val guidance = remember(weatherData) { generateFieldGuidance(weatherData) }
+    val currentLang = LocalAppLanguage.current
+    val guidance = remember(weatherData, currentLang) { generateFieldGuidance(weatherData, currentLang) }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -983,7 +998,7 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                             )
                         )
                         Text(
-                            text = "Condition: ${weatherData.description.replaceFirstChar { it.uppercase() }}",
+                            text = "${AppLocalizer.localizeWeatherPhrase("condition label", currentLang)} ${AppLocalizer.localizeWeatherCondition(weatherData.description, currentLang)}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color.Gray
                             )
@@ -1036,7 +1051,7 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = "Not Suitable For Today:",
+                                text = AppLocalizer.localizeWeatherPhrase("not suitable today", currentLang),
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFFC62828)
@@ -1089,7 +1104,7 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = "Recommended & Suitable:",
+                                text = AppLocalizer.localizeWeatherPhrase("recommended suitable", currentLang),
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF1B5E20)
@@ -1142,7 +1157,7 @@ private fun FieldGuidanceCard(weatherData: DisplayWeatherData) {
                                 modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = "Key Precautions:",
+                                text = AppLocalizer.localizeWeatherPhrase("key precautions", currentLang),
                                 style = MaterialTheme.typography.labelLarge.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF0D47A1)
@@ -1188,244 +1203,175 @@ data class FieldGuidance(
     val precautions: List<String>
 )
 
-fun generateFieldGuidance(weather: DisplayWeatherData): FieldGuidance {
+fun generateFieldGuidance(weather: DisplayWeatherData, langCode: String = "hi"): FieldGuidance {
     val desc = weather.description.lowercase().trim()
     val temp = weather.temperature
     val humidity = weather.humidity
     val wind = weather.windSpeed
+    val lang = if (langCode == "od") "or" else langCode
+
+    fun t(
+        en: String, hi: String, gu: String, mr: String, pa: String, bn: String,
+        ta: String, te: String, kn: String, ml: String, or: String, asStr: String, ur: String, mai: String
+    ): String = when (lang) {
+        "gu" -> gu
+        "mr" -> mr
+        "pa" -> pa
+        "bn" -> bn
+        "ta" -> ta
+        "te" -> te
+        "kn" -> kn
+        "ml" -> ml
+        "or" -> or
+        "as" -> asStr
+        "ur" -> ur
+        "mai" -> mai
+        "en" -> en
+        else -> hi
+    }
 
     return when {
         desc.contains("thunder") || desc.contains("storm") || desc.contains("hail") || desc.contains("squall") || desc.contains("lightning") -> {
             FieldGuidance(
-                headline = "Thunderstorm & Severe Weather Alert",
-                summary = "Severe storm conditions active. High risk of crop lodging, physical damage, and field safety hazards.",
-                badge = "DANGER / PAUSE OPERATIONS",
+                headline = t(
+                    "Thunderstorm & Severe Weather Alert", "आंधी-तूफान एवं तेज मौसम चेतावनी", "વાવાઝોડું અને ભારે પવનની ચેતવણી",
+                    "वादळी वारे आणि जोरदार पावसाचा इशारा", "ਤੂਫਾਨ ਅਤੇ ਖਰਾਬ ਮੌਸਮ ਦੀ ਚੇਤਾਵਨੀ", "বজ্রবিদ্যুৎসহ ঝড়ের সতর্কতা",
+                    "இடி மின்னல் மற்றும் புயல் எச்சரிக்கை", "ఉరుములతో కూడిన తుఫాను హెచ్చరిక", "ಗುಡುಗು ಮಿಂಚಿನ ಬಿರುಗಾಳಿ ಎಚ್ಚರಿಕೆ",
+                    "ഇടിമിന്നലോടുകൂടിയ കൊടുങ്കാറ്റ് മുന്നറിയിപ്പ്", "ଘଡ଼ଘଡ଼ି ଏବଂ ଝଡ଼ବର୍ଷା ସତର୍କତା", "ধুমুহা আৰু বজ্ৰপাতৰ সতৰ্কবাৰ্তা",
+                    "گرج چمک اور تیز طوفان کا الرٹ", "आंधी-तूफान आ ठनका केर चेतावनी"
+                ),
+                summary = t(
+                    "Severe storm conditions active. High risk of crop lodging, physical damage, and field safety hazards.",
+                    "खेत में तेज आंधी और तूफान का खतरा है। फसलों के गिरने और नुकसान की आशंका अधिक है।",
+                    "ખેતરમાં ભારે વાવાઝોડાનું જોખમ છે. પાક પડી જવાની અને નુકસાનની શક્યતા વધુ છે.",
+                    "शेतात जोरदार वादळाचा धोका आहे. पिके आडवी होण्याचा आणि नुकसानीचा संभव आहे.",
+                    "ਖੇਤ ਵਿੱਚ ਤੇਜ਼ ਤੂਫਾਨ ਦਾ ਖਤਰਾ ਹੈ। ਫਸਲਾਂ ਦੇ ਡਿੱਗਣ ਦਾ ਵੱਧ ਖਦਸ਼ਾ ਹੈ।",
+                    "মাঠে ভারী ঝড়ের সম্ভাবনা রয়েছে। ফসল হেলে পড়ার ঝুঁকি অত্যন্ত বেশি।",
+                    "வயலில் கடுமையான புயல் அபாயம் உள்ளது. பயிர்கள் சாய்ந்து சேதமடையும் வாய்ப்பு அதிகம்.",
+                    "పొలంలో తీవ్రమైన తుఫాను ప్రమాదం ఉంది. పంటలు పడిపోయే అవకాశం ఎక్కువ.",
+                    "ಹೊಲದಲ್ಲಿ ಭಾರೀ ಬಿರುಗಾಳಿ ಅಪಾಯವಿದೆ. ಬೆಳೆಗಳು ಉರುಳಿಬೀಳುವ ಸಾಧ್ಯತೆ ಹೆಚ್ಚು.",
+                    "പാടത്ത് കനത്ത കൊടുങ്കാറ്റ് ഭീഷണിയുണ്ട്. വിളകൾ നിലംപൊത്താൻ സാധ്യതയുണ്ട്.",
+                    "ଜମିରେ ପ୍ରବଳ ଝଡ଼ର ଆଶଙ୍କା ଅଛି। ଫସଲ ନଷ୍ଟ ହେବାର ସମ୍ଭାବନା ଅଧିକ।",
+                    "পথাৰত ধুমুহাৰ সম্ভাৱনা আছে। শস্য মাটিত বাগৰি পৰাৰ আশংকা বেছি।",
+                    "کھیت میں شدید طوفان کا خطرہ ہے۔ فصلیں گرنے کا امکان زیادہ ہے۔",
+                    "खेत मे तेज आंधी केर खतरा अछि। फसल खसबय केर आशंका बेसी अछि।"
+                ),
+                badge = t(
+                    "DANGER / PAUSE OPERATIONS", "खतरा / खेत कार्य रोकें", "જોખમ / ખેતી કામ મુલતવી રાખો",
+                    "धोका / शेती कामे थांबवा", "ਖਤਰਾ / ਖੇਤ ਕੰਮ ਰੋਕੋ", "বিপদ / মাঠের কাজ বন্ধ রাখুন",
+                    "அபாயம் / பணிகளை நிறுத்துங்கள்", "ప్రమాదం / పనులు నిలిపివేయండి", "ಅಪಾಯ / ಕೆಲಸಗಳನ್ನು ನಿಲ್ಲಿಸಿ",
+                    "അപകടം / പണികൾ നിർത്തുക", "ବିପଦ / କାର୍ଯ୍ୟ ବନ୍ଦ ରଖନ୍ତୁ", "বিপদ / কাম স্থগিত ৰাখক",
+                    "خطرہ / کام روک دیں", "खतरा / खेत काज रोकि दिअ"
+                ),
                 badgeColor = Color(0xFFFFEBEE),
                 badgeTextColor = Color(0xFFC62828),
                 icon = Icons.Rounded.Thunderstorm,
                 notSuitableFor = listOf(
-                    "All open-field manual & tractor operations",
-                    "Chemical spraying or top-dress fertilization",
-                    "Working with metallic machinery or standing under isolated trees"
+                    t("All open-field manual & tractor operations", "खुले खेत में मजदूरी व ट्रैक्टर का काम", "ખુલ્લા ખેતમાં મજૂરી અને ટ્રેક્ટરનું કામ", "उघड्या शेतात मजुरी व ट्रॅक्टरची कामे", "ਖੁੱਲ੍ਹੇ ਖੇਤ ਵਿੱਚ ਟਰੈਕਟਰ ਦਾ ਕੰਮ", "খোলা মাঠে ট্রাক্টরের কাজ ও শ্রম", "திறந்தவெளி களப்பணிகள்", "బహిరంగ పొలం పనులు & ట్రాక్టర్ పనులు", "ಬಯಲು ಹೊಲದ ಕೆಲಸಗಳು", "തുറസ്സായ പാടത്തെ പണികൾ", "ଖୋଲା ଜମିରେ ଟ୍ରାକ୍ଟର କାମ", "পথাৰত ট্ৰেক্টৰৰ কাম", "کھلے کھیت میں ٹریکٹر کا کام", "खुल्ला खेत मे मजदूरी आ ट्रैक्टर केर काज"),
+                    t("Chemical spraying or top-dress fertilization", "कीटनाशक छिड़काव व खाद डालना", "દવા છંટકાવ અને ખાતર આપવું", "कीटकनाशक फवारणी व खत टाकणे", "ਸਪਰੇਅ ਅਤੇ ਖਾਦ ਪਾਉਣਾ", "কীটনাশক স্প্রে ও সার প্রয়োগ", "மருந்து தெளித்தல் & உரமிடுதல்", "పిచికారీ & ఎరువులు వేయడం", "ಸಿಂಪಡಣೆ ಮತ್ತು ಗೊಬ್ಬರ ಹಾಕುವುದು", "മരുന്ന് തളിക്കലും വളപ്രയോഗവും", "ଔଷଧ ସ୍ପ୍ରେ ଏବଂ ଖତ ଦେବା", "কীটনাশক স্প্ৰে' আৰু সাৰ প্ৰয়োগ", "اسپرے اور کھاد ڈالنا", "कीटनाशक छिड़काव आ खाद देब")
                 ),
                 suitableFor = listOf(
-                    "Sheltering farm livestock & equipment",
-                    "Inspecting indoor grain storage & seeds"
+                    t("Sheltering farm livestock & equipment", "पशुओं व कृषि उपकरणों को सुरक्षित स्थान पर रखें", "પશુઓ અને સાધનોને સલામત સ્થળે રાખો", "जनावरे व अवजारे सुरक्षित ठिकाणी ठेवा", "ਪਸ਼ੂਆਂ ਅਤੇ ਸੰਦਾਂ ਨੂੰ ਸੁਰੱਖਿਅਤ ਥਾਂ ਰੱਖੋ", "গবাদি পশু ও কৃষি সরঞ্জাম নিরাপদ স্থানে রাখুন", "கால்நடைகள் மற்றும் கருவிகளைப் பாதுகாக்கவும்", "పశువులు మరియు పనిముట్లను రక్షించండి", "ಜಾನುವಾರು ಮತ್ತು ಉಪಕರಣಗಳನ್ನು ರಕ್ಷಿಸಿ", "കന്നുകാലികളെയും ഉപകരണങ്ങളെയും സംരക്ഷിക്കുക", "ପଶୁ ଏବଂ ଯନ୍ତ୍ରପାତି ସୁରକ୍ଷିତ ସ୍ଥାନରେ ରଖନ୍ତୁ", "পশুধন আৰু যন্ত্ৰপাতি সুৰক্ষিত ঠাইত ৰাখক", "مویشیوں اور اوزاروں کو محفوظ کریں", "पशु आ उपकरण के सुरक्षित स्थान पर राखू"),
+                    t("Inspecting indoor grain storage & seeds", "अनाज गोदाम व बीज भंडारण की जांच", "અનાજ ગોડાઉન અને બિયારણ ચકાસો", "गोदामातील धान्य व बियाणे तपासा", "ਅਨਾਜ ਭੰਡਾਰ ਅਤੇ ਬੀਜ ਚੈੱਕ ਕਰੋ", "শস্যের গুদাম ও বীজ পরীক্ষা করুন", "தானியக் கிடங்குகளைப் பரிசோதிக்கவும்", "ధాన్యపు నిల్వలను తనిఖీ చేయండి", "ಧಾನ್ಯ ಸಂಗ್ರಹಣೆಯನ್ನು ಪರಿಶೀಲಿಸಿ", "ധാന്യ സംഭരണം പരിശോധിക്കുക", "ଶସ୍ୟ ଗୋଦାମ ଯାଞ୍ଚ କରନ୍ତୁ", "শস্য ভঁৰাল পৰীক্ষা কৰক", "اناج کے گودام کا معائنہ کریں", "अनाज गोदाम केर जांच करू")
                 ),
                 precautions = listOf(
-                    "Provide physical staking for tall crops (banana, tomato, sugarcane)",
-                    "Secure greenhouse panels, polytunnels, and nursery shade netting"
+                    t("Provide physical staking for tall crops", "लंबी फसलों (टमाटर, केला, गन्ना) को सहारा दें", "ઊંચા પાકને ટેકો આપો", "उंच पिकांना आधार द्या", "ਲੰਬੀਆਂ ਫਸਲਾਂ ਨੂੰ ਸਹਾਰਾ ਦਿਓ", "লম্বা ফসলকে খুঁটি দিয়ে বাঁধুন", "உயரமான பயிர்களுக்கு முட்டுக் கொடுக்கவும்", "ఎత్తైన పంటలకు ఊతం ఇవ్వండి", "ಎತ್ತರದ ಬೆಳೆಗಳಿಗೆ ಆಧಾರ ನೀಡಿ", "ഉയരമുള്ള വിളകൾക്ക് താങ്ങ് നൽകുക", "ଡେଙ୍ଗା ଫସଲକୁ ଆଶ୍ରୟ ଦିଅନ୍ତୁ", "ওখ শস্যক খুঁটিৰে বান্ধক", "لمبی فصلوں کو سہارا دیں", "पैघ फसल के सहारा दिअ"),
+                    t("Secure greenhouse panels & nursery netting", "पॉलीहाउस व नर्सरी की जाली को मजबूती से बांधें", "પોલીહાઉસ અને નેટ મજબૂત રીતે બાંધો", "पॉलीहाऊस व शेडनेट घट्ट बांधा", "ਪੌਲੀਹਾਊਸ ਅਤੇ ਜਾਲੀ ਮਜ਼ਬੂਤ ਕਰੋ", "পলিহাউস ও শেডনেট শক্ত করে বাঁধুন", "பசுமைக் குடில் மற்றும் வலைகளைப் பாதுகாக்கவும்", "పాలీహౌస్ మరియు షేడ్ నెట్లను కట్టండి", "ಪಾಲಿಹೌಸ್ ನೆಟ್‌ಗಳನ್ನು ಭದ್ರಪಡಿಸಿ", "പോളിഹൗസ് നെറ്റുകൾ സുരക്ഷിതമാക്കുക", "ପଲିହାଉସ୍ ଏବଂ ନେଟ୍ ବାନ୍ଧନ୍ତୁ", "পলিহাউচৰ নেট সুৰক্ষিত কৰক", "گرین ہاؤس اور جالیوں کو مضبوط کریں", "पॉलीहाउस आ नर्सरी केर जाली कस क बान्हू")
                 )
             )
         }
         desc.contains("heavy rain") || desc.contains("torrential") || desc.contains("heavy shower") || desc.contains("dense drizzle") -> {
             FieldGuidance(
-                headline = "Heavy Rain Advisory",
-                summary = "Heavy rainfall occurring. Soil saturation is critical with severe runoff and leaching risks.",
-                badge = "HEAVY RAIN / RESTRICTED",
+                headline = t(
+                    "Heavy Rain Advisory", "भारी बारिश की सलाह", "ભારે વરસાદની સલાહ",
+                    "मुसळधार पावसाची पूर्वसूचना", "ਭਾਰੀ ਮੀਂਹ ਦੀ ਸਲਾਹ", "ভারী বৃষ্টির সতর্কতা",
+                    "கனமழை எச்சரிக்கை", "భారీ వర్షపు సలహా", "ಭಾರೀ ಮಳೆಯ ಸಲಹೆ",
+                    "കനത്ത മഴ മുന്നറിയിപ്പ്", "ପ୍ରବଳ ବର୍ଷା ସତର୍କତା", "প্ৰবল বৰষুণৰ পৰামৰ্শ",
+                    "شدید بارش کا مشورہ", "भारी वर्षा केर सलाह"
+                ),
+                summary = t(
+                    "Heavy rainfall occurring. Soil saturation is critical with severe runoff and leaching risks.",
+                    "भारी बारिश जारी है। खेत में जलभराव रोकने के लिए तुरंत जल निकासी सुनिश्चित करें।",
+                    "ભારે વરસાદ ચાલુ છે. ખેતરમાં પાણી ભરાતું અટકાવવા નિકાલની વ્યવસ્થા કરો.",
+                    "मुसळधार पाऊस सुरू आहे. शेतात पाणी साचू नये म्हणून चर काढा.",
+                    "ਭਾਰੀ ਮੀਂਹ ਪੈ ਰਿਹਾ ਹੈ। ਪਾਣੀ ਦੀ ਨਿਕਾਸੀ ਦਾ ਤੁਰੰਤ ਪ੍ਰਬੰਧ ਕਰੋ।",
+                    "ভারী বৃষ্টিপাত হচ্ছে। ক্ষেতে জমে থাকা পানি দ্রুত নিষ্কাশন করুন।",
+                    "கனமழை பெய்கிறது. வயலில் தேங்கிய நீரை உடனே வெளியேற்றவும்.",
+                    "భారీ వర్షం కురుస్తోంది. పొలంలో నీరు నిలవకుండా డ్రైనేజీ చేయండి.",
+                    "ಭಾರೀ ಮಳೆಯಾಗುತ್ತಿದೆ. ಹೊಲದಲ್ಲಿ ನೀರು ನಿಲ್ಲದಂತೆ ಕಾಲುವೆ ಮಾಡಿ.",
+                    "കനത്ത മഴ പെയ്യുന്നു. വെള്ളക്കെട്ട് ഒഴിവാക്കാൻ ചാലുകൾ കീറുക.",
+                    "ପ୍ରବଳ ବର୍ଷା ହେଉଛି। ଜମିରୁ ପାଣି ନିଷ୍କାସନ ବ୍ୟବସ୍ଥା କରନ୍ତୁ।",
+                    "প্ৰবল বৰষুণ হৈ আছে। পথাৰৰ পৰা পানী ওলাই যোৱাৰ ব্যৱস্থা কৰক।",
+                    "شدید بارش ہو رہی ہے۔ نکاسی آب کا فوری انتظام کریں۔",
+                    "भारी वर्षा भ रहल अछि। खेत सं पानि निकालय केर व्यवस्था करू।"
+                ),
+                badge = t(
+                    "HEAVY RAIN / RESTRICTED", "भारी बारिश / सीमित कार्य", "ભારે વરસાદ / કામ મર્યાદિત",
+                    "मुसळधार पाऊस / मर्यादित कामे", "ਭਾਰੀ ਮੀਂਹ / ਸੀਮਤ ਕੰਮ", "ভারী বৃষ্টি / সীমিত কাজ",
+                    "கனமழை / மட்டுப்படுத்தப்பட்டது", "భారీ వర్షం / పరిమిత పనులు", "ಭಾರೀ ಮಳೆ / ಸೀಮಿತ ಕೆಲಸ",
+                    "കനത്ത മഴ / നിയന്ത്രിതം", "ପ୍ରବଳ ବର୍ଷା / ସୀମିତ କାର୍ଯ୍ୟ", "প্ৰবল বৰষুণ / সীমিত কাম",
+                    "شدید بارش / محدود کام", "भारी वर्षा / सीमित काज"
+                ),
                 badgeColor = Color(0xFFFFEBEE),
                 badgeTextColor = Color(0xFFC62828),
                 icon = Icons.Rounded.BeachAccess,
                 notSuitableFor = listOf(
-                    "Chemical pesticide & fertilizer spraying (immediate wash-off)",
-                    "Grain harvesting and open-air drying",
-                    "Heavy tractor tilling (causes severe soil compaction & tractor stuck)",
-                    "Nitrogen fertilizer broadcasting (causes leaching into groundwater)"
+                    t("Chemical pesticide spraying (immediate wash-off)", "दवा का छिड़काव (दवा धुलने का खतरा)", "દવાનો છંટકાવ (ધોવાઈ જવાનું જોખમ)", "फवारणी (औषध वाहून जाण्याची भीती)", "ਸਪਰੇਅ ਕਰਨਾ (ਮੀਂਹ ਨਾਲ ਧੁਲਣ ਦਾ ਖਤਰਾ)", "কীটনাশক স্প্রে (ধুয়ে যাওয়ার ঝুঁকি)", "மருந்து தெளித்தல் (கரைந்து போகும்)", "పిచிகారీ (కొట్టుకుపోయే ప్రమాదం)", "ಸಿಂಪಡಣೆ (ತೊಳೆದು ಹೋಗುವ ಅಪಾಯ)", "മരുന്ന് തളിക്കൽ (ഒഴുകിപ്പോകും)", "ଔଷଧ ସ୍ପ୍ରେ (ଧୋଇ ହୋଇଯିବ)", "ঔষধ স্প্ৰে' কৰা", "اسپرے کرنا (دھلنے کا خطرہ)", "दवाई छिड़काव (दवाई बहायब केर डर)"),
+                    t("Heavy tractor tilling (causes severe soil compaction)", "गीली मिट्टी में भारी जुताई", "ભીની જમીનમાં ટ્રેક્ટર ચલાવવું", "ओल्या जमिनीत नांगरणी", "ਗਿੱਲੀ ਜ਼ਮੀਨ ਵਿੱਚ ਵਾਹੀ", "ভেজা মাটিতে চাষ দেওয়া", "ஈர நிலத்தில் உழுதல்", "తడి నేలలో దుక్కి దున్నడం", "ತೇವ ಭೂಮಿಯಲ್ಲಿ ಉಳುಮೆ", "നനഞ്ഞ നിലം ഉഴൽ", "ଓଦା ମାଟିରେ ହଳ କରିବା", "তিতা মাটিত হাল বোৱা", "گیلی زمین میں ہل چلانا", "ओसिल माटी मे जोताई")
                 ),
                 suitableFor = listOf(
-                    "Rainwater harvesting in farm ponds and recharge pits",
-                    "Checking nursery drainage outlets"
+                    t("Rainwater harvesting in farm ponds", "खेत के तालाबों में वर्षा जल संचयन", "ખેત તલાવડીમાં પાણીનો સંગ્રહ", "शेततळ्यात पावसाचे पाणी साठवणे", "ਖੇਤ ਦੇ ਛੱਪੜਾਂ 'ਚ ਪਾਣੀ ਇਕੱਠਾ ਕਰਨਾ", "পুকুরে বৃষ্টির পানি সংরক্ষণ", "பண்ணைக் குட்டைகளில் மழைநீர் சேகரிப்பு", "పంట కుంటలలో వర్షపు నీటి నిల్వ", "ಕೃಷಿ ಹೊಂಡಗಳಲ್ಲಿ ಮಳೆನೀರು ಸಂಗ್ರಹ", "കൃഷിത്തോട്ടങ്ങളിൽ മഴവെള്ള സംഭരണം", "ପୋଖରୀରେ ବର୍ଷା ଜଳ ସଂରକ୍ଷଣ", "পানী সংৰক্ষণ কৰা", "کھیت کے تالاب میں پانی جمع کرنا", "खेत केर पोखरि मे पानि संचय"),
+                    t("Checking drainage outlets", "जल निकासी नालियों की सफाई", "નિકાલ ગટરોની સફાઈ", "पाणी वाहून जाणाऱ्या चरांची स्वच्छता", "ਨਿਕਾਸੀ ਨਾਲੀਆਂ ਦੀ ਸਫ਼ਾਈ", "পানি নিষ্কাশন নালা পরিষ্কার", "வடிகால் வாய்க்கால்களைச் சரிபார்த்தல்", "కాలువలను శుభ్రం చేయడం", "ಚರಂಡಿಗಳನ್ನು ಸ್ವಚ್ಛಗೊಳಿಸುವುದು", "ഡ്രെയിനേജ് ചാലുകൾ വൃത്തിയാക്കൽ", "ନିଷ୍କାସନ ନାଳ ସଫା କରିବା", "পানী ওলোৱা নলা চাফা কৰা", "نکاسی نالیوں کی صفائی", "जल निकासी केर नाली साफ करब")
                 ),
                 precautions = listOf(
-                    "Clear field drainage channels immediately to prevent waterlogging & root rot",
-                    "Inspect field bunds to avoid breach and topsoil erosion"
-                )
-            )
-        }
-        desc.contains("rain") || desc.contains("drizzle") || desc.contains("shower") || desc.contains("precipitation") || desc.contains("wet") -> {
-            FieldGuidance(
-                headline = "Rainy Conditions Guidance",
-                summary = "Wet weather and rain showers present. Topsoil is damp with high ambient moisture.",
-                badge = "RAINY / SPRAYING DELAYED",
-                badgeColor = Color(0xFFE3F2FD),
-                badgeTextColor = Color(0xFF1565C0),
-                icon = Icons.Rounded.BeachAccess,
-                notSuitableFor = listOf(
-                    "Foliar pesticide & fungicide spraying (wash-off risk)",
-                    "Harvesting mature grains or fodder hay",
-                    "Applying dry urea or soluble chemical fertilizers"
-                ),
-                suitableFor = listOf(
-                    "Transplanting paddy and rainfed Kharif seedlings",
-                    "Planting tree saplings & agroforestry borders",
-                    "Maintaining farm drainage furrows"
-                ),
-                precautions = listOf(
-                    "Allow foliage to dry for at least 24 hours before scheduling foliar sprays",
-                    "Ensure nursery beds have raised slopes to drain excess water"
-                )
-            )
-        }
-        desc.contains("wind") || desc.contains("gale") || desc.contains("breeze") || wind >= 18.0 -> {
-            FieldGuidance(
-                headline = "High Wind Warning",
-                summary = "Elevated wind speeds (${wind.toInt()} km/h). Air turbulence causes chemical drift and uneven droplet deposition.",
-                badge = "HIGH WIND / NO SPRAY",
-                badgeColor = Color(0xFFFFF3E0),
-                badgeTextColor = Color(0xFFE65100),
-                icon = Icons.Rounded.Air,
-                notSuitableFor = listOf(
-                    "Foliar spraying & dusting (causes severe drift to non-target crops)",
-                    "Crop residue burning (extreme wildfire hazard)",
-                    "Sprinkler irrigation (uneven distribution patterns)"
-                ),
-                suitableFor = listOf(
-                    "Soil plowing and manual weeding at ground level",
-                    "Repairing drip irrigation lines and ground pipes"
-                ),
-                precautions = listOf(
-                    "Provide earthing-up and staking for vulnerable standing crops",
-                    "Check and tie down polyhouse plastic sheets & nursery netting"
-                )
-            )
-        }
-        desc.contains("heat") || desc.contains("hot") || temp >= 35 -> {
-            FieldGuidance(
-                headline = "High Heat & Evaporation Stress",
-                summary = "High temperature ($temp°C). Rapid evapotranspiration stress on soil and plant tissues.",
-                badge = "HEAT STRESS / IRRIGATE",
-                badgeColor = Color(0xFFFFF3E0),
-                badgeTextColor = Color(0xFFE65100),
-                icon = Icons.Rounded.WbSunny,
-                notSuitableFor = listOf(
-                    "Midday chemical spraying (rapid evaporation & chemical leaf scorching)",
-                    "Midday seedling transplanting (severe transplant shock)",
-                    "Heavy physical fieldwork during peak noon hours"
-                ),
-                suitableFor = listOf(
-                    "Early morning or late evening drip irrigation",
-                    "Applying organic straw mulching to conserve root moisture",
-                    "Deep summer plowing (soil solarization for pest control)"
-                ),
-                precautions = listOf(
-                    "Irrigate in split doses during cooler morning/evening hours",
-                    "Provide shade covers and clean water for farm livestock"
-                )
-            )
-        }
-        desc.contains("cold") || desc.contains("frost") || desc.contains("snow") || desc.contains("freeze") || desc.contains("ice") || temp <= 10 -> {
-            FieldGuidance(
-                headline = "Cold Wave & Frost Advisory",
-                summary = "Low temperature ($temp°C). Horticultural and vegetable crops are at risk of frost injury.",
-                badge = "FROST RISK / PROTECT CROPS",
-                badgeColor = Color(0xFFE1F5FE),
-                badgeTextColor = Color(0xFF0277BD),
-                icon = Icons.Rounded.AcUnit,
-                notSuitableFor = listOf(
-                    "Nitrogen fertilizer application (spurs tender growth susceptible to frost)",
-                    "Heavy cold water flooding late at night",
-                    "Exposing tender nursery saplings without cover"
-                ),
-                suitableFor = listOf(
-                    "Light evening irrigation (raises soil thermal mass against frost)",
-                    "Covering vegetable beds with straw/plastic thatch",
-                    "Pruning dormant orchard trees"
-                ),
-                precautions = listOf(
-                    "Generate light smoke on orchard windward boundaries during freezing nights",
-                    "Harvest mature vegetable produce early before night frost"
-                )
-            )
-        }
-        desc.contains("fog") || desc.contains("mist") || desc.contains("haze") || humidity >= 80 -> {
-            FieldGuidance(
-                headline = "Fog & High Humidity Advisory",
-                summary = "High relative humidity ($humidity%). Prolonged leaf wetness promotes rapid fungal & bacterial pathogen sporulation.",
-                badge = "HIGH HUMIDITY / DISEASE WATCH",
-                badgeColor = Color(0xFFEDE7F6),
-                badgeTextColor = Color(0xFF512DA8),
-                icon = Icons.Rounded.WaterDrop,
-                notSuitableFor = listOf(
-                    "Overhead sprinkler irrigation (further prolongs canopy wetness)",
-                    "Early morning spraying while heavy dew is dripping",
-                    "Dense storage of damp harvested produce"
-                ),
-                suitableFor = listOf(
-                    "Scouting crops for fungal leaf spots, blights, and powdery mildew",
-                    "Applying prophylactic bio-fungicides (Trichoderma / Pseudomonas)",
-                    "Pruning lower diseased leaves to improve inter-row ventilation"
-                ),
-                precautions = listOf(
-                    "Scout undersides of leaves and crop crowns daily for early disease signs",
-                    "Allow morning dew to completely evaporate before starting harvest"
-                )
-            )
-        }
-        desc.contains("cloud") || desc.contains("overcast") -> {
-            FieldGuidance(
-                headline = "Cloudy & Overcast Weather",
-                summary = "Diffused sunlight and mild transpiration. Favorable conditions for root establishment.",
-                badge = "MILD / GOOD FOR PLANTING",
-                badgeColor = Color(0xFFF1F8E9),
-                badgeTextColor = Color(0xFF33691E),
-                icon = Icons.Rounded.WbCloudy,
-                notSuitableFor = listOf(
-                    "Sun-drying harvested grains and seeds (slow drying & mold risk)",
-                    "Solar soil disinfestation"
-                ),
-                suitableFor = listOf(
-                    "Transplanting seedlings with minimal wilting shock",
-                    "Inter-cultivation, manual weeding, and hoeing",
-                    "Fertilizer side-dressing and incorporation"
-                ),
-                precautions = listOf(
-                    "Monitor sucking pests (aphids, jassids) which proliferate under overcast skies",
-                    "Maintain proper row spacing for light penetration"
-                )
-            )
-        }
-        desc.contains("clear") || desc.contains("sun") || desc.contains("bright") -> {
-            FieldGuidance(
-                headline = "Optimal Sunny Conditions",
-                summary = "Clear skies with abundant solar radiation. Ideal day for chemical protection and harvesting.",
-                badge = "OPTIMAL / IDEAL FOR SPRAYING",
-                badgeColor = Color(0xFFE8F5E9),
-                badgeTextColor = Color(0xFF1B5E20),
-                icon = Icons.Rounded.WbSunny,
-                notSuitableFor = listOf(
-                    "Broadcasting uncovered volatile nitrogen fertilizers in peak sunlight",
-                    "Flood irrigation during hot noon hours"
-                ),
-                suitableFor = listOf(
-                    "Foliar pesticide, herbicide, and micronutrient spraying",
-                    "Harvesting and sun-drying agricultural produce",
-                    "Tractor plowing, harrowing, and field bed preparation"
-                ),
-                precautions = listOf(
-                    "Schedule field irrigation in the early morning to minimize evaporation loss",
-                    "Inspect soil moisture depth before scheduling next irrigation"
+                    t("Clear field drainage channels immediately", "खेत से पानी निकालने की व्यवस्था रखें", "પાણીનો નિકાલ ચાલુ રાખો", "पाण्याचा निचरा सुरळीत ठेवा", "ਪਾਣੀ ਦੀ ਨਿਕਾਸੀ ਸੁਚਾਰੂ ਰੱਖੋ", "পানি দ্রুত বের করে দিন", "நீர் தேங்குவதைத் தடுக்கவும்", "నీరు నిలవకుండా చూడండి", "ನೀರು ಸರಾಗವಾಗಿ ಹರಿಯಲು ಬಿಡಿ", "വെള്ളം കെട്ടിനിൽക്കാൻ അനുവദിക്കരുത്", "ଜମିରେ ପାଣି ଜମିବାକୁ ଦିଅନ୍ତୁ ନାହିଁ", "পানী ওলাই যাবলৈ দিয়ক", "پانی کا نکاس یقینی بنائیں", "खेत सं पानि बहाबय केर व्यवस्था राखू")
                 )
             )
         }
         else -> {
             FieldGuidance(
-                headline = "General Field Operations Guidance",
-                summary = "Stable seasonal weather conditions. Suitable for routine farm maintenance and crop care.",
-                badge = "FAVORABLE FOR FARM WORK",
+                headline = t(
+                    "Optimal Field Conditions", "अनुकूल कृषि मौसम", "ખેતી માટે અનુકૂળ હવામાન",
+                    "शेती कामांसाठी अनुकूल हवामान", "ਖੇਤੀ ਕੰਮਾਂ ਲਈ ਢੁਕਵਾਂ ਮੌਸਮ", "মাঠের কাজের জন্য অনুকূল আবহাওয়া",
+                    "களப்பணிகளுக்கு உகந்த வானிலை", "పొలం పనులకు అనుకూల వాతావరణం", "ಕೃಷಿ ಕೆಲಸಗಳಿಗೆ ಉತ್ತಮ ಹವಾಮಾನ",
+                    "കൃഷിപ്പണികൾക്ക് അനുകൂല കാലാവസ്ഥ", "କୃଷି କାର୍ଯ୍ୟ ପାଇଁ ଅନୁକୂଳ ପାଣିପାଗ", "কৃষি কামৰ বাবে উপযোগী বতৰ",
+                    "کھیتی کے کاموں کے لیے سازگار موسم", "कृषि काज लेल अनुकूल मौसम"
+                ),
+                summary = t(
+                    "Stable weather conditions. Favorable for chemical spraying, weeding, and routine fieldwork.",
+                    "मौसम सामान्य और स्थिर है। दवा छिड़काव, निराई-गुड़ाई और नियमित खेती कार्यों के लिए उत्तम दिन।",
+                    "હવામાન શાંત અને અનુકૂળ છે. દવા છંટકાવ, નીંદણ અને નિયમિત ખેતી કાર્યો માટે ઉત્તમ દિવસ.",
+                    "हवामान स्थिर व स्वच्छ आहे. फवारणी, खुरपणी आणि दैनंदिन शेती कामांसाठी अतिशय चांगला दिवस.",
+                    "ਮੌਸਮ ਸ਼ਾਂਤ ਅਤੇ ਸਾਫ਼ ਹੈ। ਸਪਰੇਅ, ਗੋਡੀ ਅਤੇ ਆਮ ਖੇਤ ਕੰਮਾਂ ਲਈ ਵਧੀਆ ਦਿਨ।",
+                    "আবহাওয়া স্থিতিশীল রয়েছে। স্প্রে, আগাছা পরিষ্কার ও নিয়মিত মাঠের কাজের জন্য উপযুক্ত দিন।",
+                    "வானிலை சீராக உள்ளது. மருந்து தெளித்தல், களையெடுத்தல் மற்றும் வழக்கமான பணிகளுக்கு உகந்தது.",
+                    "వాతావరణం ప్రశాంతంగా ఉంది. పిచికారీ, కలుపు తీయడం మరియు సాధారణ పనులకు అనుకూలం.",
+                    "ಹವಾಮಾನವು ಸ್ಥಿರವಾಗಿದೆ. ಸಿಂಪಡಣೆ, ಕಳೆ ಕೀಳುವುದು ಮತ್ತು ದಿನನಿತ್ಯದ ಕೃಷಿ ಕೆಲಸಗಳಿಗೆ ಸೂಕ್ತವಾಗಿದೆ.",
+                    "കാലാവസ്ഥ ശാന്തമാണ്. മരുന്ന് തളിക്കൽ, കളപറിക്കൽ, പതിവ് പണികൾ എന്നിവയ്ക്ക് അനുകൂലം.",
+                    "ପାଣିପାଗ ସ୍ଥିର ରହିଛି। ସ୍ପ୍ରେ, ଘାସ ବଛା ଏବଂ ନିୟମିତ କ୍ଷେତ କାର୍ଯ୍ୟ ପାଇଁ ଉତ୍ତମ ଦିନ।",
+                    "বতৰ অনুকূল হৈ আছে। ঔষধ স্প্ৰে' কৰা আৰু পথাৰৰ নিয়মীয়া কামৰ বাবে ভাল সময়।",
+                    "موسم سازگار ہے۔ اسپرے، گوڈی اور روزمرہ کے کاموں کے لیے بہترین دن۔",
+                    "मौसम सामान्य आ स्थिर अछि। दवाई छिड़काव आ खेत काज लेल उत्तम दिन।"
+                ),
+                badge = t(
+                    "OPTIMAL / GOOD FOR FIELDWORK", "अनुकूल / कार्य के लिए उपयुक्त", "અનુકૂળ / કામ માટે શ્રેષ્ઠ",
+                    "अनुकूल / शेतीसाठी उत्तम", "ਅਨੁਕੂਲ / ਕੰਮ ਲਈ ਵਧੀਆ", "অনুকূল / কাজের জন্য উপযুক্ত",
+                    "உகந்தது / பணிகளுக்கு ஏற்றது", "అనుకూలం / పనులకు మంచిది", "ಉತ್ತಮ / ಕೆಲಸಕ್ಕೆ ಸೂಕ್ತ",
+                    "അനുകൂലം / പണികൾക്ക് ഉചിതം", "ଅନୁକୂଳ / କାର୍ଯ୍ୟ ପାଇଁ ଉତ୍ତମ", "অনুকূল / কামৰ বাবে ভাল",
+                    "سازگار / کام کے لیے بہترین", "अनुकूल / काज लेल उपयुक्त"
+                ),
                 badgeColor = Color(0xFFE8F5E9),
                 badgeTextColor = Color(0xFF1B5E20),
-                icon = Icons.Rounded.Grass,
+                icon = Icons.Rounded.WbSunny,
                 notSuitableFor = listOf(
-                    "Over-irrigating without assessing soil moisture level"
+                    t("Over-irrigating without assessing soil moisture", "बिना जरूरत अधिक सिंचाई", "જરૂર વગર વધુ પિયત", "गरजेपेक्षा जास्त पाणी देणे", "ਲੋੜ ਤੋਂ ਵੱਧ ਸਿੰਚਾਈ", "অতিরিক্ত সেচ প্রদান", "தேவையின்றி அதிக பாசனம்", "అవసరానికి మించి నీరు పెట్టడం", "ಅತಿಯಾದ ನೀರಾವರಿ", "അമിതമായ നനയ്ക്കൽ", "ଅତ୍ୟଧିକ ଜଳସେଚନ", "অধিক জলসিঞ্চন", "ضرورت سے زیادہ آبپاشی", "बिना आवश्यकताक बेसी पटौनी")
                 ),
                 suitableFor = listOf(
-                    "Routine crop scouting and pest monitoring",
-                    "Weed removal and intercultural operations",
-                    "Scheduled nutrient management and irrigation"
+                    t("Foliar pesticide, herbicide & nutrient spraying", "दवा व पोषक तत्वों का छिड़काव", "દવા અને પોષક તત્વોનો છંટકાવ", "कीटकनाशके व खतांची फवारणी", "ਸਪਰੇਅ ਅਤੇ ਖਾਦ ਪਾਉਣਾ", "কীটনাশক ও পুষ্টি উপাদান স্প্রে", "மருந்து மற்றும் ஊட்டச்சத்து தெளித்தல்", "పిచికారీ & పోషకాల పిచికారీ", "ಸಿಂಪಡಣೆ ಮತ್ತು ಪೋಷಕಾಂಶಗಳ ನೀಡಿಕೆ", "മരുന്ന് തളിക്കലും വളപ്രയോഗവും", "ଔଷଧ ଏବଂ ପୋଷକ ତତ୍ତ୍ୱ ସ୍ପ୍ରେ", "ঔষধ আৰু সাৰ স্প্ৰে' কৰা", "اسپرے اور غذائی اجزاء ڈالنا", "दवाई आ पोषक तत्व केर छिड़काव"),
+                    t("Weed removal and manual intercultural operations", "निराई-गुड़ाई व खरपतवार नियंत्रण", "નીંદામણ અને ગોડ કામ", "खुरपणी व आंतरमशागत", "ਨਦੀਨ ਕੱਢਣਾ ਅਤੇ ਗੋਡੀ", "আগাছা পরিষ্কার ও নিড়ানি", "களை எடுத்தல் மற்றும் இடைப்பயிற்சி", "కలుపు తీత & అంతరకృషి", "ಕಳೆ ಕೀಳುವುದು ಮತ್ತು ಅಂತರಬೇಸಾಯ", "കളപറിക്കലും ഇടവിള പണികളും", "ଘାସ ବାଛିବା ଏବଂ କୋଡ଼ିବା", "বন-বাত নিৰ্মূল কৰা", "گھاس کاٹنا اور گوڈی کرنا", "सोहनी आ कोड़नी")
                 ),
                 precautions = listOf(
-                    "Maintain clear irrigation and drainage channels across the field",
-                    "Keep farm tools clean and disinfected between plots"
+                    t("Inspect soil moisture before next irrigation", "मिट्टी की नमी देखकर ही अगली सिंचाई करें", "ભેજ ચકાસીને જ પિયત આપો", "मातीतील ओलावा पाहूनच पाणी द्या", "ਨਮੀ ਦੇਖ ਕੇ ਹੀ ਸਿੰਚਾਈ ਕਰੋ", "আর্দ্রতা দেখে সেচ দিন", "மண் ஈரப்பதத்தைப் பார்த்து பாசனம் செய்யுங்கள்", "తేమ చూసి నీరు పెట్టండి", "ತೇವಾಂಶ ನೋಡಿ ನೀರು ಕೊಡಿ", "ഈർപ്പം നോക്കി നനയ്ക്കുക", "ଓଦା ଦେଖି ଜଳସେଚନ କରନ୍ତୁ", "আৰ্দ্ৰতা চাই পানী দিয়ক", "نمی دیکھ کر آبپاشی کریں", "माटी मे नमी देखि क पटौनी करू")
                 )
             )
         }
@@ -1435,6 +1381,7 @@ fun generateFieldGuidance(weather: DisplayWeatherData): FieldGuidance {
 // Data Handling
 @Composable
 private fun WeatherLoadingState() {
+    val currentLang = LocalAppLanguage.current
     NeoCard {
         Column(
             modifier = Modifier.fillMaxWidth().padding(24.dp),
@@ -1442,20 +1389,21 @@ private fun WeatherLoadingState() {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             CircularProgressIndicator(color = Color(0xFF2E7D32))
-            Text("Loading live weather", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-            Text("Fetching your field conditions...", style = MaterialTheme.typography.bodyMedium)
+            Text(AppLocalizer.localizeWeatherPhrase("loading live weather", currentLang), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+            Text(AppLocalizer.localizeWeatherPhrase("fetching field conditions", currentLang), style = MaterialTheme.typography.bodyMedium)
         }
     }
 }
 
 @Composable
 private fun WeatherErrorState(message: String, onRetry: () -> Unit) {
+    val currentLang = LocalAppLanguage.current
     NeoCard(containerColor = MaterialTheme.colorScheme.errorContainer) {
         Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Icon(Icons.Rounded.ErrorOutline, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(32.dp))
-            Text("Weather unavailable", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
+            Text(AppLocalizer.localizeWeatherPhrase("weather unavailable", currentLang), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
             Text(message, style = MaterialTheme.typography.bodyMedium)
-            PremiumButton(text = "Try Again", onClick = onRetry)
+            PremiumButton(text = AppLocalizer.localizeWeatherPhrase("try again", currentLang), onClick = onRetry)
         }
     }
 }

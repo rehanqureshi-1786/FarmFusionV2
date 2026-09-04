@@ -217,20 +217,156 @@ async def run_crop_recommendation_workflow(input_data: CropRecommendationInput) 
         "season": season,
     }
 
-    if input_data.language == "hi":
+    lang = input_data.language.lower() if input_data.language else "hi"
+    if lang == "od":
+        lang = "or"
+
+    # Crop names dictionary for 14 languages
+    crop_names_map = {
+        "rice": {"hi": "धान / चावल", "mr": "भात", "gu": "ડાંગર", "pa": "ਝੋਨਾ", "bn": "ধান", "ta": "நெல்", "te": "వరి", "kn": "ಭತ್ತ", "ml": "നെല്ല്", "or": "ଧାନ", "as": "ধান", "ur": "دھان", "mai": "धान"},
+        "maize": {"hi": "मक्का", "mr": "मका", "gu": "મકાઈ", "pa": "ਮੱਕੀ", "bn": "ভুট্টা", "ta": "மக்காச்சோளம்", "te": "మొక్కజొన్న", "kn": "ಮೆಕ್ಕೆಜೋಳ", "ml": "ചോളം", "or": "ମକା", "as": "মাকৈ", "ur": "مکئی", "mai": "मकई"},
+        "chickpea": {"hi": "चना", "mr": "हरभरा", "gu": "ચણા", "pa": "ਛੋਲੇ", "bn": "ছোলা", "ta": "கொண்டைக்கடலை", "te": "శనగలు", "kn": "ಕಡಲೆ", "ml": "കടല", "or": "ବୁଟ", "as": "বুট", "ur": "چنا", "mai": "चना"},
+        "kidneybeans": {"hi": "राजमा", "mr": "राजमा", "gu": "રાજમા", "pa": "ਰਾਜਮਾਂਹ", "bn": "রাজমা", "ta": "ராஜ்மா", "te": "రాజ్మా", "kn": "ರಾಜ್ಮಾ", "ml": "രാജ്മ", "or": "ରାଜମା", "as": "ৰাজমাহ", "ur": "ਰਾਜਮਾ", "mai": "राजमा"},
+        "pigeonpeas": {"hi": "अरहर / तुअर", "mr": "तूर", "gu": "તુવેર", "pa": "ਅਰਹਰ", "bn": "অড়হর", "ta": "துவரை", "te": "కందులు", "kn": "ತೊಗರಿ", "ml": "തുവര", "or": "ହରଡ଼", "as": "অৰহৰ", "ur": "ارہر", "mai": "रहरी"},
+        "mothbeans": {"hi": "मोठ", "mr": "मटकी", "gu": "મઠ", "pa": "ਮੋਠ", "bn": "মঠ কলাই", "ta": "நரிப்பயறு", "te": "బొబ్బర్లు", "kn": "ಮಡಿಕೆ ಕಾಳು", "ml": "മോത്ത് ബീൻസ്", "or": "କାନି ମୁଗ", "as": "মথ মাহ", "ur": "موٹھ", "mai": "मोठ"},
+        "mungbean": {"hi": "मूंग", "mr": "मूग", "gu": "મગ", "pa": "ਮੂੰਗੀ", "bn": "মুগ", "ta": "பாசிப்பயறு", "te": "పెసలు", "kn": "ಹೆಸರು ಕಾಳು", "ml": "ചെറുപയർ", "or": "ମୁଗ", "as": "মগু মাহ", "ur": "مونگ", "mai": "मूंग"},
+        "blackgram": {"hi": "उड़द", "mr": "उडीद", "gu": "અડદ", "pa": "ਮਾਂਹ", "bn": "মাষকলাই", "ta": "உளுந்து", "te": "మినుములు", "kn": "ಉದ್ದು", "ml": "ഉഴുന്ന്", "or": "ବିରି", "as": "মাটি মাহ", "ur": "ماش", "mai": "उड़िद"},
+        "lentil": {"hi": "मसूर", "mr": "मसूर", "gu": "મસૂર", "pa": "ਮਸਰ", "bn": "মসুর", "ta": "மைசூர் பருப்பு", "te": "మసూర్ పప్పు", "kn": "ಮಸೂರ", "ml": "മസൂർ പരിപ്പ്", "or": "ମସୁର", "as": "মচুৰ মাহ", "ur": "مسور", "mai": "मंसूर"},
+        "pomegranate": {"hi": "अनार", "mr": "डाळिंब", "gu": "દાડમ", "pa": "ਅਨਾਰ", "bn": "ডালিম", "ta": "மாதுளை", "te": "దానిమ్మ", "kn": "ದಾಳಿಂಬೆ", "ml": "മാതളനാരങ്ങ", "or": "ଡାଳିମ୍ବ", "as": "ডালিম", "ur": "انار", "mai": "अनार"},
+        "banana": {"hi": "केला", "mr": "केळी", "gu": "કેળાં", "pa": "ਕੇਲਾ", "bn": "কলা", "ta": "வாழை", "te": "అరటి", "kn": "ಬಾಳೆಹಣ್ಣು", "ml": "വാഴ", "or": "କଦଳୀ", "as": "কল", "ur": "کیلا", "mai": "केरा"},
+        "mango": {"hi": "आम", "mr": "आंबा", "gu": "કેરી", "pa": "ਅੰਬ", "bn": "আম", "ta": "மாம்பழம்", "te": "మామిడి", "kn": "ಮಾವು", "ml": "മാങ്ങ", "or": "ଆମ୍ବ", "as": "আম", "ur": "آم", "mai": "आम"},
+        "grapes": {"hi": "अंगूर", "mr": "द्राक्षे", "gu": "દ્રાક્ષ", "pa": "ਅੰਗੂਰ", "bn": "আঙ্গুর", "ta": "திராட்சை", "te": "ద్రాక్ష", "kn": "ದ್ರಾಕ್ಷಿ", "ml": "മുന്തിരി", "or": "ଅଙ୍ଗୁର", "as": "আঙুৰ", "ur": "انگور", "mai": "अंगूर"},
+        "watermelon": {"hi": "तरबूज", "mr": "कलिंगड", "gu": "તરબૂચ", "pa": "ਤਰਬੂਜ਼", "bn": "তরমুজ", "ta": "தர்பூசணி", "te": "పుచ్చకాయ", "kn": "ಕಲ್ಲಂಗಡಿ", "ml": "തണ്ണിമത്തൻ", "or": "ତରଭୁଜ", "as": "তৰমুজ", "ur": "تربوز", "mai": "तरबूज"},
+        "muskmelon": {"hi": "खरबूजा", "mr": "खरबूज", "gu": "શક્કરટેટી", "pa": "ਖਰਬੂਜ਼ਾ", "bn": "ফুটি", "ta": "முலாம் பழம்", "te": "కర్బూజ", "kn": "ಖರಬೂಜ", "ml": "തയ്ക്കുമ്പളം", "or": "ଖରଭୁଜ", "as": "খাৰমুজা", "ur": "خربوزہ", "mai": "खरबूजा"},
+        "apple": {"hi": "सेब", "mr": "सफरचंद", "gu": "સફરજન", "pa": "ਸੇਬ", "bn": "আপেল", "ta": "ஆப்பிள்", "te": "ఆపిల్", "kn": "ಸೇಬು", "ml": "ആപ്പിൾ", "or": "ସେଓ", "as": "আপেল", "ur": "سیب", "mai": "सेब"},
+        "orange": {"hi": "संतरा", "mr": "संत्री", "gu": "સંતરાં", "pa": "ਸੰਤਰਾ", "bn": "কমলাเลবু", "ta": "ஆரஞ்சு", "te": "నారింజ", "kn": "ಕಿತ್ತಳೆ", "ml": "ഓറഞ്ച്", "or": "କମଳା", "as": "কমলা", "ur": "سنترا", "mai": "संतरा"},
+        "papaya": {"hi": "पपीता", "mr": "पपई", "gu": "પપૈયું", "pa": "ਪਪੀਤਾ", "bn": "পেঁপে", "ta": "பப்பாளி", "te": "బొప్పాయి", "kn": "ಪಪ್ಪಾಯಿ", "ml": "പപ്പായ", "or": "ଅମୃତଭଣ୍ଡା", "as": "অমিতা", "ur": "پپیتا", "mai": "पपीता"},
+        "coconut": {"hi": "नारियल", "mr": "नारळ", "gu": "નાળિયેર", "pa": "ਨਾਰੀਅਲ", "bn": "নারকেল", "ta": "தேங்காய்", "te": "కొబ్బరి", "kn": "ತೆಂಗಿನಕಾಯಿ", "ml": "തേങ്ങ", "or": "ନଡ଼ିଆ", "as": "নাৰিকল", "ur": "ناریل", "mai": "नारियर"},
+        "cotton": {"hi": "कपास", "mr": "कापूस", "gu": "કપાસ", "pa": "ਕਪਾਹ", "bn": "তুলা", "ta": "பருத்தி", "te": "ప్రత్తి", "kn": "ಹತ್ತಿ", "ml": "പരുത്തി", "or": "କପା", "as": "কপাহ", "ur": "کپاس", "mai": "कपास"},
+        "jute": {"hi": "जूट", "mr": "ताग", "gu": "શણ", "pa": "ਪਟਸਨ", "bn": "পাট", "ta": "சணல்", "te": "జనపనార", "kn": "ಸೆಣಬು", "ml": "ചണം", "or": "ଝୋଟ", "as": "মৰাপাট", "ur": "پٹ سن", "mai": "पटुआ"},
+        "coffee": {"hi": "कॉफी", "mr": "कॉफी", "gu": "કોફી", "pa": "ਕੌਫੀ", "bn": "কফি", "ta": "காபி", "te": "కాఫీ", "kn": "ಕಾಫಿ", "ml": "കാപ്പി", "or": "କଫି", "as": "কফি", "ur": "کافی", "mai": "कॉफी"}
+    }
+
+    def _loc_crop(c_name: str) -> str:
+        key = c_name.lower().strip()
+        trans = crop_names_map.get(key, {})
+        return trans.get(lang, trans.get("hi", c_name))
+
+    localized_top_crop = _loc_crop(top_crop_name)
+    localized_alt_crops = [_loc_crop(c.crop_name) for c in alternative_crops[:2]]
+
+    if lang == "mr":
         farmer_message = (
-            f"आपकी मिट्टी की जांच (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
-            f"और मौसम के अनुसार सबसे उपयुक्त फसल **{top_crop_name}** है "
-            f"(ML स्कोर: {top_confidence * 100:.0f}%)। "
-            f"बुवाई का सही समय: {top_agro['sowing']}। "
-            f"वैकल्पिक विकल्प: {', '.join(c.crop_name for c in alternative_crops[:2])}।"
+            f"तुमच्या माती परीक्षणानुसार (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"आणि हवामानानुसार सर्वात योग्य पीक **{localized_top_crop}** आहे "
+            f"(ML अचूकता: {top_confidence * 100:.0f}%)। "
+            f"पेरणीची योग्य वेळ: {top_agro['sowing']}। "
+            f"पर्यायी पिके: {', '.join(localized_alt_crops)}."
         )
-    else:
+    elif lang == "gu":
+        farmer_message = (
+            f"તમારા સોઇલ રિપોર્ટ (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"અને હવામાન મુજબ સૌથી શ્રેષ્ઠ પાક **{localized_top_crop}** છે "
+            f"(ML સ્કોર: {top_confidence * 100:.0f}%)। "
+            f"વાવણીનો યોગ્ય સમય: {top_agro['sowing']}। "
+            f"વૈકલ્પિક પાક: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "pa":
+        farmer_message = (
+            f"ਤੁਹਾਡੀ ਮਿੱਟੀ ਰਿਪੋਰਟ (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"ਅਤੇ ਮੌਸਮ ਅਨੁਸਾਰ ਸਭ ਤੋਂ ਵਧੀਆ ਫਸਲ **{localized_top_crop}** ਹੈ "
+            f"(ML ਸਕੋਰ: {top_confidence * 100:.0f}%)। "
+            f"ਬਿਜਾਈ ਦਾ ਸਮਾਂ: {top_agro['sowing']}। "
+            f"ਹੋਰ ਵਿਕਲਪ: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "bn":
+        farmer_message = (
+            f"আপনার মাটির রিপোর্ট (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"এবং আবহাওয়ার ওপর ভিত্তি করে সবচেয়ে উপযুক্ত ফসল **{localized_top_crop}** "
+            f"(ML স্কোর: {top_confidence * 100:.0f}%)। "
+            f"বপনের উপযুক্ত সময়: {top_agro['sowing']}। "
+            f"বিকল্প ফসল: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "ta":
+        farmer_message = (
+            f"உங்கள் மண் பரிசோதனை (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"மற்றும் காலநிலைக்கு மிகவும் ஏற்ற பயிர் **{localized_top_crop}** ஆகும் "
+            f"(பொருத்தம்: {top_confidence * 100:.0f}%). "
+            f"விதைப்பு காலம்: {top_agro['sowing']}. "
+            f"மாற்று பயிர்கள்: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "te":
+        farmer_message = (
+            f"మీ నేల పరీక్ష నివేదిక (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"మరియు వాతావరణం ప్రకారం అత్యంత అనుకూలమైన పంట **{localized_top_crop}** "
+            f"(స్కోరు: {top_confidence * 100:.0f}%). "
+            f"విత్తే సమయం: {top_agro['sowing']}. "
+            f"ప్రత్యామ్నాయ పంటలు: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "kn":
+        farmer_message = (
+            f"ನಿಮ್ಮ ಮಣ್ಣಿನ ವರದಿ (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"ಮತ್ತು ಹವಾಮಾನದ ಪ್ರಕಾರ ಅತ್ಯಂತ ಸೂಕ್ತವಾದ ಬೆಳೆ **{localized_top_crop}** "
+            f"(ಸ್ಕೋರ್: {top_confidence * 100:.0f}%). "
+            f"ಬಿತ್ತನೆ ಸಮಯ: {top_agro['sowing']}. "
+            f"ಪರ್ಯಾಯ ಬೆಳೆಗಳು: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "ml":
+        farmer_message = (
+            f"നിങ്ങളുടെ മണ്ണ് പരിശോധന (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"കാലാവസ്ഥ എന്നിവയ്ക്ക് ഏറ്റവും അനുയോജ്യമായ വിള **{localized_top_crop}** ആണ് "
+            f"(സ്കോർ: {top_confidence * 100:.0f}%). "
+            f"നടീൽ സമയം: {top_agro['sowing']}. "
+            f"മറ്റ് വിളകൾ: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "or":
+        farmer_message = (
+            f"ଆପଣଙ୍କ ମାଟି ପରୀକ୍ଷା (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"ଓ ପାଣିପାଗ ଅନୁସାରେ ସର୍ବୋତ୍ତମ ଫସଲ **{localized_top_crop}** "
+            f"(ସ୍କୋର: {top_confidence * 100:.0f}% )। "
+            f"ବୁଣିବା ସମୟ: {top_agro['sowing']}। "
+            f"ବିକଳ୍ପ ଫସଲ: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "as":
+        farmer_message = (
+            f"আপোনাৰ মাটি পৰীক্ষা (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"আৰু বতৰৰ ওপৰত ভিত্তি কৰি আটাইতকৈ উপযোগী শস্য **{localized_top_crop}** "
+            f"(স্ক'ৰ: {top_confidence * 100:.0f}%)। "
+            f"বীজ সিঁচাৰ সময়: {top_agro['sowing']}। "
+            f"বিকল্প শস্য: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "ur":
+        farmer_message = (
+            f"آپ کی مٹی کی رپورٹ (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"اور موسم کے مطابق بہترین فصل **{localized_top_crop}** ہے "
+            f"(اسکور: {top_confidence * 100:.0f}%)۔ "
+            f"بوائی کا بہترین وقت: {top_agro['sowing']}۔ "
+            f"متبادل فصلیں: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "mai":
+        farmer_message = (
+            f"अहाँक माटी केर जांच (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"आ मौसमक अनुसार सभ सं उपयुक्त फसल **{localized_top_crop}** अछि "
+            f"(ML स्कोर: {top_confidence * 100:.0f}%)। "
+            f"बोआई केर सही समय: {top_agro['sowing']}। "
+            f"वैकल्पिक फसल: {', '.join(localized_alt_crops)}."
+        )
+    elif lang == "en":
         farmer_message = (
             f"Based on your soil report (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
             f"and climate data, the ML model recommends **{top_crop_name}** "
             f"(Score: {top_confidence * 100:.0f}%). "
-            f"Optimal sowing: {top_agro['sowing']}."
+            f"Optimal sowing: {top_agro['sowing']}. "
+            f"Alternative options: {', '.join(c.crop_name for c in alternative_crops[:2])}."
+        )
+    else:
+        # Default Hindi
+        farmer_message = (
+            f"आपकी मिट्टी की जांच (N:{nitrogen}, P:{phosphorus}, K:{potassium}, pH:{ph}) "
+            f"और मौसम के अनुसार सबसे उपयुक्त फसल **{localized_top_crop}** है "
+            f"(ML स्कोर: {top_confidence * 100:.0f}%)। "
+            f"बुवाई का सही समय: {top_agro['sowing']}। "
+            f"वैकल्पिक विकल्प: {', '.join(localized_alt_crops)}."
         )
 
     if outside_dist:

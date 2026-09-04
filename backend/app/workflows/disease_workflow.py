@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from app.services.disease_knowledge_service import DiseaseKnowledgeService
 from app.services.disease_ml_service import DiseaseMLService
+from app.services.plant_gatekeeper_service import PlantGatekeeperService
 
 logger = structlog.get_logger(__name__)
 
@@ -51,6 +52,20 @@ async def run_disease_detection_workflow(input_data: DiseaseDetectionInput) -> D
     4. Multilingual farmer response generation communicating confidence tier clearly
     """
     logger.info("run_disease_detection_workflow_start", crop=input_data.crop_name, lang=input_data.language)
+
+    # Step 0: Gatekeeper plant check
+    gate_res = PlantGatekeeperService.verify_plant(input_data.image_bytes)
+    if not gate_res.get("is_plant", False):
+        return DiseaseDetectionResult(
+            disease_name="No Plant Detected",
+            crop_name="None",
+            confidence=0.0,
+            confidence_tier="unclear",
+            description="No plant or crop leaf was detected in this image. Please upload a clear photo of a plant leaf.",
+            treatment_steps=[],
+            prevention_tips=["Ensure the camera is focused on a plant leaf, stem, or fruit."],
+            farmer_message="कोई पौधा नहीं मिला। कृपया पौधे की पत्ती की स्पष्ट तस्वीर लें।" if input_data.language == "hi" else "No Plant Detected. Please upload or capture a clear photo of a plant leaf.",
+        )
 
     # Step 1: Image ML classification
     ml_res = DiseaseMLService.predict(input_data.image_bytes, crop_hint=input_data.crop_name)

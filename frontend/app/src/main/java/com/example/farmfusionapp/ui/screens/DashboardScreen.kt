@@ -207,11 +207,14 @@ fun DashboardScreen(navController: NavController) {
         }
     }
 
-    val groupedActions = remember {
+    val currentLang = LocalAppLanguage.current
+    val strings = LocalStrings.current
+
+    val groupedActions = remember(strings) {
         listOf(
             HomeAction(
-                title = "Disease Scan",
-                subtitle = "Camera + Gallery\nDiagnosis",
+                title = strings.dashboard.diseaseScan,
+                subtitle = strings.dashboard.diseaseScanSub,
                 iconDrawable = R.drawable.ic_disease_scan,
                 route = NavRoutes.CropDisease,
                 colors = listOf(Color(0xFFFFF5DE), Color(0xFFF9DEB0)),
@@ -219,8 +222,8 @@ fun DashboardScreen(navController: NavController) {
                 illustration = R.drawable.ill_disease_scan
             ),
             HomeAction(
-                title = "Crop Advice",
-                subtitle = "AI planning for\nyour field",
+                title = strings.dashboard.cropAdvice,
+                subtitle = strings.dashboard.cropAdviceSub,
                 iconDrawable = R.drawable.ic_crop_advice,
                 route = NavRoutes.CropRecommendation,
                 colors = listOf(Color(0xFFE8F7E8), Color(0xFFCBE8CF)),
@@ -228,8 +231,8 @@ fun DashboardScreen(navController: NavController) {
                 illustration = R.drawable.ill_crop_advice
             ),
             HomeAction(
-                title = "Market Prices",
-                subtitle = "Latest Mandi\nMovements",
+                title = strings.dashboard.marketRates,
+                subtitle = strings.dashboard.marketRatesSub,
                 iconVector = Icons.AutoMirrored.Rounded.TrendingUp,
                 route = NavRoutes.MandiPrices,
                 colors = listOf(Color(0xFFEAF1FF), Color(0xFFCFE0FF)),
@@ -237,8 +240,8 @@ fun DashboardScreen(navController: NavController) {
                 illustration = R.drawable.ill_market_prices
             ),
             HomeAction(
-                title = "Weather",
-                subtitle = "Full forecast",
+                title = strings.dashboard.weatherForecast,
+                subtitle = strings.dashboard.weatherForecastSub,
                 iconVector = Icons.Rounded.WbSunny,
                 route = NavRoutes.Weather,
                 colors = listOf(Color(0xFFE8F7FF), Color(0xFFBFE8FF)),
@@ -246,8 +249,8 @@ fun DashboardScreen(navController: NavController) {
                 illustration = R.drawable.ill_weather
             ),
             HomeAction(
-                title = "Crop Services",
-                subtitle = "Field support",
+                title = strings.dashboard.cropServices,
+                subtitle = strings.dashboard.cropServicesSub,
                 iconVector = Icons.Rounded.Spa,
                 route = NavRoutes.CropServices,
                 colors = listOf(Color(0xFFF0F7E8), Color(0xFFDCECC5)),
@@ -255,8 +258,8 @@ fun DashboardScreen(navController: NavController) {
                 illustration = R.drawable.ill_crop_services
             ),
             HomeAction(
-                title = "Farm Store",
-                subtitle = "Inputs and tools",
+                title = strings.dashboard.farmStore,
+                subtitle = strings.dashboard.farmStoreSub,
                 iconVector = Icons.Rounded.Storefront,
                 route = NavRoutes.ProductStore,
                 colors = listOf(Color(0xFFFFF1E8), Color(0xFFF6D7C0)),
@@ -264,8 +267,8 @@ fun DashboardScreen(navController: NavController) {
                 illustration = R.drawable.ill_farm_store
             ),
             HomeAction(
-                title = "Labour Help",
-                subtitle = "Workers and\nnearby services",
+                title = strings.dashboard.labourHelp,
+                subtitle = strings.dashboard.labourHelpSub,
                 iconVector = Icons.Rounded.Groups,
                 route = NavRoutes.LabourServices,
                 colors = listOf(Color(0xFFF7EAF4), Color(0xFFE8CDE1)),
@@ -273,8 +276,8 @@ fun DashboardScreen(navController: NavController) {
                 illustration = R.drawable.ill_labour_help
             ),
             HomeAction(
-                title = "Animal Alert",
-                subtitle = "Stay alert to wildlife threats",
+                title = strings.dashboard.animalIntrusion,
+                subtitle = strings.dashboard.animalIntrusionSub,
                 iconDrawable = R.drawable.ic_animal_alert,
                 route = NavRoutes.AnimalDetection,
                 colors = listOf(Color(0xFFFFEAEA), Color(0xFFFFCFCF)),
@@ -284,23 +287,23 @@ fun DashboardScreen(navController: NavController) {
         )
     }
 
-    val suggestions = remember {
+    val suggestions = remember(currentLang) {
         listOf(
             SuggestionPill(
-                title = "Rain watch",
-                note = "Plan spray before evening showers.",
+                title = AppLocalizer.localizeDashboardPhrase("rain watch", currentLang),
+                note = AppLocalizer.localizeDashboardPhrase("rain watch desc", currentLang),
                 icon = Icons.Rounded.NotificationsActive,
                 tint = Color(0xFFFF8E3B)
             ),
             SuggestionPill(
-                title = "Water check",
-                note = "Irrigation reminder from the forecast.",
+                title = AppLocalizer.localizeDashboardPhrase("water check", currentLang),
+                note = AppLocalizer.localizeDashboardPhrase("water check desc", currentLang),
                 icon = Icons.Rounded.WaterDrop,
                 tint = Color(0xFF2B7FFF)
             ),
             SuggestionPill(
-                title = "AI tip",
-                note = "Use mic for a quick farm question.",
+                title = AppLocalizer.localizeDashboardPhrase("ai tip", currentLang),
+                note = AppLocalizer.localizeDashboardPhrase("ai tip desc", currentLang),
                 icon = Icons.Rounded.TipsAndUpdates,
                 tint = Color(0xFF1F9D63)
             )
@@ -324,7 +327,7 @@ fun DashboardScreen(navController: NavController) {
         },
         onPermissionDenied = {
             hasLocationPermission = false
-            locationName = "Location permission needed"
+            locationName = AppLocalizer.localizeDashboardPhrase("location permission needed", currentLang)
         }
     )
 
@@ -428,16 +431,21 @@ fun DashboardScreen(navController: NavController) {
 
 @Composable
 private fun HomeHeroHeader(location: String) {
-    // Dynamic Time-Aware Greeting Logic
-    val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
-    val greeting = remember(currentHour) {
-        when (currentHour) {
-            in 5..11 -> "Good Morning,"
-            in 12..16 -> "Good Afternoon,"
-            in 17..20 -> "Good Evening,"
-            else -> "Good Night,"
-        }
+    val currentLang = LocalAppLanguage.current
+    val strings = LocalStrings.current
+    val localizedCity = remember(location, currentLang) {
+        AppLocalizer.localizeCity(location, currentLang)
     }
+
+    // Dynamic Time-Aware Greeting Logic in all 14 languages
+    val currentHour = remember { Calendar.getInstance().get(Calendar.HOUR_OF_DAY) }
+    val greetingKey = when (currentHour) {
+        in 5..11 -> "good morning"
+        in 12..16 -> "good afternoon"
+        in 17..20 -> "good evening"
+        else -> "good night"
+    }
+    val greeting = AppLocalizer.localizeDashboardPhrase(greetingKey, currentLang)
 
     Column(
         modifier = Modifier
@@ -464,10 +472,15 @@ private fun HomeHeroHeader(location: String) {
         Spacer(modifier = Modifier.height(10.dp))
         val authViewModel: AuthViewModel = remember { AuthViewModel() }
         val userInfo = remember { authViewModel.getCurrentUserInfo() }
-        val userName = userInfo.third ?: "Farmer"
+        val rawUserName = userInfo.third
+        val userName = if (rawUserName.isNullOrBlank() || rawUserName.equals("Farmer", ignoreCase = true)) {
+            AppLocalizer.localizeDashboardPhrase("farmer", currentLang)
+        } else {
+            rawUserName
+        }
 
         Text(
-            text = greeting, // Contextual Greeting applied
+            text = "$greeting,", // Contextual Greeting applied in 14 languages
             style = MaterialTheme.typography.titleLarge.copy(
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF424242)
@@ -499,7 +512,7 @@ private fun HomeHeroHeader(location: String) {
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = location,
+                    text = localizedCity,
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = Color(0xFF5D4037),
                         fontWeight = FontWeight.Medium
@@ -550,7 +563,7 @@ private fun HeroPagerSection(
             state = pagerState,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(236.dp),
+                .height(238.dp),
             contentPadding = PaddingValues(0.dp),
             pageSpacing = 0.dp,
             beyondViewportPageCount = 1
@@ -609,6 +622,7 @@ private fun HeroPagerSection(
 
 @Composable
 private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Unit) {
+    val strings = LocalStrings.current
     val haptic = LocalHapticFeedback.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -676,7 +690,7 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Uni
                     Column {
                         // Made smaller and thinner
                         Text(
-                            text = "Weather Forecast",
+                            text = strings.weather.weatherForecast,
                             style = MaterialTheme.typography.labelMedium.copy(
                                 color = Color.White.copy(alpha = 0.8f),
                                 fontWeight = FontWeight.Normal
@@ -686,8 +700,9 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Uni
                         if (weatherData == null) {
                             Box(modifier = Modifier.padding(top = 4.dp).width(120.dp).height(28.dp).shimmerEffect())
                         } else {
+                            val currentLang = LocalAppLanguage.current
                             Text(
-                                text = weatherData.city,
+                                text = AppLocalizer.localizeCity(weatherData.city, currentLang),
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     color = Color.White,
                                     fontWeight = FontWeight.ExtraBold,
@@ -748,9 +763,12 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Uni
 
                         Spacer(modifier = Modifier.width(16.dp))
 
+                        val currentLang = LocalAppLanguage.current
+                        val localizedCondition = AppLocalizer.localizeWeatherCondition(weatherData.description, currentLang)
+
                         Column {
                             Text(
-                                text = weatherData.description.replaceFirstChar { it.uppercase() },
+                                text = localizedCondition.ifBlank { weatherData.description.replaceFirstChar { it.uppercase() } },
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold,
@@ -758,7 +776,7 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Uni
                                 )
                             )
                             Text(
-                                text = "Feels like ${weatherData.temperature.plus(2)}°C", // Added Celsius
+                                text = "${strings.weather.feelsLike} ${weatherData.temperature.plus(2)}°C", // Added Celsius
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = Color.White.copy(alpha = 0.8f)
                                 )
@@ -777,9 +795,9 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Uni
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    WeatherStatItem(Icons.Rounded.WaterDrop, "Humidity", weatherData?.let { "${it.humidity}%" } ?: "--")
+                    WeatherStatItem(Icons.Rounded.WaterDrop, strings.weather.humidity, weatherData?.let { "${it.humidity}%" } ?: "--")
                     Box(modifier = Modifier.height(24.dp).width(1.dp).background(Color.White.copy(alpha = 0.3f)))
-                    WeatherStatItem(Icons.Rounded.Air, "Wind", weatherData?.let { "${it.windSpeed.toInt()} km/h" } ?: "--")
+                    WeatherStatItem(Icons.Rounded.Air, strings.weather.windSpeed, weatherData?.let { "${it.windSpeed.toInt()} km/h" } ?: "--")
                 }
             }
         }
@@ -788,6 +806,7 @@ private fun WeatherHeroCard(weatherData: DisplayWeatherData?, onClick: () -> Uni
 
 @Composable
 private fun AlertsHeroCard() {
+    val currentLang = LocalAppLanguage.current
     Surface(
         modifier = Modifier
             .fillMaxSize()
@@ -822,19 +841,22 @@ private fun AlertsHeroCard() {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Top
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
                         Text(
-                            text = "Field Alerts",
-                            style = MaterialTheme.typography.labelLarge.copy(
+                            text = AppLocalizer.localizeDashboardPhrase("field alerts", currentLang),
+                            style = MaterialTheme.typography.labelMedium.copy(
                                 color = Color.White.copy(alpha = 0.9f),
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp
                             )
                         )
                         Text(
-                            text = "2 Active Notices",
+                            text = AppLocalizer.localizeDashboardPhrase("active notices", currentLang),
                             style = MaterialTheme.typography.titleLarge.copy(
                                 color = Color.White,
-                                fontWeight = FontWeight.ExtraBold
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 20.sp,
+                                lineHeight = 24.sp
                             )
                         )
                     }
@@ -842,22 +864,35 @@ private fun AlertsHeroCard() {
                         Icons.Rounded.ErrorOutline,
                         null,
                         tint = Color.White,
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AlertItem("Pest Warning", "Nearby reports of Locust swarms.")
-                    AlertItem("Market Price Drop", "Wheat rates slightly down in your area.")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AlertItem(
+                        AppLocalizer.localizeDashboardPhrase("pest warning", currentLang),
+                        AppLocalizer.localizeDashboardPhrase("pest warning desc", currentLang)
+                    )
+                    AlertItem(
+                        AppLocalizer.localizeDashboardPhrase("market price drop", currentLang),
+                        AppLocalizer.localizeDashboardPhrase("market price drop desc", currentLang)
+                    )
                 }
 
                 Button(
                     onClick = { },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.White.copy(alpha = 0.25f)),
                     shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp)
+                    contentPadding = PaddingValues(horizontal = 18.dp, vertical = 6.dp)
                 ) {
-                    Text("Review All Alerts", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        text = AppLocalizer.localizeDashboardPhrase("review all alerts", currentLang),
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
@@ -867,18 +902,19 @@ private fun AlertsHeroCard() {
 @Composable
 private fun AlertItem(title: String, desc: String) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(modifier = Modifier.size(6.dp).background(Color.White, CircleShape))
-        Column {
-            Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            Text(desc, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box(modifier = Modifier.size(6.5.dp).background(Color.White, CircleShape))
+        Column(modifier = Modifier.weight(1f, fill = false)) {
+            Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(desc, color = Color.White.copy(alpha = 0.9f), fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
 @Composable
 private fun SuggestionsHeroCard(suggestions: List<SuggestionPill>) {
+    val currentLang = LocalAppLanguage.current
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().shadow(12.dp, RoundedCornerShape(32.dp)),
         shape = RoundedCornerShape(32.dp),
         color = Color.White
     ) {
@@ -906,17 +942,20 @@ private fun SuggestionsHeroCard(suggestions: List<SuggestionPill>) {
             ) {
                 Column {
                     Text(
-                        text = "Smart Suggestions",
-                        style = MaterialTheme.typography.labelLarge.copy(
+                        text = AppLocalizer.localizeDashboardPhrase("smart suggestions", currentLang),
+                        style = MaterialTheme.typography.labelMedium.copy(
                             color = Color.White.copy(alpha = 0.9f),
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 12.sp
                         )
                     )
                     Text(
-                        text = "AI Farm Tips",
+                        text = AppLocalizer.localizeDashboardPhrase("ai farm tips", currentLang),
                         style = MaterialTheme.typography.titleLarge.copy(
                             color = Color.White,
-                            fontWeight = FontWeight.ExtraBold
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 20.sp,
+                            lineHeight = 24.sp
                         )
                     )
                 }
@@ -925,19 +964,21 @@ private fun SuggestionsHeroCard(suggestions: List<SuggestionPill>) {
                     suggestions.take(2).forEach { suggestion ->
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(suggestion.icon, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                            Column {
-                                Text(suggestion.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                                Text(suggestion.note, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, maxLines = 1)
+                            Column(modifier = Modifier.weight(1f, fill = false)) {
+                                Text(suggestion.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(suggestion.note, color = Color.White.copy(alpha = 0.9f), fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
                 }
 
                 Text(
-                    "Discover more tailored advice in individual service screens.",
-                    color = Color.White.copy(alpha = 0.75f),
+                    text = AppLocalizer.localizeDashboardPhrase("discover more tailored advice", currentLang),
+                    color = Color.White.copy(alpha = 0.8f),
                     fontSize = 11.sp,
-                    lineHeight = 14.sp
+                    lineHeight = 14.sp,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }
@@ -949,6 +990,7 @@ private fun FrequentlyUsedServicesSection(
     actions: List<HomeAction>,
     onActionClick: (HomeAction) -> Unit
 ) {
+    val strings = LocalStrings.current
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -959,7 +1001,7 @@ private fun FrequentlyUsedServicesSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Quick Actions",
+                text = strings.dashboard.farmActions,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF1B5E20)
@@ -1073,6 +1115,7 @@ private fun ActionGroup(
     actions: List<HomeAction>,
     onActionClick: (HomeAction) -> Unit
 ) {
+    val strings = LocalStrings.current
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1080,7 +1123,7 @@ private fun ActionGroup(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Farm Services",
+                text = strings.dashboard.cropServices,
                 style = MaterialTheme.typography.titleLarge.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF1B5E20)

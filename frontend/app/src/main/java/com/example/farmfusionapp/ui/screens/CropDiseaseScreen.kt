@@ -77,7 +77,8 @@ fun CropDiseaseScreen(navController: NavController) {
     var capturedImageUri by remember { mutableStateOf<Uri?>(null) }
 
     val detectState by diseaseViewModel.detectState
-    val currentLang = remember { AuthStore.getLanguage(context) ?: "en" }
+    val currentLang = LocalAppLanguage.current
+    val strings = LocalStrings.current
     val token = remember { AuthStore.getAuthToken(context) }
 
     val tempFile = remember { File(context.cacheDir, "disease_scan_temp.jpg") }
@@ -138,7 +139,7 @@ fun CropDiseaseScreen(navController: NavController) {
                         titleContentColor = CropPrimaryDark,
                         navigationIconContentColor = Color(0xFF1A1A1A)
                     ),
-                    title = { Text("Plant Doctor AI", fontWeight = FontWeight.ExtraBold) },
+                    title = { Text(strings.disease.diseaseDetection, fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
                         IconButton(onClick = {
                             if (state == DiseaseScreenState.RESULT) {
@@ -203,6 +204,8 @@ fun CropDiseaseScreen(navController: NavController) {
 // ============================================
 @Composable
 private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
+    val strings = LocalStrings.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -216,31 +219,24 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
                 .fillMaxWidth()
                 .height(290.dp)
         ) {
-            // Right-aligned Plant Graphic (Moved further to the right)
             Image(
                 painter = painterResource(id = R.drawable.ill_diseased_plant),
-                contentDescription = "Diseased Plant",
+                contentDescription = strings.disease.diseaseDetection,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(0.95f)
                     .align(Alignment.BottomEnd)
-                    .offset(x = 45.dp, y = 10.dp) // Adjusted offset
+                    .offset(x = 45.dp, y = 10.dp)
             )
 
-            // Left-aligned Text Content (Lowered slightly)
             Column(
                 modifier = Modifier
                     .fillMaxWidth(0.65f)
-                    .padding(top = 48.dp) // Adjusted top padding
+                    .padding(top = 48.dp)
             ) {
                 Text(
-                    text = buildAnnotatedString {
-                        append("Scan Your Crop,\nGet ")
-                        withStyle(style = SpanStyle(color = CropPrimaryDark)) {
-                            append("Answers")
-                        }
-                    },
+                    text = strings.disease.diseaseDetection,
                     style = MaterialTheme.typography.headlineMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF1A1A1A),
@@ -250,7 +246,6 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Small Green Divider Dash
                 Box(
                     modifier = Modifier
                         .size(width = 32.dp, height = 4.dp)
@@ -260,7 +255,7 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Text(
-                    text = "Identify plant diseases\nand pests in seconds\nwith AI-powered \nanalysis.",
+                    text = strings.disease.cameraInstructions,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Color(0xFF5A6B5A),
                         lineHeight = 22.sp
@@ -271,12 +266,12 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // 2. Tip Card (Added Dark Green Border)
+        // 2. Tip Card
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             color = Color(0xFFF3FAF3),
-            border = BorderStroke(1.dp, CropPrimaryDark) // Adjusted Border
+            border = BorderStroke(1.dp, CropPrimaryDark)
         ) {
             Row(
                 modifier = Modifier.padding(16.dp),
@@ -299,7 +294,6 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
 
                 Spacer(modifier = Modifier.width(16.dp))
 
-                // Vertical divider
                 Box(
                     modifier = Modifier
                         .width(1.dp)
@@ -311,7 +305,7 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
 
                 Column {
                     Text(
-                        text = "Tip for Best Results",
+                        text = strings.disease.scanPlant,
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = CropPrimaryDark
@@ -319,7 +313,7 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "Capture clear images of leaves\nin natural light for accurate diagnosis.",
+                        text = strings.disease.cameraInstructions,
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF5A6B5A),
                             lineHeight = 16.sp
@@ -338,7 +332,6 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
                 .padding(bottom = 96.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Camera Card (Removed heavy border, lightened shadow)
             Surface(
                 onClick = onCapture,
                 modifier = Modifier
@@ -346,8 +339,8 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
                     .height(160.dp),
                 shape = RoundedCornerShape(24.dp),
                 color = Color.White,
-                border = BorderStroke(1.dp, Color(0xFFF0F4F0)), // Adjusted Border
-                shadowElevation = 1.dp // Lightened shadow
+                border = BorderStroke(1.dp, Color(0xFFF0F4F0)),
+                shadowElevation = 1.dp
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -370,23 +363,16 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Camera",
+                        text = strings.disease.takePhoto,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF1A1A1A)
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Take a photo",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color.Gray
-                        )
+                        ),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
 
-            // Gallery Card (Lightened shadow)
             Surface(
                 onClick = onGallery,
                 modifier = Modifier
@@ -395,7 +381,7 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
                 shape = RoundedCornerShape(24.dp),
                 color = Color.White,
                 border = BorderStroke(1.dp, Color(0xFFF0F4F0)),
-                shadowElevation = 1.dp // Lightened shadow
+                shadowElevation = 1.dp
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
@@ -418,18 +404,12 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
                     }
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Gallery",
+                        text = strings.disease.uploadFromGallery,
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF1A1A1A)
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Choose from gallery",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color.Gray
-                        )
+                        ),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
@@ -439,6 +419,8 @@ private fun UploadPanel(onCapture: () -> Unit, onGallery: () -> Unit) {
 
 @Composable
 private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
+    val strings = LocalStrings.current
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -446,28 +428,22 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Pushed the content down from the top slightly
         Spacer(modifier = Modifier.height(64.dp))
 
         Text(
-            text = buildAnnotatedString {
-                withStyle(style = SpanStyle(color = CropPrimaryDark)) {
-                    append("Analyzing ")
-                }
-                withStyle(style = SpanStyle(color = Color(0xFF1A1A1A))) {
-                    append("Your Plant")
-                }
-            },
+            text = strings.disease.analyzingSymptoms,
             style = MaterialTheme.typography.headlineMedium.copy(
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 28.sp
-            )
+                fontSize = 28.sp,
+                color = CropPrimaryDark
+            ),
+            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "Our AI is examining the leaf patterns,\ncolor and texture to detect possible issues.",
+            text = strings.disease.scanningLeaf,
             style = MaterialTheme.typography.bodyMedium.copy(
                 color = Color(0xFF5A6B5A),
                 lineHeight = 22.sp
@@ -482,27 +458,24 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
             contentAlignment = Alignment.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Faint Background - Sized down to match the smaller frame
             Image(
                 painter = painterResource(id = R.drawable.bg_faint_leaves),
-                contentDescription = "Background Leaves",
+                contentDescription = strings.disease.scanningLeaf,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxWidth(0.95f)
             )
 
-            // Image Frame - Reduced size to prevent cramping
             Surface(
                 shape = RoundedCornerShape(32.dp),
                 color = Color.White,
                 shadowElevation = 8.dp,
-                modifier = Modifier.size(240.dp) // Smaller frame size
+                modifier = Modifier.size(240.dp)
             ) {
-                // Thinner white border achieved by reducing padding from 8.dp to 4.dp
                 Box(modifier = Modifier.padding(4.dp).fillMaxSize()) {
                     if (imageUri != null) {
                         Image(
                             painter = rememberAsyncImagePainter(imageUri),
-                            contentDescription = "Scanned Leaf",
+                            contentDescription = strings.disease.scanningLeaf,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .fillMaxSize()
@@ -553,7 +526,7 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
 
                 Column {
                     Text(
-                        text = "Deep Scanning in Progress",
+                        text = strings.disease.analyzingSymptoms,
                         style = MaterialTheme.typography.titleSmall.copy(
                             fontWeight = FontWeight.Bold,
                             color = CropPrimaryDark
@@ -561,7 +534,7 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Comparing with millions of cases\nfor accurate results.",
+                        text = strings.disease.scanningLeaf,
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = Color(0xFF5A6B5A),
                             lineHeight = 16.sp
@@ -573,7 +546,6 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        // Smooth Sweeping Progress Bar
         LinearProgressIndicator(
             modifier = Modifier
                 .width(160.dp)
@@ -585,7 +557,6 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
 
         Spacer(modifier = Modifier.height(40.dp))
 
-        // Redesigned Cancel Button (Fits content, Red Fill)
         Surface(
             onClick = onCancel,
             shape = RoundedCornerShape(16.dp),
@@ -599,13 +570,13 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Rounded.Cancel,
-                    contentDescription = "Cancel",
+                    contentDescription = strings.common.cancel,
                     tint = Color.White,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Cancel Upload",
+                    text = strings.common.cancel,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
@@ -624,13 +595,174 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
     val scrollState = rememberScrollState()
     val context = LocalContext.current
 
+    val currentLang = LocalAppLanguage.current
+    val strings = LocalStrings.current
+
     if (result == null || result.ai_analyzed == false) {
         Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Icon(Icons.Rounded.SentimentDissatisfied, null, modifier = Modifier.size(80.dp), tint = Color.Gray)
-            Text("Analysis Failed", style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
+            Text(strings.disease.diagnosisResult, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold))
             Text(result?.invalid_image_reason ?: "The AI could not identify a clear plant in this image.", textAlign = TextAlign.Center, color = Color.Gray)
             Spacer(Modifier.height(24.dp))
-            PremiumButton(text = "Try Again", onClick = onScanAgain)
+            PremiumButton(text = strings.disease.scanAnotherPlant, onClick = onScanAgain)
+        }
+        return
+    }
+
+    // ============================================
+    // DEDICATED NO PLANT DETECTED VIEW
+    // ============================================
+    val isNoPlant = result.is_plant_image == false ||
+            result.can_analyze == false ||
+            result.diagnosis_status.equals("no_plant", ignoreCase = true) ||
+            result.disease_name.equals("No Plant Detected", ignoreCase = true)
+
+    if (isNoPlant) {
+        val noPlantTitle = AppLocalizer.localizeDisease("No Plant Detected", currentLang).ifBlank { "No Plant Detected" }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Image with NO PLANT warning badge
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier.fillMaxWidth().height(200.dp).shadow(8.dp)
+                ) {
+                    Box {
+                        if (imageUri != null) {
+                            Image(
+                                painter = rememberAsyncImagePainter(imageUri),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        Surface(
+                            color = CropWarningOrange,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)
+                        ) {
+                            Text(
+                                text = "NO PLANT",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Main No Plant Detected Card
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                NeoCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = noPlantTitle,
+                                style = MaterialTheme.typography.headlineSmall.copy(
+                                    fontWeight = FontWeight.Black,
+                                    color = Color(0xFF1B1B1B)
+                                )
+                            )
+                        }
+
+                        Surface(
+                            color = CropWarningOrange.copy(alpha = 0.12f),
+                            border = BorderStroke(1.dp, CropWarningOrange),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "NOT A PLANT",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                color = CropWarningOrange,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Text(
+                            text = result.description?.takeIf { it.isNotBlank() }
+                                ?: "No crop leaf, plant, or agricultural foliage was detected in this image. The disease detection system only analyzes plants and crops.\n\nPlease point your camera directly at a plant leaf, stem, or fruit in good lighting.",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                lineHeight = 20.sp,
+                                color = Color.DarkGray
+                            )
+                        )
+                    }
+                }
+            }
+
+            // Photo Guidelines Card
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                NeoCard {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            text = "Photo Guidelines for Best Diagnosis",
+                            fontWeight = FontWeight.Bold,
+                            color = CropPrimaryDark
+                        )
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint = CropPrimaryDark,
+                                modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Point camera directly at the affected crop leaf, stem, or fruit",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(
+                                Icons.Rounded.CheckCircle,
+                                contentDescription = null,
+                                tint = CropPrimaryDark,
+                                modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Ensure the plant is in focus with natural, even lighting",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(
+                                Icons.Rounded.Cancel,
+                                contentDescription = null,
+                                tint = CropErrorRed,
+                                modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Avoid photographing electronic devices, indoor surfaces, or general objects",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Scan Another Plant Button
+            Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                PremiumButton(
+                    text = strings.disease.scanAnotherPlant,
+                    onClick = onScanAgain,
+                    icon = Icons.Rounded.Refresh
+                )
+            }
+            Spacer(Modifier.height(40.dp))
         }
         return
     }
@@ -640,32 +772,35 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
             rawDiseaseName.contains("healthy", ignoreCase = true)
     val isDiseased = !isHealthy
 
-    val diseaseName = if (isHealthy && (rawDiseaseName.equals("healthy", ignoreCase = true) || rawDiseaseName.isBlank())) {
+    val baseDiseaseName = if (isHealthy && (rawDiseaseName.equals("healthy", ignoreCase = true) || rawDiseaseName.isBlank())) {
         "Healthy Plant"
     } else {
         rawDiseaseName.replace("_", " ").split(" ").joinToString(" ") { word ->
             word.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ROOT) else it.toString() }
         }
     }
+    val diseaseName = AppLocalizer.localizeDisease(baseDiseaseName, currentLang)
 
-    val statusText = if (isDiseased) "DISEASED" else "HEALTHY"
+    val rawStatusText = if (isDiseased) "DISEASED" else "HEALTHY"
+    val statusText = AppLocalizer.localizeSeverity(rawStatusText, currentLang)
     val statusBgColor = if (isDiseased) CropErrorRed else Color(0xFF2E7D32)
 
     val severity = result.severity ?: if (isHealthy) "No Threat" else "High"
-    val threatText = when {
+    val rawThreatText = when {
         isHealthy -> "NO THREAT"
         severity.equals("none", ignoreCase = true) -> "NO THREAT"
         else -> severity.uppercase()
     }
-    val sevColor = when (threatText.lowercase()) {
+    val threatText = AppLocalizer.localizeSeverity(rawThreatText, currentLang)
+    val sevColor = when (rawThreatText.lowercase()) {
         "no threat", "none", "healthy", "low" -> Color(0xFF2E7D32)
         "moderate", "medium" -> CropWarningOrange
         else -> CropErrorRed
     }
 
-    val description = result.description ?: ""
-    val treatmentSuggestions = result.treatment_suggestions ?: emptyList()
-    val preventionTips = result.prevention_tips ?: emptyList()
+    val description = AppLocalizer.localizeDiseaseAdvice(result.description, currentLang)
+    val treatmentSuggestions = (result.treatment_suggestions ?: emptyList()).map { AppLocalizer.localizeDiseaseAdvice(it, currentLang) }
+    val preventionTips = (result.prevention_tips ?: emptyList()).map { AppLocalizer.localizeDiseaseAdvice(it, currentLang) }
 
     val treatmentPicks = remember(result.store_recommendations) {
         result.store_recommendations?.filterNot { item ->
@@ -717,13 +852,13 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
         }
 
         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-            NeoSectionTitle("Recommended Care", "Scientific steps for recovery")
+            NeoSectionTitle(strings.disease.recommendedCare, strings.disease.treatmentSteps)
         }
 
         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
             NeoCard {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Treatment Steps", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
+                    Text(strings.disease.treatmentSteps, fontWeight = FontWeight.Bold, color = CropPrimaryDark)
                     if (treatmentSuggestions.isEmpty()) {
                         Text("No treatment steps available.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     } else {
@@ -738,7 +873,7 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-                    Text("Prevention Tips", fontWeight = FontWeight.Bold, color = CropPrimaryDark)
+                    Text(strings.disease.preventionTips, fontWeight = FontWeight.Bold, color = CropPrimaryDark)
                     if (preventionTips.isEmpty()) {
                         Text("No prevention tips available.", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
                     } else {
@@ -756,7 +891,7 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
 
         if (treatmentPicks.isNotEmpty()) {
             Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                NeoSectionTitle("Buy Treatment", "Amazon affiliate picks for $diseaseName")
+                NeoSectionTitle(strings.disease.buyTreatment, diseaseName)
             }
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -773,7 +908,7 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
         }
 
         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-            PremiumButton(text = "Scan Another Plant", onClick = onScanAgain, icon = Icons.Rounded.Refresh)
+            PremiumButton(text = strings.disease.scanAnotherPlant, onClick = onScanAgain, icon = Icons.Rounded.Refresh)
         }
         Spacer(Modifier.height(40.dp))
     }
@@ -781,6 +916,11 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
 
 @Composable
 fun StoreMiniCard(item: StoreRecommendationItem, onClick: () -> Unit) {
+    val strings = LocalStrings.current
+    val currentLang = LocalAppLanguage.current
+    val localizedTitle = AppLocalizer.localizeDiseaseAdvice(item.title, currentLang)
+    val localizedSubtitle = AppLocalizer.localizeDiseaseAdvice(item.subtitle, currentLang)
+
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -804,14 +944,14 @@ fun StoreMiniCard(item: StoreRecommendationItem, onClick: () -> Unit) {
             ) {
                 AsyncImage(
                     model = item.image_url,
-                    contentDescription = item.title,
+                    contentDescription = localizedTitle,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
             }
             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = item.title,
+                    text = localizedTitle,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -819,7 +959,7 @@ fun StoreMiniCard(item: StoreRecommendationItem, onClick: () -> Unit) {
                     color = Color(0xFF1E293B)
                 )
                 Text(
-                    text = item.subtitle,
+                    text = localizedSubtitle,
                     color = Color(0xFF64748B),
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -828,7 +968,7 @@ fun StoreMiniCard(item: StoreRecommendationItem, onClick: () -> Unit) {
                 Spacer(Modifier.height(2.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Buy Now",
+                        text = strings.store.buyOnAmazon,
                         fontWeight = FontWeight.SemiBold,
                         color = CropPrimaryDark,
                         fontSize = 12.sp

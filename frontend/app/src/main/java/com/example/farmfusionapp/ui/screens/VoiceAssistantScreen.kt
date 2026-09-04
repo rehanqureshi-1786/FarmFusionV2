@@ -66,6 +66,7 @@ import androidx.navigation.NavController
 import com.example.farmfusionapp.R
 import com.example.farmfusionapp.data.model.VoiceQueryResponse
 import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
+import com.example.farmfusionapp.utils.AppLocalizer
 import com.example.farmfusionapp.utils.AuthStore
 import com.example.farmfusionapp.utils.LocationSnapshotStore
 import com.example.farmfusionapp.viewmodel.VoiceViewModel
@@ -106,6 +107,7 @@ private enum class VoiceAssistantState {
 @Composable
 fun VoiceAssistantScreen(navController: NavController) {
     val context = LocalContext.current
+    val currentAppLang = LocalAppLanguage.current
     val viewModel: VoiceViewModel = viewModel()
     val voiceState by viewModel.voiceState
     val listState = rememberLazyListState()
@@ -121,24 +123,33 @@ fun VoiceAssistantScreen(navController: NavController) {
         }
     }
 
-    val allSuggestions = remember {
+    val selectedLanguage = remember(currentAppLang) {
+        val preferredDialect = AuthStore.getDialect(context)
+        val preferredLang = AuthStore.getLanguage(context) ?: currentAppLang
+        val activeCode = preferredDialect ?: preferredLang
+        availableLanguages.firstOrNull { it.code == activeCode } ?: availableLanguages.first()
+    }
+
+    val activeLangCode = selectedLanguage.code
+
+    val allSuggestions = remember(activeLangCode) {
         listOf(
-            Suggestion("Why are the leaves of my tomato plant turning yellow?", Icons.Rounded.Eco, Color(0xFF689F38), Color(0xFFF1F8E9)),
-            Suggestion("How do I treat powdery mildew on pumpkins?", Icons.Rounded.Eco, Color(0xFF689F38), Color(0xFFF1F8E9)),
-            Suggestion("What are the early signs of blight in potatoes?", Icons.Rounded.Eco, Color(0xFF689F38), Color(0xFFF1F8E9)),
-            Suggestion("How to recover crops after a mild frost?", Icons.Rounded.Eco, Color(0xFF689F38), Color(0xFFF1F8E9)),
-            Suggestion("How often should I water my crops in summer?", Icons.Rounded.WaterDrop, Color(0xFF0288D1), Color(0xFFE1F5FE)),
-            Suggestion("What is the best pH level for growing wheat?", Icons.Rounded.WaterDrop, Color(0xFF0288D1), Color(0xFFE1F5FE)),
-            Suggestion("How can I improve clay soil for vegetables?", Icons.Rounded.WaterDrop, Color(0xFF0288D1), Color(0xFFE1F5FE)),
-            Suggestion("What cover crops fix nitrogen in the soil?", Icons.Rounded.WaterDrop, Color(0xFF0288D1), Color(0xFFE1F5FE)),
-            Suggestion("What are natural ways to control aphids on plants?", Icons.Rounded.PestControl, Color(0xFFE64A19), Color(0xFFFBE9E7)),
-            Suggestion("How to get rid of caterpillars on cabbage?", Icons.Rounded.PestControl, Color(0xFFE64A19), Color(0xFFFBE9E7)),
-            Suggestion("How to protect corn from earworms?", Icons.Rounded.PestControl, Color(0xFFE64A19), Color(0xFFFBE9E7)),
-            Suggestion("What is the best organic pesticide for whiteflies?", Icons.Rounded.PestControl, Color(0xFFE64A19), Color(0xFFFBE9E7))
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg tomato yellow", activeLangCode), Icons.Rounded.Eco, Color(0xFF689F38), Color(0xFFF1F8E9)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg mildew pumpkin", activeLangCode), Icons.Rounded.Eco, Color(0xFF689F38), Color(0xFFF1F8E9)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg potato blight", activeLangCode), Icons.Rounded.Eco, Color(0xFF689F38), Color(0xFFF1F8E9)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg frost recover", activeLangCode), Icons.Rounded.Eco, Color(0xFF689F38), Color(0xFFF1F8E9)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg summer water", activeLangCode), Icons.Rounded.WaterDrop, Color(0xFF0288D1), Color(0xFFE1F5FE)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg wheat ph", activeLangCode), Icons.Rounded.WaterDrop, Color(0xFF0288D1), Color(0xFFE1F5FE)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg clay soil", activeLangCode), Icons.Rounded.WaterDrop, Color(0xFF0288D1), Color(0xFFE1F5FE)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg nitrogen cover", activeLangCode), Icons.Rounded.WaterDrop, Color(0xFF0288D1), Color(0xFFE1F5FE)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg aphids natural", activeLangCode), Icons.Rounded.PestControl, Color(0xFFE64A19), Color(0xFFFBE9E7)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg cabbage worm", activeLangCode), Icons.Rounded.PestControl, Color(0xFFE64A19), Color(0xFFFBE9E7)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg corn protect", activeLangCode), Icons.Rounded.PestControl, Color(0xFFE64A19), Color(0xFFFBE9E7)),
+            Suggestion(AppLocalizer.localizeVoiceAssistantPhrase("sugg organic whiteflies", activeLangCode), Icons.Rounded.PestControl, Color(0xFFE64A19), Color(0xFFFBE9E7))
         )
     }
 
-    val displayedSuggestions = remember {
+    val displayedSuggestions = remember(allSuggestions) {
         val grouped = allSuggestions.groupBy { it.icon }
         listOf(
             grouped[Icons.Rounded.Eco]?.random(),
@@ -147,14 +158,6 @@ fun VoiceAssistantScreen(navController: NavController) {
         ).filterNotNull().shuffled().take(2)
     }
 
-    var selectedLanguage by remember {
-        val preferredDialect = AuthStore.getDialect(context)
-        val preferredLang = AuthStore.getLanguage(context) ?: "hi"
-        val activeCode = preferredDialect ?: preferredLang
-        mutableStateOf(availableLanguages.firstOrNull { it.code == activeCode } ?: availableLanguages.first())
-    }
-
-    var languageDropdownExpanded by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var assistantState by remember { mutableStateOf(VoiceAssistantState.IDLE) }
     var ttsReady by remember { mutableStateOf(false) }
@@ -298,7 +301,11 @@ fun VoiceAssistantScreen(navController: NavController) {
             assistantState = VoiceAssistantState.LISTENING
             speechRecognizer?.startListening(currentSpeechIntent())
         } else {
-            Toast.makeText(context, "Microphone permission is required", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                AppLocalizer.localizeVoiceAssistantPhrase("mic permission required", activeLangCode),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -326,7 +333,11 @@ fun VoiceAssistantScreen(navController: NavController) {
             override fun onError(error: Int) {
                 if (assistantState != VoiceAssistantState.SPEAKING) {
                     assistantState = VoiceAssistantState.IDLE
-                    Toast.makeText(context, "Mic could not hear clearly. Please tap and try again.", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        context,
+                        AppLocalizer.localizeVoiceAssistantPhrase("mic hear clearly error", activeLangCode),
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
             override fun onResults(results: android.os.Bundle?) {
@@ -352,15 +363,17 @@ fun VoiceAssistantScreen(navController: NavController) {
         when (val state = voiceState) {
             is VoiceViewModel.VoiceState.Success -> {
                 val responseText = state.response.response.trim()
+                val voiceBadgeTemplate = AppLocalizer.localizeVoiceAssistantPhrase("voice badge", activeLangCode)
+                val voiceBadgeText = String.format(voiceBadgeTemplate, selectedLanguage.nativeLabel)
 
                 val badge = when {
                     state.response.fallback_used == true && !state.response.response_dialect.isNullOrBlank() -> {
-                        "${state.response.response_dialect?.uppercase()} उत्तर • हिन्दी आवाज"
+                        "${state.response.response_dialect?.uppercase()} • $voiceBadgeText"
                     }
                     state.response.local_tts == true && state.response.native_tts == true -> {
-                        "${selectedLanguage.label} आवाज • ऑन-डिवाइस"
+                        "$voiceBadgeText • AI"
                     }
-                    else -> "${selectedLanguage.label} आवाज"
+                    else -> voiceBadgeText
                 }
 
                 chatMessages.add(
@@ -396,7 +409,8 @@ fun VoiceAssistantScreen(navController: NavController) {
                 viewModel.resetState()
             }
             is VoiceViewModel.VoiceState.Error -> {
-                val errorText = "त्रुटि: ${state.message}"
+                val errPrefix = AppLocalizer.localizeVoiceAssistantPhrase("error prefix", activeLangCode)
+                val errorText = "$errPrefix${state.message}"
                 chatMessages.add(ChatMessage(errorText, isUser = false))
                 suggestions = emptyList()
                 if (ttsReady) {
@@ -414,128 +428,10 @@ fun VoiceAssistantScreen(navController: NavController) {
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            "Farm Assistant",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Box {
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFE8F5E9),
-                                border = BorderStroke(1.dp, Color(0xFFC8E6C9)),
-                                modifier = Modifier.clickable { languageDropdownExpanded = true }
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        selectedLanguage.nativeLabel,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Select Language", tint = Color(0xFF2E7D32), modifier = Modifier.size(16.dp))
-                                }
-                            }
-
-                            MaterialTheme(
-                                shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(16.dp))
-                            ) {
-                                // REPLACED LazyColumn with Column + verticalScroll to fix the SubcomposeLayout crash
-                                val scrollState = rememberScrollState()
-                                var showScrollbar by remember { mutableStateOf(false) }
-
-                                LaunchedEffect(languageDropdownExpanded, scrollState.isScrollInProgress) {
-                                    if (languageDropdownExpanded || scrollState.isScrollInProgress) {
-                                        showScrollbar = true
-                                        delay(2000)
-                                        showScrollbar = false
-                                    }
-                                }
-
-                                val scrollbarAlpha by animateFloatAsState(
-                                    targetValue = if (showScrollbar) 1f else 0f,
-                                    animationSpec = tween(durationMillis = 300),
-                                    label = "scrollbarAlpha"
-                                )
-
-                                DropdownMenu(
-                                    expanded = languageDropdownExpanded,
-                                    onDismissRequest = { languageDropdownExpanded = false },
-                                    modifier = Modifier
-                                        .background(Color.White)
-                                        .width(220.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .heightIn(max = 370.dp)
-                                            .padding(horizontal = 8.dp)
-                                            .drawWithContent {
-                                                drawContent()
-                                                if (scrollbarAlpha > 0f && scrollState.maxValue > 0) {
-                                                    val viewportHeight = size.height
-                                                    val totalHeight = scrollState.maxValue.toFloat() + viewportHeight
-                                                    val scrollbarHeight = (viewportHeight / totalHeight) * viewportHeight
-                                                    val scrollbarY = (scrollState.value.toFloat() / scrollState.maxValue.toFloat()) * (viewportHeight - scrollbarHeight)
-
-                                                    drawRoundRect(
-                                                        color = Color(0xFF1B5E20),
-                                                        topLeft = Offset(size.width - 2.dp.toPx(), scrollbarY),
-                                                        size = Size(4.dp.toPx(), scrollbarHeight),
-                                                        cornerRadius = CornerRadius(2.dp.toPx(), 2.dp.toPx()),
-                                                        alpha = scrollbarAlpha
-                                                    )
-                                                }
-                                            }
-                                            .verticalScroll(scrollState)
-                                    ) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-
-                                        availableLanguages.forEach { lang ->
-                                            val isSelected = selectedLanguage.code == lang.code
-
-                                            Row(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .clip(RoundedCornerShape(10.dp))
-                                                    .background(if (isSelected) Color(0xFFE8F5E9) else Color.Transparent)
-                                                    .clickable {
-                                                        selectedLanguage = lang
-                                                        AuthStore.saveLanguage(context, lang.code)
-                                                        languageDropdownExpanded = false
-                                                    }
-                                                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.SpaceBetween
-                                            ) {
-                                                Text(
-                                                    text = lang.nativeLabel,
-                                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                                        color = if (isSelected) Color(0xFF1B5E20) else Color(0xFF424242),
-                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                                    )
-                                                )
-                                                if (isSelected) {
-                                                    Icon(
-                                                        imageVector = Icons.Rounded.Check,
-                                                        contentDescription = "Selected",
-                                                        tint = Color(0xFF1B5E20),
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    Text(
+                        text = AppLocalizer.localizeVoiceAssistantPhrase("farm assistant", activeLangCode),
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
@@ -560,18 +456,24 @@ fun VoiceAssistantScreen(navController: NavController) {
                 modifier = Modifier.fillMaxSize()
             ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = 20.dp, vertical = 8.dp)
-                        .padding(bottom = 80.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .padding(bottom = 90.dp)
                 ) {
                     VoiceHero(
                         state = assistantState,
-                        modifier = Modifier.weight(1f),
+                        langCode = activeLangCode,
+                        modifier = Modifier.fillMaxWidth(),
                         onMicClick = {
                             if (speechRecognizer == null) {
-                                Toast.makeText(context, "Speech recognition unavailable", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(
+                                    context,
+                                    AppLocalizer.localizeVoiceAssistantPhrase("speech unavailable", activeLangCode),
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             } else if (assistantState == VoiceAssistantState.SPEAKING) {
                                 stopAudioPlayback()
                             } else if (assistantState == VoiceAssistantState.LISTENING) {
@@ -585,6 +487,7 @@ fun VoiceAssistantScreen(navController: NavController) {
 
                     SuggestionsPanel(
                         suggestions = displayedSuggestions,
+                        langCode = activeLangCode,
                         onSuggestionClick = { submitQuery(it) }
                     )
                 }
@@ -622,7 +525,11 @@ fun VoiceAssistantScreen(navController: NavController) {
                             Box(modifier = Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color(0xFF2E7D32))
-                                    Text("समझ रहा हूँ… (Analyzing)", style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                                    Text(
+                                        text = AppLocalizer.localizeVoiceAssistantPhrase("analyzing", activeLangCode),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.Gray
+                                    )
                                 }
                             }
                         }
@@ -643,7 +550,10 @@ fun VoiceAssistantScreen(navController: NavController) {
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         Icon(Icons.AutoMirrored.Rounded.VolumeUp, contentDescription = null, tint = Color(0xFF2E7D32))
-                                        Text("बता रहा हूँ… (Speaking)", style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
+                                        Text(
+                                            text = AppLocalizer.localizeVoiceAssistantPhrase("speaking", activeLangCode),
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                                        )
                                     }
                                     Button(
                                         onClick = { stopAudioPlayback() },
@@ -652,7 +562,10 @@ fun VoiceAssistantScreen(navController: NavController) {
                                         shape = RoundedCornerShape(12.dp),
                                         modifier = Modifier.height(32.dp)
                                     ) {
-                                        Text("रोकें (Stop)", style = MaterialTheme.typography.labelSmall)
+                                        Text(
+                                            text = AppLocalizer.localizeVoiceAssistantPhrase("stop", activeLangCode),
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
                                     }
                                 }
                             }
@@ -662,7 +575,12 @@ fun VoiceAssistantScreen(navController: NavController) {
                     if (suggestions.isNotEmpty() && assistantState != VoiceAssistantState.SPEAKING) {
                         item {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("सुझाव (Suggested):", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold), color = Color(0xFF2E7D32), modifier = Modifier.padding(start = 8.dp))
+                                Text(
+                                    text = AppLocalizer.localizeVoiceAssistantPhrase("suggested label", activeLangCode),
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = Color(0xFF2E7D32),
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     suggestions.take(2).forEach { suggestion ->
                                         Surface(
@@ -702,7 +620,13 @@ fun VoiceAssistantScreen(navController: NavController) {
                         value = query,
                         onValueChange = { query = it },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("Ask your farming question...", color = Color(0xFF9E9E9E), fontSize = 15.sp) },
+                        placeholder = {
+                            Text(
+                                text = AppLocalizer.localizeVoiceAssistantPhrase("ask farming question placeholder", activeLangCode),
+                                color = Color(0xFF9E9E9E),
+                                fontSize = 15.sp
+                            )
+                        },
                         singleLine = true,
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
@@ -743,6 +667,7 @@ fun VoiceAssistantScreen(navController: NavController) {
 @Composable
 private fun VoiceHero(
     state: VoiceAssistantState,
+    langCode: String,
     modifier: Modifier = Modifier,
     onMicClick: () -> Unit
 ) {
@@ -773,9 +698,9 @@ private fun VoiceHero(
             )
 
             Column(
-                modifier = Modifier.fillMaxSize().padding(top = 28.dp, bottom = 24.dp, start = 24.dp, end = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 20.dp, bottom = 18.dp, start = 20.dp, end = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
@@ -788,30 +713,42 @@ private fun VoiceHero(
                     ) {
                         Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = Color(0xFF388E3C), modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Voice Assistant", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32)))
+                        Text(
+                            text = AppLocalizer.localizeVoiceAssistantPhrase("voice assistant", langCode),
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF2E7D32))
+                        )
                     }
+                }
+
+                val askPrefix = AppLocalizer.localizeVoiceAssistantPhrase("ask anything about", langCode)
+                val farmingWord = AppLocalizer.localizeVoiceAssistantPhrase("farming word", langCode)
+                val companionSubtitle = if (state == VoiceAssistantState.LISTENING) {
+                    AppLocalizer.localizeVoiceAssistantPhrase("smart companion listening", langCode)
+                } else {
+                    AppLocalizer.localizeVoiceAssistantPhrase("smart companion ready", langCode)
                 }
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = buildAnnotatedString {
-                            append("Ask anything\nabout ")
-                            withStyle(style = SpanStyle(color = Color(0xFF2E7D32))) { append("farming") }
+                            append(askPrefix)
+                            withStyle(style = SpanStyle(color = Color(0xFF2E7D32))) { append(farmingWord) }
                         },
                         style = MaterialTheme.typography.headlineLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF1B1B1B),
-                            fontSize = 38.sp,
-                            lineHeight = 38.sp
+                            fontSize = 26.sp,
+                            lineHeight = 30.sp
                         ),
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Your smart farming companion\nis ${if (state == VoiceAssistantState.LISTENING) "listening..." else "ready."}",
+                        text = companionSubtitle,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = Color(0xFF616161),
-                            fontSize = 15.sp
+                            fontSize = 13.5.sp,
+                            lineHeight = 17.sp
                         ),
                         textAlign = TextAlign.Center
                     )
@@ -819,37 +756,40 @@ private fun VoiceHero(
 
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(180.dp)
+                    modifier = Modifier.size(145.dp)
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val stroke = Stroke(width = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f))
                         drawCircle(color = Color(0xFF2E7D32).copy(alpha = 0.1f), radius = size.minDimension / 2 * radarScale, style = stroke)
                         drawCircle(color = Color(0xFF2E7D32).copy(alpha = 0.2f), radius = size.minDimension / 3 * radarScale, style = stroke)
 
-                        drawCircle(color = Color(0xFFFFCA28), radius = 6f, center = Offset(size.width * 0.8f, size.height * 0.2f))
-                        drawCircle(color = Color(0xFF29B6F6), radius = 8f, center = Offset(size.width * 0.85f, size.height * 0.8f))
-                        drawCircle(color = Color(0xFF81C784), radius = 6f, center = Offset(size.width * 0.15f, size.height * 0.7f))
+                        drawCircle(color = Color(0xFFFFCA28), radius = 5f, center = Offset(size.width * 0.8f, size.height * 0.2f))
+                        drawCircle(color = Color(0xFF29B6F6), radius = 7f, center = Offset(size.width * 0.85f, size.height * 0.8f))
+                        drawCircle(color = Color(0xFF81C784), radius = 5f, center = Offset(size.width * 0.15f, size.height * 0.7f))
                     }
 
                     Surface(
                         onClick = onMicClick,
-                        modifier = Modifier.size(96.dp).shadow(12.dp, CircleShape, spotColor = Color(0xFF2E7D32).copy(alpha = 0.4f)),
+                        modifier = Modifier.size(80.dp).shadow(10.dp, CircleShape, spotColor = Color(0xFF2E7D32).copy(alpha = 0.4f)),
                         shape = CircleShape,
                         color = Color.White,
-                        border = BorderStroke(10.dp, Color(0xFFC8E6C9))
+                        border = BorderStroke(8.dp, Color(0xFFC8E6C9))
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = if (state == VoiceAssistantState.LISTENING) Icons.Rounded.GraphicEq else Icons.Rounded.Mic,
                                 contentDescription = null,
                                 tint = if (state == VoiceAssistantState.LISTENING) Color(0xFFD32F2F) else Color(0xFF2E7D32),
-                                modifier = Modifier.size(42.dp)
+                                modifier = Modifier.size(36.dp)
                             )
                         }
                     }
                 }
 
-                Text("Tap the mic to speak", style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF757575)))
+                Text(
+                    text = AppLocalizer.localizeVoiceAssistantPhrase("tap mic to speak", langCode),
+                    style = MaterialTheme.typography.labelSmall.copy(color = Color(0xFF757575))
+                )
             }
         }
     }
@@ -858,6 +798,7 @@ private fun VoiceHero(
 @Composable
 private fun SuggestionsPanel(
     suggestions: List<Suggestion>,
+    langCode: String,
     modifier: Modifier = Modifier,
     onSuggestionClick: (String) -> Unit
 ) {
@@ -872,7 +813,10 @@ private fun SuggestionsPanel(
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
                 Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Color(0xFF2E7D32), modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Try asking", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20)))
+                Text(
+                    text = AppLocalizer.localizeVoiceAssistantPhrase("try asking", langCode),
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = Color(0xFF1B5E20))
+                )
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {

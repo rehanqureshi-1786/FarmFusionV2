@@ -33,6 +33,7 @@ import com.example.farmfusionapp.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CropHarvestingScreen(navController: NavController) {
+    val currentLang = LocalAppLanguage.current
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFFAFCFA))) {
 
         // iOS-Level Premium Gradient
@@ -58,7 +59,7 @@ fun CropHarvestingScreen(navController: NavController) {
                         containerColor = Color.Transparent,
                         titleContentColor = Color(0xFF1E5631)
                     ),
-                    title = { Text("Harvesting Help", fontWeight = FontWeight.Bold) },
+                    title = { Text(com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("harvesting help", currentLang), fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         Surface(
                             onClick = { navController.popBackStack() },
@@ -90,14 +91,14 @@ fun CropHarvestingScreen(navController: NavController) {
 
                 // 1. Hero Header Section
                 item {
-                    HarvestHeroSection()
+                    HarvestHeroSection(currentLang)
                 }
 
                 // 2. Find Labour Card
                 item {
                     PremiumHarvestCard(
-                        title = "Find Labour",
-                        subtitle = "Hire trusted workers\nfor harvesting",
+                        title = com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("find labour", currentLang),
+                        subtitle = com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("find labour sub", currentLang),
                         icon = Icons.Rounded.Groups,
                         cardColor = Color(0xFFE6F4EA),
                         iconBgColor = Color(0xFFD3EADD),
@@ -112,8 +113,8 @@ fun CropHarvestingScreen(navController: NavController) {
                 // 3. Nearby Cold Storage Card
                 item {
                     PremiumHarvestCard(
-                        title = "Nearby Cold Storage",
-                        subtitle = "Save your crop\nfrom rotting",
+                        title = com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("nearby cold storage", currentLang),
+                        subtitle = com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("nearby cold storage sub", currentLang),
                         icon = Icons.Rounded.AcUnit,
                         cardColor = Color(0xFFE3F2FD),
                         iconBgColor = Color(0xFFCBE6FA),
@@ -130,7 +131,7 @@ fun CropHarvestingScreen(navController: NavController) {
 }
 
 @Composable
-fun HarvestHeroSection() {
+fun HarvestHeroSection(currentLang: String = "en") {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -156,13 +157,7 @@ fun HarvestHeroSection() {
                 .fillMaxWidth(0.6f)
         ) {
             Text(
-                text = buildAnnotatedString {
-                    append("Get the right help,\n")
-                    withStyle(style = SpanStyle(color = Color(0xFF2E7D32))) {
-                        append("harvest")
-                    }
-                    append(" with ease")
-                },
+                text = com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("get the right help harvest with ease", currentLang),
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Color(0xFF2A2A2A)
@@ -171,7 +166,7 @@ fun HarvestHeroSection() {
             )
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = "Tools, people, and storage – all to make your harvest smooth.",
+                text = com.example.farmfusionapp.utils.AppLocalizer.localizeHarvestingPhrase("harvesting hero sub", currentLang),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Color(0xFF616161),
                     lineHeight = 20.sp

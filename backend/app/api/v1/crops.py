@@ -47,6 +47,10 @@ from app.services.crop_service import CropService
 from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from app.services.soil_report_parser import soil_report_parser
+
+
 from typing import Optional
 
 
@@ -83,6 +87,88 @@ async def get_recommendations(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate crop recommendations: {str(e)}"
+        )
+
+
+@router.post("/recommend-from-document", response_model=CropRecommendResponse)
+async def recommend_from_document(
+    document: UploadFile = File(..., description="Soil Health Card document (PDF, JPG, JPEG, PNG)"),
+    farm_size_acres: float = Form(1.0),
+    location: Optional[str] = Form(None),
+    latitude: Optional[float] = Form(None),
+    longitude: Optional[float] = Form(None),
+    soil_type: Optional[str] = Form("loamy"),
+    rainfall_mm: Optional[float] = Form(None),
+    temperature_c: Optional[float] = Form(None),
+    preferred_language: str = Form("en"),
+    firebase_token: Optional[str] = Query(None, description="Firebase ID token (optional)"),
+    db: AsyncSession = Depends(get_db)
+) -> CropRecommendResponse:
+    """
+    POST /api/v1/crop/recommend-from-document
+
+    Accepts Soil Health Card (PDF / Image), extracts soil nutrient values,
+    and runs the AI/ML crop recommendation engine.
+    """
+    try:
+        user_id = None
+        if firebase_token:
+            user_data = await AuthService.verify_token(firebase_token)
+            if user_data:
+                user = await UserService.get_or_create_user(
+                    firebase_uid=user_data["uid"],
+                    phone_number=user_data.get("phone_number"),
+                    db=db
+                )
+                user_id = user.id
+
+        # 1. Read document bytes
+        file_bytes = await document.read()
+        filename = document.filename or "soil_report.pdf"
+        content_type = document.content_type or "application/octet-stream"
+
+        # 2. Parse soil metrics
+        parsed_params, parse_summary = soil_report_parser.parse_document(
+            file_bytes=file_bytes,
+            filename=filename,
+            content_type=content_type
+        )
+
+        # 3. Create structured CropRecommendRequest
+        effective_soil_type = soil_type or "loamy"
+        req = CropRecommendRequest(
+            location=location or "Local Farm",
+            soil_type=effective_soil_type,
+            rainfall_mm=rainfall_mm if (rainfall_mm is not None and rainfall_mm > 0) else -1.0,
+            temperature_c=temperature_c if temperature_c is not None else 25.0,
+            farm_size_acres=farm_size_acres if farm_size_acres > 0 else 1.0,
+            preferred_language=preferred_language,
+            latitude=latitude,
+            longitude=longitude,
+            nitrogen=parsed_params.get("nitrogen"),
+            phosphorus=parsed_params.get("phosphorus"),
+            potassium=parsed_params.get("potassium"),
+            ph=parsed_params.get("ph")
+        )
+
+        # 4. Generate recommendations
+        response = await CropService.get_recommendations(
+            request=req,
+            user_id=user_id,
+            db=db
+        )
+
+        # Enhance AI insights with document parsing provenance
+        if parse_summary and response.ai_insights:
+            response.ai_insights = f"📄 {parse_summary}\n\n{response.ai_insights}"
+        elif parse_summary:
+            response.ai_insights = f"📄 {parse_summary}"
+
+        return response
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process soil health card: {str(e)}"
         )
 
 

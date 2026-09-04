@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.*
 import com.example.farmfusionapp.ui.components.GlassFloatingVoiceButton
 import com.example.farmfusionapp.ui.components.HomeBottomBar
+import com.example.farmfusionapp.utils.AppStrings
 import com.example.farmfusionapp.utils.AuthStore
 import com.example.farmfusionapp.viewmodel.AuthViewModel
 
@@ -35,6 +37,9 @@ import dev.chrisbanes.haze.haze
 val LocalGlobalBlur = compositionLocalOf<MutableState<Boolean>> {
     error("No global blur state provided")
 }
+
+val LocalStrings = staticCompositionLocalOf { AppStrings.en }
+val LocalAppLanguage = staticCompositionLocalOf { "en" }
 
 object NavRoutes {
     const val LanguageSelection = "language_selection"
@@ -100,7 +105,14 @@ fun AppNav() {
         label = "global_blur"
     )
 
-    CompositionLocalProvider(LocalGlobalBlur provides globalBlurState) {
+    val currentLang = AuthStore.activeLanguageState.value
+    val currentStrings = remember(currentLang) { AppStrings.forLanguage(currentLang) }
+
+    CompositionLocalProvider(
+        LocalGlobalBlur provides globalBlurState,
+        LocalStrings provides currentStrings,
+        LocalAppLanguage provides currentLang
+    ) {
         // Wrapped everything in a Box to break free from the Scaffold's layout bounds
         Box(modifier = Modifier.fillMaxSize()) {
             Scaffold(
@@ -162,8 +174,8 @@ fun AppNav() {
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .navigationBarsPadding()
-                    // Replaced offset with absolute padding from the bottom so it visually mimics its previous position
-                    .padding(end = 16.dp, bottom = 85.dp)
+                    // Elevated above the floating bottom navigation bar
+                    .padding(end = 18.dp, bottom = 106.dp)
             ) {
                 GlassFloatingVoiceButton(
                     onClick = { navController.navigate(NavRoutes.VoiceAssistant) }
