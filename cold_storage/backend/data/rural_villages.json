@@ -1,0 +1,520 @@
+{
+  "Rajasthan": {
+    "Jaipur": {
+      "Chomu": { "lat": 27.1724, "lng": 75.7214, "type": "Tehsil & Mandi Hub" },
+      "Bassi": { "lat": 26.8333, "lng": 76.0500, "type": "Tehsil" },
+      "Bagru": { "lat": 26.8167, "lng": 75.5500, "type": "Sub-Tehsil" },
+      "Shahpura": { "lat": 27.3833, "lng": 75.9667, "type": "Tehsil" },
+      "Jamwa Ramgarh": { "lat": 27.0333, "lng": 76.0167, "type": "Tehsil" },
+      "Chaksu": { "lat": 26.6000, "lng": 75.9500, "type": "Tehsil" },
+      "Jobner": { "lat": 26.9667, "lng": 75.3833, "type": "Agri Hub" },
+      "Govindgarh": { "lat": 27.2333, "lng": 75.6500, "type": "Gram Panchayat" },
+      "Renwal (Kishangarh Renwal)": { "lat": 27.1500, "lng": 75.3667, "type": "Mandi Hub" },
+      "Dudu": { "lat": 26.6833, "lng": 75.2333, "type": "Subdivision" },
+      "Kotputli": { "lat": 27.7000, "lng": 76.2000, "type": "Tehsil & Mandi" },
+      "Paota": { "lat": 27.5667, "lng": 76.1333, "type": "Gram Panchayat" },
+      "Viratnagar (Bairat)": { "lat": 27.4500, "lng": 76.1833, "type": "Tehsil" },
+      "Samode": { "lat": 27.2000, "lng": 75.8000, "type": "Gram Panchayat" },
+      "Achrol": { "lat": 27.1333, "lng": 75.9500, "type": "Gram Panchayat" },
+      "Chandwaji": { "lat": 27.2167, "lng": 75.9333, "type": "Rural Cluster" },
+      "Kanota": { "lat": 26.8833, "lng": 75.9500, "type": "Gram Panchayat" },
+      "Bilwa": { "lat": 26.7667, "lng": 75.8500, "type": "Gram Panchayat" },
+      "Sanganer": { "lat": 26.8167, "lng": 75.7667, "type": "Tehsil" },
+      "Muhana": { "lat": 26.8041, "lng": 75.7482, "type": "APMC Mandi Cluster" },
+      "Kishangarh": { "lat": 26.5700, "lng": 74.8600, "type": "Mandi Hub" },
+      "Sambhar Lake": { "lat": 26.9100, "lng": 75.1900, "type": "Tehsil" },
+      "Phulera": { "lat": 26.8700, "lng": 75.2400, "type": "Sub-Tehsil" }
+    },
+    "Jodhpur": {
+      "Phalodi": { "lat": 27.1333, "lng": 72.3667, "type": "Tehsil & Mandi" },
+      "Osian": { "lat": 26.7333, "lng": 72.9000, "type": "Tehsil" },
+      "Bhopalgarh": { "lat": 26.6500, "lng": 73.4500, "type": "Tehsil" },
+      "Pipar City": { "lat": 26.3833, "lng": 73.5333, "type": "Tehsil & Mandi" },
+      "Bilara": { "lat": 26.1833, "lng": 73.7000, "type": "Tehsil" },
+      "Shergarh": { "lat": 26.3333, "lng": 72.2833, "type": "Tehsil" },
+      "Balesar": { "lat": 26.4000, "lng": 72.4833, "type": "Tehsil" },
+      "Luni": { "lat": 26.0667, "lng": 73.0167, "type": "Tehsil" },
+      "Mathania": { "lat": 26.5333, "lng": 73.0167, "type": "Chilli & Spices Mandi" },
+      "Baori": { "lat": 26.6000, "lng": 73.1000, "type": "Tehsil" },
+      "Tiwari": { "lat": 26.5500, "lng": 72.9667, "type": "Gram Panchayat" }
+    },
+    "Kota": {
+      "Ramganj Mandi": { "lat": 24.6500, "lng": 75.9500, "type": "Coriander & Spices Mandi" },
+      "Sangod": { "lat": 24.9167, "lng": 76.2833, "type": "Tehsil" },
+      "Digod": { "lat": 25.2667, "lng": 76.1000, "type": "Tehsil" },
+      "Pipalda": { "lat": 25.4333, "lng": 76.5167, "type": "Tehsil" },
+      "Itawa": { "lat": 25.5000, "lng": 76.5333, "type": "Tehsil & Mandi" },
+      "Ladpura": { "lat": 25.1833, "lng": 75.8333, "type": "Tehsil" },
+      "Chechat": { "lat": 24.7667, "lng": 75.8833, "type": "Gram Panchayat" },
+      "Morak": { "lat": 24.7500, "lng": 75.9833, "type": "Industrial Agri" },
+      "Kanwas": { "lat": 24.9667, "lng": 76.1500, "type": "Tehsil" },
+      "Khatoli": { "lat": 25.6833, "lng": 76.5833, "type": "Gram Panchayat" }
+    },
+    "Alwar": {
+      "Tijara": { "lat": 27.9333, "lng": 76.8500, "type": "Tehsil" },
+      "Kishangarh Bas": { "lat": 27.8167, "lng": 76.7167, "type": "Tehsil & Mandi" },
+      "Ramgarh": { "lat": 27.5833, "lng": 76.8167, "type": "Tehsil" },
+      "Laxmangarh": { "lat": 27.3667, "lng": 76.8500, "type": "Tehsil" },
+      "Kathumar": { "lat": 27.3167, "lng": 77.0833, "type": "Tehsil" },
+      "Rajgarh": { "lat": 27.2333, "lng": 76.6333, "type": "Tehsil & Mandi" },
+      "Thanagazi": { "lat": 27.4000, "lng": 76.3167, "type": "Tehsil" },
+      "Bansur": { "lat": 27.6833, "lng": 76.3500, "type": "Tehsil" },
+      "Behror": { "lat": 27.8833, "lng": 76.2833, "type": "Tehsil & Mandi" },
+      "Neemrana": { "lat": 27.9833, "lng": 76.3833, "type": "Subdivision" },
+      "Mandawar": { "lat": 27.8667, "lng": 76.5500, "type": "Tehsil" },
+      "Kotkasim": { "lat": 28.0333, "lng": 76.7167, "type": "Tehsil" },
+      "Reni": { "lat": 27.1833, "lng": 76.7333, "type": "Tehsil" }
+    },
+    "Sri Ganganagar": {
+      "Suratgarh": { "lat": 29.3167, "lng": 73.9000, "type": "Tehsil & Mandi" },
+      "Raisinghnagar": { "lat": 29.5333, "lng": 73.4500, "type": "Tehsil" },
+      "Anupgarh": { "lat": 29.1833, "lng": 73.2000, "type": "Tehsil & Mandi" },
+      "Sadulshahar": { "lat": 29.9833, "lng": 74.0500, "type": "Tehsil" },
+      "Padampur": { "lat": 29.6833, "lng": 73.6167, "type": "Tehsil & Mandi" },
+      "Karanpur (Sri Karanpur)": { "lat": 29.8500, "lng": 73.4500, "type": "Tehsil" },
+      "Gajsinghpur": { "lat": 29.6167, "lng": 73.3500, "type": "Mandi Hub" },
+      "Vijaynagar (Sri Vijaynagar)": { "lat": 29.3167, "lng": 73.5500, "type": "Tehsil" },
+      "Gharsana": { "lat": 28.9833, "lng": 72.9500, "type": "Tehsil" },
+      "Rawla Mandi": { "lat": 28.8333, "lng": 72.7833, "type": "Mandi Hub" }
+    },
+    "Bharatpur": {
+      "Deeg": { "lat": 27.4667, "lng": 77.3333, "type": "Subdivision & Mandi" },
+      "Kaman": { "lat": 27.6500, "lng": 77.2667, "type": "Tehsil" },
+      "Nagar": { "lat": 27.4333, "lng": 77.1000, "type": "Tehsil" },
+      "Kumher": { "lat": 27.3167, "lng": 77.3833, "type": "Tehsil" },
+      "Nadbai": { "lat": 27.2333, "lng": 77.2000, "type": "Tehsil & Mandi" },
+      "Weir": { "lat": 27.0167, "lng": 77.1833, "type": "Tehsil" },
+      "Bayana": { "lat": 26.9000, "lng": 77.2833, "type": "Tehsil & Mandi" },
+      "Roopwas": { "lat": 27.0000, "lng": 77.5833, "type": "Tehsil" },
+      "Pahari": { "lat": 27.7167, "lng": 77.0667, "type": "Tehsil" },
+      "Sewar": { "lat": 27.2080, "lng": 77.4810, "type": "Mustard Research Belt" }
+    },
+    "Bikaner": {
+      "Nokha": { "lat": 27.6000, "lng": 73.4167, "type": "Tehsil & Moth/Peanut Mandi" },
+      "Dungargarh (Sri Dungargarh)": { "lat": 28.1000, "lng": 74.0167, "type": "Tehsil & Mandi" },
+      "Lunkaransar": { "lat": 28.5000, "lng": 73.7500, "type": "Groundnut Hub" },
+      "Kolayat": { "lat": 27.8333, "lng": 72.9500, "type": "Tehsil" },
+      "Khajuwala": { "lat": 28.4500, "lng": 72.6333, "type": "Canal Belt Mandi" },
+      "Deshnoke": { "lat": 27.8000, "lng": 73.2833, "type": "Mandi Hub" },
+      "Chhatargarh": { "lat": 28.6667, "lng": 73.1333, "type": "Tehsil" },
+      "Pugal": { "lat": 28.5000, "lng": 72.8000, "type": "Tehsil" },
+      "Bajju": { "lat": 27.9500, "lng": 72.5167, "type": "Tehsil" }
+    },
+    "Nagaur": {
+      "Merta City": { "lat": 26.6500, "lng": 74.0333, "type": "Spices & Cumin Mandi" },
+      "Degana": { "lat": 26.8833, "lng": 74.3167, "type": "Tehsil" },
+      "Didwana": { "lat": 27.4000, "lng": 74.5667, "type": "Tehsil" },
+      "Ladnun": { "lat": 27.6500, "lng": 74.3833, "type": "Tehsil" },
+      "Makrana": { "lat": 27.0500, "lng": 74.7333, "type": "Tehsil" },
+      "Parbatsar": { "lat": 26.8833, "lng": 74.7667, "type": "Tehsil" },
+      "Kuchaman City": { "lat": 27.1500, "lng": 74.8500, "type": "Subdivision" },
+      "Nawa": { "lat": 27.0167, "lng": 75.0000, "type": "Tehsil" },
+      "Jayal": { "lat": 27.2167, "lng": 74.1833, "type": "Tehsil" },
+      "Riyan Badi": { "lat": 26.5333, "lng": 74.2333, "type": "Tehsil" }
+    }
+  },
+  "Uttar Pradesh": {
+    "Agra": {
+      "Fatehabad": { "lat": 27.0167, "lng": 78.3000, "type": "Tehsil & Potato Belt" },
+      "Shamshabad": { "lat": 27.0167, "lng": 78.1167, "type": "Potato Mandi Hub" },
+      "Khandauli": { "lat": 27.3110, "lng": 78.0790, "type": "Potato Cold Chain Hub" },
+      "Achhnera": { "lat": 27.1833, "lng": 77.7667, "type": "Tehsil & Mandi" },
+      "Kiraoli": { "lat": 27.1500, "lng": 77.7833, "type": "Tehsil" },
+      "Fatehpur Sikri": { "lat": 27.0911, "lng": 77.6611, "type": "Block Cluster" },
+      "Etmadpur": { "lat": 27.2333, "lng": 78.2000, "type": "Tehsil" },
+      "Bah": { "lat": 26.8667, "lng": 78.6000, "type": "Tehsil" },
+      "Pinahat": { "lat": 26.8833, "lng": 78.3833, "type": "Block Cluster" },
+      "Jagnair": { "lat": 26.8667, "lng": 77.6000, "type": "Sub-Tehsil" },
+      "Kheragarh": { "lat": 26.9500, "lng": 77.8167, "type": "Tehsil" },
+      "Saiyan": { "lat": 26.9667, "lng": 77.9667, "type": "Gram Panchayat" },
+      "Runkata": { "lat": 27.2341, "lng": 77.8821, "type": "Agri Mandi" },
+      "Kundol": { "lat": 27.1350, "lng": 78.1120, "type": "Gram Panchayat & Cold Store Cluster" },
+      "Bichpuri": { "lat": 27.1800, "lng": 77.9000, "type": "Agri Institute & Cluster" },
+      "Barhan": { "lat": 27.3300, "lng": 78.2200, "type": "Gram Panchayat" }
+    },
+    "Aligarh": {
+      "Atrauli": { "lat": 28.0333, "lng": 78.2833, "type": "Tehsil" },
+      "Iglas": { "lat": 27.7167, "lng": 77.9333, "type": "Tehsil & Potato Mandi" },
+      "Khair": { "lat": 27.9500, "lng": 77.8333, "type": "Tehsil" },
+      "Gabhana": { "lat": 28.0167, "lng": 77.9333, "type": "Tehsil" },
+      "Jawan": { "lat": 28.0000, "lng": 78.1500, "type": "Gram Panchayat" },
+      "Chandaus": { "lat": 28.1000, "lng": 77.8333, "type": "Block Cluster" },
+      "Sasni Gate": { "lat": 27.8650, "lng": 78.0620, "type": "Mandi Hub" },
+      "Tappal": { "lat": 28.0400, "lng": 77.6100, "type": "Yamuna Expressway Agri Cluster" },
+      "Harduaganj": { "lat": 27.9300, "lng": 78.1800, "type": "Block Cluster" }
+    },
+    "Farrukhabad (Fatehgarh)": {
+      "Kaimganj": { "lat": 27.5500, "lng": 79.3500, "type": "Asia Potato/Tobacco Hub" },
+      "Amritpur": { "lat": 27.4800, "lng": 79.6200, "type": "Tehsil" },
+      "Mohammadabad": { "lat": 27.3100, "lng": 79.4300, "type": "Cold Storage Belt" },
+      "Kamalganj": { "lat": 27.2600, "lng": 79.6500, "type": "Potato Mandi" },
+      "Nawabganj": { "lat": 27.5100, "lng": 79.3800, "type": "Gram Panchayat" }
+    },
+    "Kannauj": {
+      "Chhibramau": { "lat": 27.1500, "lng": 79.5200, "type": "Mega Potato Cold Storage Belt" },
+      "Tirwa": { "lat": 26.9700, "lng": 79.7800, "type": "Tehsil" },
+      "Gursahaiganj": { "lat": 27.1200, "lng": 79.7200, "type": "Mandi Hub" },
+      "Talgram": { "lat": 27.0500, "lng": 79.6500, "type": "Block Cluster" },
+      "Saurikh": { "lat": 27.0200, "lng": 79.4800, "type": "Gram Panchayat" }
+    },
+    "Hathras (Mahamaya Nagar)": {
+      "Sasni": { "lat": 27.7000, "lng": 78.0800, "type": "Tehsil & Potato/Asafoetida Hub" },
+      "Sadabad": { "lat": 27.4400, "lng": 77.9900, "type": "Tehsil & Major Potato Cold Hub" },
+      "Sikandra Rao": { "lat": 27.6900, "lng": 78.2900, "type": "Tehsil" },
+      "Murssan": { "lat": 27.5800, "lng": 77.9300, "type": "Block Cluster" },
+      "Sahpau": { "lat": 27.4200, "lng": 78.1300, "type": "Gram Panchayat" }
+    },
+    "Firozabad": {
+      "Shikohabad": { "lat": 27.1000, "lng": 78.6000, "type": "Tehsil & Potato Belt" },
+      "Sirsaganj": { "lat": 27.0500, "lng": 78.6800, "type": "Tehsil & Cold Store Belt" },
+      "Jasrana": { "lat": 27.2500, "lng": 78.6500, "type": "Tehsil" },
+      "Tundla": { "lat": 27.2000, "lng": 78.2300, "type": "Railway Agri Hub" },
+      "Matsena": { "lat": 27.1600, "lng": 78.4300, "type": "Gram Panchayat" }
+    },
+    "Mathura": {
+      "Chhata": { "lat": 27.7200, "lng": 77.5000, "type": "Tehsil & Agro Food Park" },
+      "Kosi Kalan": { "lat": 27.7900, "lng": 77.4300, "type": "Mandi Hub" },
+      "Govardhan": { "lat": 27.5000, "lng": 77.4700, "type": "Tehsil" },
+      "Mahavan": { "lat": 27.4300, "lng": 77.7400, "type": "Tehsil" },
+      "Mant": { "lat": 27.6500, "lng": 77.7200, "type": "Tehsil" },
+      "Farah": { "lat": 27.3200, "lng": 77.7600, "type": "Research Hub" },
+      "Raya": { "lat": 27.5500, "lng": 77.7800, "type": "Potato Mandi" },
+      "Barsana": { "lat": 27.6500, "lng": 77.3700, "type": "Rural Cluster" }
+    },
+    "Varanasi": {
+      "Pindra": { "lat": 25.4800, "lng": 82.8500, "type": "Tehsil & Perishable Cargo Hub" },
+      "Raja Talab": { "lat": 25.2600, "lng": 82.8500, "type": "Tehsil & Vegetable Mandi" },
+      "Rohania": { "lat": 25.2800, "lng": 82.9200, "type": "Agro Cold Chain" },
+      "Cholapur": { "lat": 25.4300, "lng": 83.0500, "type": "Gram Panchayat" },
+      "Chiraigaon": { "lat": 25.3800, "lng": 83.0800, "type": "Vegetable Belt" }
+    },
+    "Gorakhpur": {
+      "Pipraich": { "lat": 26.8300, "lng": 83.5300, "type": "Sugarcane & Vegetable Hub" },
+      "Sahjanwa": { "lat": 26.7700, "lng": 83.2300, "type": "Tehsil & Industrial Park" },
+      "Chauri Chaura": { "lat": 26.6500, "lng": 83.5800, "type": "Tehsil" },
+      "Bansgaon": { "lat": 26.5500, "lng": 83.3500, "type": "Tehsil" },
+      "Campierganj": { "lat": 27.0200, "lng": 83.2500, "type": "Tehsil" },
+      "Khajni": { "lat": 26.6500, "lng": 83.2200, "type": "Tehsil" }
+    }
+  },
+  "Maharashtra": {
+    "Nashik": {
+      "Dindori": { "lat": 20.2000, "lng": 73.8333, "type": "Tehsil & Grape Hub" },
+      "Pimpalgaon Baswant": { "lat": 20.1740, "lng": 73.9870, "type": "Asia's Largest Onion Market" },
+      "Niphad": { "lat": 20.0833, "lng": 74.1167, "type": "Tehsil & Vineyard Hub" },
+      "Yeola": { "lat": 20.0417, "lng": 74.4833, "type": "Tehsil & Onion Mandi" },
+      "Lasalgaon": { "lat": 20.1461, "lng": 74.2289, "type": "Mega Onion Market" },
+      "Sinnar": { "lat": 19.8500, "lng": 74.0000, "type": "Tehsil & Industrial Agro" },
+      "Satana (Baglan)": { "lat": 20.5833, "lng": 74.2000, "type": "Tehsil & Pomegranate Belt" },
+      "Malegaon": { "lat": 20.5534, "lng": 74.5298, "type": "Subdivision & Mandi" },
+      "Kalwan": { "lat": 20.4833, "lng": 73.9333, "type": "Tehsil" },
+      "Deola": { "lat": 20.4500, "lng": 74.1833, "type": "Tehsil" },
+      "Chandwad": { "lat": 20.3333, "lng": 74.2500, "type": "Tehsil & Onion Cluster" },
+      "Trimbakeshwar": { "lat": 19.9333, "lng": 73.5333, "type": "Tehsil" },
+      "Igatpuri": { "lat": 19.7000, "lng": 73.5500, "type": "Tehsil" },
+      "Mohadi": { "lat": 20.1025, "lng": 73.8420, "type": "Farmer Producer Export Hub" },
+      "Ozar": { "lat": 20.0900, "lng": 73.9300, "type": "Air Cargo Cold Chain" }
+    },
+    "Pune": {
+      "Junnar": { "lat": 19.2000, "lng": 73.8800, "type": "Tehsil & Tomato Belt" },
+      "Manchar": { "lat": 19.0000, "lng": 73.9300, "type": "Vegetable & Dairy Hub" },
+      "Narayangaon": { "lat": 19.1200, "lng": 73.9700, "type": "Tomato & Grapes Mandi" },
+      "Baramati": { "lat": 18.1500, "lng": 74.5800, "type": "Agri Tech & Cold Chain Hub" },
+      "Indapur": { "lat": 18.1100, "lng": 75.0300, "type": "Tehsil" },
+      "Shirur": { "lat": 18.8200, "lng": 74.3700, "type": "Tehsil" },
+      "Khed (Rajgurunagar)": { "lat": 18.8500, "lng": 73.9200, "type": "Tehsil & Onion Hub" },
+      "Daund": { "lat": 18.4600, "lng": 74.6000, "type": "Tehsil" },
+      "Purandar (Saswad)": { "lat": 18.3400, "lng": 74.0300, "type": "Fig & Custard Apple Belt" }
+    },
+    "Ahmednagar (Ahilyanagar)": {
+      "Rahata (Shirdi)": { "lat": 19.7000, "lng": 74.5000, "type": "Tehsil & Guava/Pomegranate" },
+      "Sangamner": { "lat": 19.5700, "lng": 74.2100, "type": "Tehsil & Milk/Tomato Mandi" },
+      "Kopargaon": { "lat": 19.8800, "lng": 74.4800, "type": "Tehsil" },
+      "Shrirampur": { "lat": 19.6200, "lng": 74.6600, "type": "Sweet Lime (Mosambi) Mandi" },
+      "Rahuri": { "lat": 19.3900, "lng": 74.6500, "type": "MPKV Agri University Hub" },
+      "Newasa": { "lat": 19.5500, "lng": 74.9200, "type": "Tehsil" },
+      "Parner": { "lat": 19.0000, "lng": 74.4300, "type": "Onion Belt" }
+    },
+    "Jalgaon": {
+      "Raver": { "lat": 21.2500, "lng": 76.0300, "type": "Banana Capital of India" },
+      "Muktainagar": { "lat": 21.0500, "lng": 76.0500, "type": "Tehsil" },
+      "Yawal": { "lat": 21.1700, "lng": 75.7000, "type": "Banana Cold Storage Cluster" },
+      "Bhusawal": { "lat": 21.0500, "lng": 75.7700, "type": "Reefer Rail Freight Hub" },
+      "Chopda": { "lat": 21.2500, "lng": 75.3000, "type": "Tehsil & Pulse Belt" },
+      "Pachora": { "lat": 20.6700, "lng": 75.3500, "type": "Tehsil" },
+      "Jamner": { "lat": 20.8000, "lng": 75.7800, "type": "Tehsil" }
+    },
+    "Solapur": {
+      "Pandharpur": { "lat": 17.6700, "lng": 75.3300, "type": "Tehsil & Pomegranate Mandi" },
+      "Sangola": { "lat": 17.4300, "lng": 75.1800, "type": "World Pomegranate Capital" },
+      "Barshi": { "lat": 18.2300, "lng": 75.6900, "type": "Tehsil & Pulse/Tur Mandi" },
+      "Karmala": { "lat": 18.4200, "lng": 75.2000, "type": "Tehsil" },
+      "Malshiras (Akluj)": { "lat": 17.8800, "lng": 75.0200, "type": "Horticulture Cluster" }
+    }
+  },
+  "Punjab": {
+    "Jalandhar": {
+      "Nakodar": { "lat": 31.1333, "lng": 75.4833, "type": "Tehsil" },
+      "Shahkot": { "lat": 31.0833, "lng": 75.3333, "type": "Sub-Tehsil" },
+      "Phillaur": { "lat": 31.0167, "lng": 75.7833, "type": "Tehsil" },
+      "Goraya": { "lat": 31.1333, "lng": 75.7667, "type": "Sub-Tehsil" },
+      "Nurmahal": { "lat": 31.1000, "lng": 75.6000, "type": "Sub-Tehsil" },
+      "Kartarpur": { "lat": 31.4333, "lng": 75.5000, "type": "Sub-Tehsil" },
+      "Adampur": { "lat": 31.4333, "lng": 75.7167, "type": "Sub-Tehsil" },
+      "Bhogpur": { "lat": 31.5500, "lng": 75.6333, "type": "Sugar & Seed Mandi" },
+      "Lambra": { "lat": 31.2590, "lng": 75.5210, "type": "Seed Potato Cold Storage Belt" },
+      "Mehatpur": { "lat": 31.0500, "lng": 75.4200, "type": "Gram Panchayat" }
+    },
+    "Fazilka (Abohar)": {
+      "Abohar": { "lat": 30.1400, "lng": 74.1900, "type": "Kinnow Citrus Capital of India" },
+      "Khuian Sarwar": { "lat": 30.0800, "lng": 74.0500, "type": "Citrus Packhouse Hub" },
+      "Jalalabad": { "lat": 30.6000, "lng": 74.2500, "type": "Tehsil & Basmati Paddy Hub" },
+      "Sitogunno": { "lat": 30.0500, "lng": 74.2800, "type": "Gram Panchayat" }
+    },
+    "Hoshiarpur": {
+      "Garhshankar": { "lat": 31.2200, "lng": 76.1500, "type": "Tehsil" },
+      "Dasuya": { "lat": 31.8200, "lng": 75.6600, "type": "Tehsil" },
+      "Mukerian": { "lat": 31.9500, "lng": 75.6200, "type": "Tehsil" },
+      "Mahilpur": { "lat": 31.3300, "lng": 76.0500, "type": "Potato & Citrus Belt" }
+    },
+    "Ludhiana": {
+      "Sahnewal": { "lat": 30.8410, "lng": 75.9890, "type": "Inland Container & Cold Chain" },
+      "Khanna": { "lat": 30.7000, "lng": 76.2200, "type": "Asia's Largest Grain Market" },
+      "Samrala": { "lat": 30.8300, "lng": 76.1900, "type": "Tehsil" },
+      "Jagraon": { "lat": 30.7800, "lng": 75.4800, "type": "Tehsil & Mandi" },
+      "Raikot": { "lat": 30.6500, "lng": 75.6000, "type": "Tehsil" },
+      "Machhiwara": { "lat": 30.9100, "lng": 76.2000, "type": "Sub-Tehsil" }
+    }
+  },
+  "Gujarat": {
+    "Banaskantha (Deesa/Palanpur)": {
+      "Deesa": { "lat": 24.2580, "lng": 72.1810, "type": "Potato Capital of Western India" },
+      "Palanpur": { "lat": 24.1724, "lng": 72.4346, "type": "District Hub" },
+      "Dhanera": { "lat": 24.5167, "lng": 72.0167, "type": "Tehsil" },
+      "Tharad": { "lat": 24.3833, "lng": 71.6333, "type": "Tehsil & Cumin Mandi" },
+      "Vav": { "lat": 24.3667, "lng": 71.5000, "type": "Tehsil" },
+      "Bhabhar": { "lat": 24.1000, "lng": 71.6167, "type": "Tehsil" },
+      "Danta": { "lat": 24.1833, "lng": 72.7833, "type": "Tehsil" },
+      "Vadgam": { "lat": 24.0833, "lng": 72.5000, "type": "Tehsil" },
+      "Kankrej (Shihori)": { "lat": 23.9500, "lng": 71.8667, "type": "Tehsil & Dairy Belt" },
+      "Lakhani": { "lat": 24.2800, "lng": 71.8500, "type": "Pomegranate & Potato Cluster" }
+    },
+    "Sabarkantha (Himatnagar)": {
+      "Prantij": { "lat": 23.4300, "lng": 72.8600, "type": "Tehsil & CA Cold Storage Belt" },
+      "Talod": { "lat": 23.3500, "lng": 72.9500, "type": "Potato & Groundnut Hub" },
+      "Idar": { "lat": 23.8300, "lng": 73.0000, "type": "Tehsil & Mandi" },
+      "Khedbrahma": { "lat": 24.0300, "lng": 73.0500, "type": "Tehsil" },
+      "Bayad": { "lat": 23.2300, "lng": 73.2200, "type": "Potato Farming Belt" }
+    },
+    "Junagadh": {
+      "Talala (Gir)": { "lat": 21.0500, "lng": 70.5200, "type": "Kesar Mango Capital" },
+      "Keshod": { "lat": 21.3000, "lng": 70.2500, "type": "Tehsil & Groundnut Mandi" },
+      "Visavadar": { "lat": 21.3300, "lng": 70.6800, "type": "Tehsil" },
+      "Malia Hatina": { "lat": 21.1500, "lng": 70.3000, "type": "Tehsil" },
+      "Mangrol": { "lat": 21.1200, "lng": 70.1200, "type": "Tehsil" }
+    }
+  },
+  "Madhya Pradesh": {
+    "Indore": {
+      "Sanwer": { "lat": 22.9700, "lng": 75.8300, "type": "Tehsil & Potato/Garlic Cold Cluster" },
+      "Depalpur": { "lat": 22.8500, "lng": 75.5500, "type": "Tehsil & Wheat/Soybean Belt" },
+      "Mhow (Dr. Ambedkar Nagar)": { "lat": 22.5500, "lng": 75.7600, "type": "Tehsil" },
+      "Hatod": { "lat": 22.8000, "lng": 75.7200, "type": "Gram Panchayat" },
+      "Betma": { "lat": 22.6800, "lng": 75.6000, "type": "Mandi Hub" }
+    },
+    "Mandsaur": {
+      "Piplia Mandi": { "lat": 24.2300, "lng": 75.0000, "type": "Garlic & Spices Super Mandi" },
+      "Daloda": { "lat": 23.9500, "lng": 75.1000, "type": "Garlic Cold Chain Hub" },
+      "Garoth": { "lat": 24.3200, "lng": 75.6300, "type": "Tehsil" },
+      "Bhanpura": { "lat": 24.5200, "lng": 75.7300, "type": "Tehsil" },
+      "Sitjitau": { "lat": 24.0200, "lng": 75.3500, "type": "Tehsil" }
+    },
+    "Neemuch": {
+      "Manasa": { "lat": 24.4800, "lng": 75.1500, "type": "Tehsil & Spices Mandi" },
+      "Jawad": { "lat": 24.6000, "lng": 74.8600, "type": "Tehsil" },
+      "Singoli": { "lat": 24.9700, "lng": 75.3000, "type": "Tehsil" }
+    },
+    "Ujjain": {
+      "Badnagar": { "lat": 23.0500, "lng": 75.3800, "type": "Tehsil & Potato Hub" },
+      "Mahidpur": { "lat": 23.4800, "lng": 75.6600, "type": "Tehsil" },
+      "Khachrod": { "lat": 23.4200, "lng": 75.2800, "type": "Tehsil" },
+      "Tarana": { "lat": 23.3300, "lng": 76.0400, "type": "Tehsil" },
+      "Nagda": { "lat": 23.4500, "lng": 75.4200, "type": "Subdivision" }
+    },
+    "Chhindwara": {
+      "Sausar": { "lat": 21.6500, "lng": 78.8000, "type": "Orange & Citrus Belt" },
+      "Pandhurna": { "lat": 21.6000, "lng": 78.5300, "type": "Mandi Hub" },
+      "Parasia": { "lat": 22.1800, "lng": 78.7500, "type": "Tehsil" },
+      "Amarwara": { "lat": 22.3000, "lng": 79.1700, "type": "Tehsil" }
+    }
+  },
+  "Himachal Pradesh": {
+    "Shimla (Theog/Kotkhai/Rampur)": {
+      "Theog": { "lat": 31.1210, "lng": 77.3540, "type": "HPMC CA Apple Store & Mandi" },
+      "Kotkhai": { "lat": 31.1200, "lng": 77.5300, "type": "Apple Valley Capital" },
+      "Jubbal": { "lat": 31.1100, "lng": 77.6600, "type": "Apple & Pear Hub" },
+      "Rohru": { "lat": 31.2000, "lng": 77.7500, "type": "Tehsil & Apple Mandi" },
+      "Rampur Bushahr": { "lat": 31.4500, "lng": 77.6300, "type": "Subdivision & Fruit Market" },
+      "Chopal": { "lat": 30.9500, "lng": 77.5800, "type": "Tehsil" },
+      "Kumarsain": { "lat": 31.3200, "lng": 77.4500, "type": "Tehsil" },
+      "Narkanda": { "lat": 31.2600, "lng": 77.4500, "type": "High Altitude Apple Orchards" }
+    },
+    "Kullu (Manali)": {
+      "Bhuntar": { "lat": 31.8800, "lng": 77.1500, "type": "Fruit Mandi & Airport" },
+      "Naggar": { "lat": 32.1400, "lng": 77.1700, "type": "Apple & Plum Belt" },
+      "Anni": { "lat": 31.3700, "lng": 77.4300, "type": "Tehsil" },
+      "Banjar": { "lat": 31.6300, "lng": 77.3400, "type": "Tehsil" },
+      "Nirmand": { "lat": 31.4300, "lng": 77.5800, "type": "Tehsil" }
+    },
+    "Solan": {
+      "Kandaghat": { "lat": 30.9600, "lng": 77.1100, "type": "Tomato & Mushroom Hub" },
+      "Nalagarh": { "lat": 31.0400, "lng": 76.7200, "type": "Tehsil" },
+      "Baddi": { "lat": 30.9500, "lng": 76.7900, "type": "Industrial Agri" },
+      "Dharampur": { "lat": 30.9000, "lng": 77.0200, "type": "Sub-Tehsil" }
+    }
+  },
+  "Jammu and Kashmir": {
+    "Baramulla (Sopore)": {
+      "Sopore": { "lat": 34.2988, "lng": 74.4709, "type": "Asia's Second Largest Apple Mandi" },
+      "Pattan": { "lat": 34.1600, "lng": 74.5500, "type": "Tehsil" },
+      "Rafiabad": { "lat": 34.3300, "lng": 74.3800, "type": "Apple Orchards" },
+      "Tangmarg": { "lat": 34.0500, "lng": 74.4200, "type": "Tehsil" }
+    },
+    "Shopian": {
+      "Shopian Town": { "lat": 33.7200, "lng": 74.8300, "type": "Apple Bowl of Kashmir" },
+      "Zainapora": { "lat": 33.7800, "lng": 74.9800, "type": "Horticulture Sub-Division" },
+      "Keller": { "lat": 33.6800, "lng": 74.7800, "type": "Tehsil" }
+    },
+    "Pulwama": {
+      "Pampore": { "lat": 34.0200, "lng": 74.9300, "type": "Saffron Town of India" },
+      "Lassipora": { "lat": 33.8000, "lng": 74.9200, "type": "Mega CA Cold Chain Industrial Complex" },
+      "Tral": { "lat": 33.9300, "lng": 75.1200, "type": "Tehsil" }
+    }
+  },
+  "Karnataka": {
+    "Kolar": {
+      "Bangarapet": { "lat": 12.9800, "lng": 78.2000, "type": "Tehsil" },
+      "Malur": { "lat": 13.0000, "lng": 77.9400, "type": "Tehsil & Cold Chain Logistics" },
+      "Srinivaspur": { "lat": 13.3400, "lng": 78.2100, "type": "World's Largest Mango Market" },
+      "Mulbagal": { "lat": 13.1600, "lng": 78.4000, "type": "Tehsil & Tomato Mandi" }
+    },
+    "Chikkaballapur": {
+      "Chintamani": { "lat": 13.4000, "lng": 78.0600, "type": "Tehsil & Tomato/Silk Hub" },
+      "Sidlaghatta": { "lat": 13.3900, "lng": 77.8600, "type": "Tehsil" },
+      "Gowribidanur": { "lat": 13.6100, "lng": 77.5200, "type": "Tehsil" },
+      "Bagepalli": { "lat": 13.7800, "lng": 77.7900, "type": "Tehsil" }
+    },
+    "Belagavi (Belgaum)": {
+      "Chikodi": { "lat": 16.4300, "lng": 74.6000, "type": "Subdivision & Vegetable Hub" },
+      "Gokak": { "lat": 16.1700, "lng": 74.8300, "type": "Tehsil & Mandi" },
+      "Athani": { "lat": 16.7300, "lng": 75.0600, "type": "Grape & Raisin Belt" },
+      "Bailhongal": { "lat": 15.8200, "lng": 74.8600, "type": "Tehsil" },
+      "Sankeshwar": { "lat": 16.2700, "lng": 74.4800, "type": "Mandi Hub" }
+    }
+  },
+  "Tamil Nadu": {
+    "Dindigul (Oddanchatram)": {
+      "Oddanchatram": { "lat": 10.4820, "lng": 77.7490, "type": "South India Largest Daily Veg Mandi" },
+      "Palani": { "lat": 10.4500, "lng": 77.5200, "type": "Tehsil" },
+      "Vedasandur": { "lat": 10.5300, "lng": 77.9500, "type": "Tehsil" },
+      "Natham": { "lat": 10.2200, "lng": 78.2300, "type": "Mango & Cashew Belt" },
+      "Kodaikanal": { "lat": 10.2300, "lng": 77.4800, "type": "Hill Fruit/Garlic Belt" }
+    },
+    "Theni (Cumbum Valley)": {
+      "Cumbum": { "lat": 9.7300, "lng": 77.3000, "type": "Muscat Grape & Banana Valley" },
+      "Uthamapalayam": { "lat": 9.8000, "lng": 77.3300, "type": "Tehsil" },
+      "Bodinayakanur": { "lat": 10.0100, "lng": 77.3500, "type": "Cardamom City of India" },
+      "Periyakulam": { "lat": 10.1200, "lng": 77.5500, "type": "Horticultural College & Research Hub" },
+      "Andipatti": { "lat": 9.9800, "lng": 77.6200, "type": "Tehsil" }
+    },
+    "Krishnagiri (Hosur)": {
+      "Hosur": { "lat": 12.7409, "lng": 77.8253, "type": "Cut Flower & Exotic Veg Cold Hub" },
+      "Denkanikottai": { "lat": 12.5300, "lng": 77.7800, "type": "Floriculture Valley" },
+      "Pochampalli": { "lat": 12.3300, "lng": 78.3700, "type": "Tehsil & Mango Belt" },
+      "Kaveripattinam": { "lat": 12.4300, "lng": 78.2200, "type": "Mango Pulp & Storage Cluster" }
+    }
+  },
+  "Andhra Pradesh": {
+    "Guntur": {
+      "Autonagar": { "lat": 16.3190, "lng": 80.4580, "type": "Asia's Largest Mirchi Yard" },
+      "Tenali": { "lat": 16.2400, "lng": 80.6400, "type": "Subdivision & Paddy Hub" },
+      "Narasaraopet": { "lat": 16.2300, "lng": 80.0500, "type": "Mandi Hub" },
+      "Sattenapalle": { "lat": 16.4000, "lng": 80.1500, "type": "Chilli Belt" },
+      "Mangalagiri": { "lat": 16.4300, "lng": 80.5700, "type": "Cold Chain Hub" },
+      "Ponnur": { "lat": 16.0700, "lng": 80.5600, "type": "Tehsil" }
+    },
+    "Chittoor": {
+      "Madanapalle": { "lat": 13.5500, "lng": 78.5000, "type": "Asia's Largest Tomato Market" },
+      "Palamaner": { "lat": 13.2000, "lng": 78.7500, "type": "Dairy & Fruit Hub" },
+      "Nagari": { "lat": 13.3300, "lng": 79.5800, "type": "Mandi Hub" },
+      "Punganur": { "lat": 13.3700, "lng": 78.5800, "type": "Tehsil" }
+    },
+    "Krishna (Machilipatnam/Vijayawada)": {
+      "Nuzvid": { "lat": 16.7800, "lng": 80.8500, "type": "Banganapalli Mango Capital" },
+      "Gudivada": { "lat": 16.4300, "lng": 80.9900, "type": "Paddy & Agro Cold Chain" },
+      "Jaggaiahpet": { "lat": 16.8900, "lng": 80.1000, "type": "Tehsil" },
+      "Vuyyuru": { "lat": 16.3700, "lng": 80.8500, "type": "Sugar & Agri Hub" }
+    }
+  },
+  "Bihar": {
+    "Patna": {
+      "Fatuha": { "lat": 25.5120, "lng": 85.3140, "type": "Industrial Food Park & Rail Siding" },
+      "Danapur": { "lat": 25.6300, "lng": 85.0400, "type": "Subdivision" },
+      "Barh": { "lat": 25.4800, "lng": 85.7100, "type": "Subdivision & Vegetable Hub" },
+      "Mokama": { "lat": 25.4000, "lng": 85.9200, "type": "Tal Pulse Belt" },
+      "Bikram": { "lat": 25.4600, "lng": 84.8500, "type": "Paddy & Veg Belt" },
+      "Paliganj": { "lat": 25.3300, "lng": 84.8200, "type": "Tehsil" }
+    },
+    "Muzaffarpur": {
+      "Kanti": { "lat": 26.1900, "lng": 85.3000, "type": "Shahi Litchi Processing Belt" },
+      "Mushahari": { "lat": 26.1100, "lng": 85.4500, "type": "National Research Centre on Litchi" },
+      "Sahebganj": { "lat": 26.2800, "lng": 84.9500, "type": "Tehsil" },
+      "Motipur": { "lat": 26.2700, "lng": 85.1800, "type": "Mega Food Park" },
+      "Sakra": { "lat": 25.9800, "lng": 85.5200, "type": "Block Cluster" }
+    },
+    "Vaishali (Hajipur)": {
+      "Hajipur": { "lat": 25.6858, "lng": 85.2146, "type": "Chinia Banana & Veg Mandi" },
+      "Mahua": { "lat": 25.8500, "lng": 85.3800, "type": "Subdivision & Potato/Garlic Hub" },
+      "Lalganj": { "lat": 25.8700, "lng": 85.1800, "type": "Tehsil" },
+      "Jandaha": { "lat": 25.7200, "lng": 85.5300, "type": "Block Cluster" },
+      "Patepur": { "lat": 25.9500, "lng": 85.5600, "type": "Gram Panchayat" }
+    },
+    "Samastipur": {
+      "Pusa": { "lat": 25.9800, "lng": 85.6700, "type": "Dr. RP Central Agricultural University Hub" },
+      "Dalsinghsarai": { "lat": 25.6700, "lng": 85.8300, "type": "Tobacco & Vegetable Mandi" },
+      "Rosera": { "lat": 25.7500, "lng": 86.0000, "type": "Subdivision" },
+      "Tajpur": { "lat": 25.8600, "lng": 85.6500, "type": "Potato & Cold Storage Belt" },
+      "Kalyanpur": { "lat": 26.0200, "lng": 85.7700, "type": "Gram Panchayat" }
+    },
+    "Darbhanga": {
+      "Benipur": { "lat": 26.0500, "lng": 86.1500, "type": "Makhana & Fish Farming Hub" },
+      "Biraul": { "lat": 25.9500, "lng": 86.2500, "type": "Subdivision" },
+      "Keoti": { "lat": 26.2800, "lng": 85.9500, "type": "Makhana Cluster" },
+      "Baheri": { "lat": 25.9700, "lng": 86.0800, "type": "Gram Panchayat" }
+    }
+  },
+  "West Bengal": {
+    "Hooghly (Chinsurah/Singur)": {
+      "Singur": { "lat": 22.8100, "lng": 88.2300, "type": "Major Potato Cold Chain Belt" },
+      "Tarakeswar": { "lat": 22.8900, "lng": 88.0200, "type": "Potato & Flower Mandi Hub" },
+      "Arambagh": { "lat": 22.8800, "lng": 87.7800, "type": "Subdivision & Agri Cold Chain" },
+      "Dhaniakhali": { "lat": 22.9700, "lng": 88.1000, "type": "Potato Storage Cluster" },
+      "Haripal": { "lat": 22.8300, "lng": 88.1200, "type": "Vegetable & Potato Belt" },
+      "Pandua": { "lat": 23.0800, "lng": 88.2800, "type": "Gram Panchayat Cluster" },
+      "Polba": { "lat": 22.9500, "lng": 88.3000, "type": "Agri Cold Storage Belt" }
+    },
+    "Purba Bardhaman (Burdwan)": {
+      "Memari": { "lat": 23.1800, "lng": 88.1100, "type": "Rice Bowl & Potato Storage Hub" },
+      "Kalna": { "lat": 23.2200, "lng": 88.3700, "type": "Subdivision" },
+      "Katwa": { "lat": 23.6500, "lng": 88.1300, "type": "Subdivision" },
+      "Jamalpur": { "lat": 23.0500, "lng": 87.9800, "type": "Potato Cold Chain" },
+      "Raina": { "lat": 23.0800, "lng": 87.9000, "type": "Rice & Veg Belt" }
+    },
+    "Jalpaiguri": {
+      "Dhupguri": { "lat": 26.6000, "lng": 89.0200, "type": "North Bengal Largest Potato Mandi" },
+      "Malbazar": { "lat": 26.8600, "lng": 88.7500, "type": "Tea & Horticulture Hub" },
+      "Maynaguri": { "lat": 26.5700, "lng": 88.8200, "type": "Tehsil & Mandi" },
+      "Rajganj": { "lat": 26.6800, "lng": 88.5200, "type": "Pineapple & Potato Cluster" }
+    }
+  }
+}

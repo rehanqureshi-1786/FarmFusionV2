@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FarmFusion | Cold Storage Finder - Rural & Village Edition</title>
+  <meta name="description" content="Official Cold Storage Finder for farmers across India. Real-time GPS distance calculation, instant manager calling, voice search, village and mandi coverage.">
+
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS for Interactive Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Top App Navigation / Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-group">
+        <div class="brand-logo-circle">
+          <span class="logo-icon">🌾</span>
+          <span class="logo-badge">🧊</span>
+        </div>
+        <div>
+          <div class="brand-tag">FARMFUSION • किसान मित्र • ALL INDIA RURAL NETWORK</div>
+          <h1 class="brand-title" data-i18n="appTitle">FarmFusion Cold Storage</h1>
+          <p class="brand-subtitle" data-i18n="appSubtitle">Find verified cold storage facilities, check capacity, call managers & navigate via Google Maps</p>
+        </div>
+      </div>
+
+      <div class="header-controls">
+        <div class="language-switch">
+          <span class="lang-icon">🌐</span>
+          <select id="lang-select" aria-label="Select Language">
+            <option value="en">English (ENG)</option>
+            <option value="hi">हिंदी (Hindi)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Verified Rural Network Notice Bar -->
+  <div class="dev-banner verified-bar">
+    <div class="dev-banner-content">
+      <span class="dev-tag verified-tag">VILLAGE & RURAL NETWORK</span>
+      <span data-i18n="verifiedNotice">🌾 Official Verified Cold Chain Network across all villages, tehsils, mandis & agricultural clusters in India.</span>
+    </div>
+  </div>
+
+  <!-- Global Error Box -->
+  <div id="global-error-box" class="global-error-container" style="display: none;"></div>
+
+  <!-- Main Content Container -->
+  <main class="main-container">
+
+    <!-- Simple 2-Option Search Box -->
+    <section class="search-card-wrapper">
+      <div class="search-tabs-nav" role="tablist">
+        <button class="search-tab-btn active" data-tab="gps" role="tab" id="tab-btn-gps">
+          <span class="tab-icon">📍</span>
+          <span class="tab-text" data-i18n="tabGps">Use My Current Location</span>
+        </button>
+        <button class="search-tab-btn" data-tab="manual" role="tab" id="tab-btn-manual">
+          <span class="tab-icon">✏️</span>
+          <span class="tab-text" data-i18n="tabManual">Search by Village, Mandi or District</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: GPS Search Panel -->
+      <div class="tab-panel active" id="tab-gps">
+        <div class="gps-panel-content">
+          <div class="panel-intro">
+            <h2 class="panel-heading" data-i18n="gpsHeading">Find Nearest Cold Storage Facilities</h2>
+            <p class="panel-sub" data-i18n="gpsDesc">Tap the button below. We will calculate the exact distance and show the nearest verified cold storages.</p>
+          </div>
+
+          <div class="gps-action-group">
+            <button class="btn btn-gps-large" id="btn-gps-search">
+              <span class="btn-icon">📍</span>
+              <span data-i18n="btnLocateMe">Find Nearby Cold Storages</span>
+            </button>
+          </div>
+
+          <div class="radius-selector-bar">
+            <span class="radius-label" data-i18n="radiusLabel">Distance:</span>
+            <div class="radius-chips">
+              <button class="radius-chip active" data-radius="auto" data-i18n="radiusAuto">Auto Distance</button>
+              <button class="radius-chip" data-radius="10">10 km</button>
+              <button class="radius-chip" data-radius="25">25 km</button>
+              <button class="radius-chip" data-radius="50">50 km</button>
+              <button class="radius-chip" data-radius="100">100 km</button>
+            </div>
+          </div>
+
+          <p class="permission-note" data-i18n="gpsNote">No GPS? You can easily search by selecting your Village, Mandi, PIN code or District above.</p>
+        </div>
+      </div>
+
+      <!-- Tab 2: Manual Location Entry Panel -->
+      <div class="tab-panel" id="tab-manual">
+        <form class="manual-form" id="manual-search-form" autocomplete="off">
+          <div class="panel-intro">
+            <h2 class="panel-heading" data-i18n="manualHeading">Search by Village, Mandi, PIN Code or District</h2>
+            <p class="panel-sub" data-i18n="manualDesc">Enter your village, gram panchayat, tehsil, APMC mandi or 6-digit postal PIN code. Instant autocomplete across all Indian states.</p>
+          </div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="manual-state" class="form-label" data-i18n="stateLabel">1. Select State</label>
+              <select id="manual-state" class="form-select">
+                <option value="">-- Choose State --</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="manual-district" class="form-label" data-i18n="districtLabel">2. Select District</label>
+              <select id="manual-district" class="form-select">
+                <option value="">-- Choose District --</option>
+              </select>
+            </div>
+
+            <div class="form-group form-group-full village-input-wrapper">
+              <label for="manual-address" class="form-label" data-i18n="addressLabel">3. Village / Gram Panchayat / Mandi / PIN Code</label>
+              <div class="input-with-voice">
+                <input 
+                  type="text" 
+                  id="manual-address" 
+                  class="form-input" 
+                  placeholder="e.g. Khandauli, Chomu, Mohadi, Deesa, 282007 or Speak" 
+                  data-i18n-placeholder="addressPlaceholder"
+                  autocomplete="off"
+                >
+                <button type="button" id="btn-voice-search" class="btn-voice" title="Voice Search / बोलकर खोजें" aria-label="Voice Search">
+                  <span class="voice-icon">🎙️</span>
+                </button>
+              </div>
+
+              <!-- Live Village Auto-Suggest Dropdown -->
+              <div id="village-suggestions-list" class="village-suggestions-dropdown" style="display: none;"></div>
+            </div>
+          </div>
+
+          <!-- Quick Rural Mandi / Village Chips -->
+          <div class="quick-villages-bar">
+            <span class="quick-label" data-i18n="quickVillagesLabel">🌾 Popular Rural Mandis & Clusters:</span>
+            <div class="quick-village-chips">
+              <button type="button" class="quick-village-chip" data-village="Khandauli" data-district="Agra" data-state="Uttar Pradesh">🥔 Khandauli (Agra)</button>
+              <button type="button" class="quick-village-chip" data-village="Chomu" data-district="Jaipur (Jaipur North & South)" data-state="Rajasthan">🥬 Chomu (Jaipur)</button>
+              <button type="button" class="quick-village-chip" data-village="Mohadi" data-district="Nashik" data-state="Maharashtra">🍇 Mohadi (Nashik)</button>
+              <button type="button" class="quick-village-chip" data-village="Deesa" data-district="Banaskantha (Deesa/Palanpur)" data-state="Gujarat">🥔 Deesa (Banaskantha)</button>
+              <button type="button" class="quick-village-chip" data-village="Lambra" data-district="Jalandhar" data-state="Punjab">🌱 Lambra (Jalandhar)</button>
+              <button type="button" class="quick-village-chip" data-village="Piplia Mandi" data-district="Mandsaur" data-state="Madhya Pradesh">🧄 Piplia Mandi (Mandsaur)</button>
+              <button type="button" class="quick-village-chip" data-village="Oddanchatram" data-district="Dindigul (Oddanchatram)" data-state="Tamil Nadu">🧅 Oddanchatram (Dindigul)</button>
+              <button type="button" class="quick-village-chip" data-village="Theog" data-district="Shimla (Theog/Kotkhai/Rampur)" data-state="Himachal Pradesh">🍎 Theog (Shimla)</button>
+              <button type="button" class="quick-village-chip" data-village="Madanapalle" data-district="Chittoor" data-state="Andhra Pradesh">🍅 Madanapalle (Chittoor)</button>
+              <button type="button" class="quick-village-chip" data-village="Singur" data-district="Hooghly (Chinsurah/Singur)" data-state="West Bengal">🥔 Singur (Hooghly)</button>
+            </div>
+          </div>
+
+          <div class="form-submit-row">
+            <button type="submit" class="btn btn-primary btn-submit" id="btn-submit-manual">
+              <span class="btn-icon">🔍</span>
+              <span data-i18n="btnSearchManual">Search Cold Storages</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Crop Filter Pills Bar -->
+    <section class="crop-filter-section">
+      <div class="crop-filter-container">
+        <span class="filter-heading">🌾 Filter by Crop:</span>
+        <div class="crop-chips-scroll">
+          <button class="crop-chip active" data-crop="" data-i18n="cropFilterAll">All Crops</button>
+          <button class="crop-chip" data-crop="Potato">🥔 Potato</button>
+          <button class="crop-chip" data-crop="Onion">🧅 Onion</button>
+          <button class="crop-chip" data-crop="Garlic">🧄 Garlic</button>
+          <button class="crop-chip" data-crop="Apple">🍎 Apple</button>
+          <button class="crop-chip" data-crop="Tomato">🍅 Tomato</button>
+          <button class="crop-chip" data-crop="Carrot">🥕 Carrot</button>
+          <button class="crop-chip" data-crop="Chilli">🌶️ Spices & Chilli</button>
+          <button class="crop-chip" data-crop="Dairy">🥛 Dairy Products</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Results Section -->
+    <section class="results-section">
+      <div class="results-header">
+        <div class="results-meta">
+          <h2 class="results-title" data-i18n="resultsTitle">Verified Cold Storage Facilities</h2>
+          <div class="meta-subrow">
+            <span class="results-badge" id="results-count-badge">0 facilities available</span>
+            <span class="sort-subtitle" data-i18n="sortedNotice">Sorted by nearest distance using Haversine algorithm & rural road factors</span>
+            <span class="location-source-badge" id="location-source-badge" style="display: none;"></span>
+          </div>
+        </div>
+
+        <div class="view-toggles" role="group" aria-label="View switch">
+          <button class="view-toggle-btn active" data-view="split" data-i18n="viewSplit">🌓 Split</button>
+          <button class="view-toggle-btn" data-view="list" data-i18n="viewList">📋 List</button>
+          <button class="view-toggle-btn" data-view="map" data-i18n="viewMap">🗺️ Map</button>
+        </div>
+      </div>
+
+      <!-- Expansion Notice Box -->
+      <div id="search-notice-box" class="search-notice-wrapper" style="display: none;"></div>
+
+      <!-- Results Layout (Split, List or Map) -->
+      <div class="results-layout view-split">
+        <!-- Cards List Column -->
+        <div class="cards-column">
+          <div id="storages-list" class="storages-grid">
+            <!-- Dynamically populated storage cards -->
+          </div>
+        </div>
+
+        <!-- Interactive Map Column -->
+        <div class="map-column">
+          <div class="map-wrapper">
+            <div id="map-container" class="map-element"></div>
+            <div class="map-legend">
+              <div class="legend-item"><span class="dot farmer-dot"></span> 🧑‍🌾 Your Village/Location</div>
+              <div class="legend-item"><span class="dot storage-dot"></span> 🧊 Cold Storage Hub</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Cold Storage Details Modal -->
+  <div id="storage-modal" class="modal-overlay" aria-hidden="true" role="dialog">
+    <div class="modal-backdrop" id="modal-backdrop"></div>
+    <div class="modal-card">
+      <button class="modal-close" id="modal-close-btn" aria-label="Close modal">✕</button>
+      <div id="modal-dynamic-content" class="modal-content-area">
+        <!-- Dynamically injected full details -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Spinner Loader -->
+  <div id="global-loader" class="global-loader" style="display: none;">
+    <div class="loader-card">
+      <div class="spinner"></div>
+      <p class="loader-text" id="loader-text">Finding nearest cold storage facilities...</p>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Application Scripts -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
