@@ -25,15 +25,17 @@
 #include <HTTPClient.h>
 
 // ============================================================================
-// 1. CONFIGURATION
+// 1. CONFIGURATION (Set your Wi-Fi and FarmFusion backend endpoint)
 // ============================================================================
-const char* WIFI_SSID     = "STORM";          // Your Wi-Fi SSID
-const char* WIFI_PASSWORD = "00000000";       // Your Wi-Fi Password
+// Replace with your field Wi-Fi SSID and Password
+const char* WIFI_SSID     = "YOUR_WIFI_SSID";
+const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 
-// Laptop IPv4 Address on Wi-Fi network
-const char* SERVER_IP     = "10.245.127.24";
-const int   SERVER_PORT   = 8000;
+// FarmFusion Backend Host (e.g. "api.farmfusion.app" or LAN IP "10.0.0.X" for local testing)
+const char* SERVER_HOST   = "api.farmfusion.app";
+const int   SERVER_PORT   = 80;
 const char* DEVICE_ID     = "NODE_01";
+
 
 // ============================================================================
 // 2. HARDWARE PINS & TRIGGER LEVELS
@@ -267,7 +269,7 @@ void sendDetectionEvent(const char* sensorName, const char* sensorType, bool isD
   WiFiClient wifiClient;
   HTTPClient http;
   
-  String url = "http://" + String(SERVER_IP) + ":" + String(SERVER_PORT) + "/api/v1/animal-detection";
+  String url = "http://" + String(SERVER_HOST) + ":" + String(SERVER_PORT) + "/api/v1/animal-detection";
   
   if (http.begin(wifiClient, url)) {
     http.addHeader("Content-Type", "application/json");
@@ -299,7 +301,7 @@ void sendUnifiedHeartbeat() {
   WiFiClient wifiClient;
   HTTPClient http;
   
-  String url = "http://" + String(SERVER_IP) + ":" + String(SERVER_PORT) + "/api/v1/animal-detection/heartbeat";
+  String url = "http://" + String(SERVER_HOST) + ":" + String(SERVER_PORT) + "/api/v1/animal-detection/heartbeat";
   
   if (http.begin(wifiClient, url)) {
     http.addHeader("Content-Type", "application/json");

@@ -1,13 +1,13 @@
 # Android
 *.iml
-.gradle
+.gradle/
 .kotlin/
 /local.properties
 /.idea/
-/build
-/captures
-.externalNativeBuild
-.cxx
+/build/
+/captures/
+.externalNativeBuild/
+.cxx/
 local.properties
 
 # Python
@@ -18,6 +18,14 @@ venv/
 ai-env/
 ai-venv/
 .env
+.env.*
+.pytest_cache/
+
+# Logs & Temporary Files
+*.log
+.~lock.*
+*.tmp
+*.bak
 
 # Database
 *.db
@@ -25,20 +33,24 @@ ai-venv/
 *.pre_migration_backup
 !backend/app/data/agriculture/farmfusion_agriculture.db
 
-# External / Raw Datasets
+# External / Raw Datasets & Scratch
 external/
 data/raw/
 backend/data/
+backend/scratch/
 backend/app/ml_models/crop/v2_previous_4800_32class/
 
-# Tools
+# Tools & IDEs
 .aider*
 .claude/
 .vscode/
+.idea/
 
 # Local env files
 backend/.env
+backend/.env.*
 frontend/.env
+frontend/.env.*
 .recover-env/
 
 # Local Python environments
@@ -52,4 +64,9 @@ backend/credentials/
 *.onnx
 backend/models/voice/tts/
 backend/app/voice/local/models/tts/
+
+# Generated Output Documents
+*.pdf
+!docs/*.pdf
+
 
