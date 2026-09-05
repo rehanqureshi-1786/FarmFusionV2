@@ -32,7 +32,7 @@ docker run -p 8000:8000 --env-file backend/.env farmfusion-backend
 - **URL**: `GET /health`
 - **Response**:
   ```json
-  {"status": "ok", "app": "FarmFusion Backend"}
+  {"status": "healthy", "version": "1.0.0", "app_name": "FarmFusion API"}
   ```
 
 ---
