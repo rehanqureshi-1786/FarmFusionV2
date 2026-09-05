@@ -256,6 +256,84 @@ class BhashiniTTSProvider(BaseTTSProvider):
         )
 
 
+class SarvamASRProvider(BaseASRProvider):
+    """Sarvam AI Speech-to-Text provider (primary STT when configured)."""
+
+    def __init__(self):
+        from app.voice.sarvam import SarvamVoiceClient
+        self._client = SarvamVoiceClient()
+
+    def can_asr(self, language: str) -> bool:
+        return self._client.is_configured
+
+    def supports_asr(self, language_code: str) -> bool:
+        return self.can_asr(language_code)
+
+    def supports_streaming_asr(self) -> bool:
+        return False
+
+    async def transcribe(self, audio_bytes: bytes, language: str = "hi") -> ASRResult:
+        start_t = time.time()
+        res = await self._client.transcribe_audio(audio_bytes, language=language)
+        if res:
+            return ASRResult(
+                transcription=res["text"],
+                detected_language=res.get("language", language[:2]),
+                confidence=res.get("confidence", 0.9),
+                provider="sarvam_stt",
+                credential_available=True,
+                latency_ms=(time.time() - start_t) * 1000,
+            )
+        # Unavailable -> signal caller to fall back to existing providers.
+        return ASRResult(
+            transcription="",
+            detected_language=language[:2],
+            confidence=0.0,
+            provider="sarvam_stt_unavailable",
+            error="Sarvam STT unavailable; falling back.",
+            credential_available=self._client.is_configured,
+            latency_ms=(time.time() - start_t) * 1000,
+        )
+
+
+class SarvamTTSProvider(BaseTTSProvider):
+    """Sarvam AI Bulbul Text-to-Speech provider (primary remote TTS when configured)."""
+
+    def __init__(self):
+        from app.voice.sarvam import SarvamVoiceClient
+        self._client = SarvamVoiceClient()
+
+    def can_tts(self, language: str) -> bool:
+        return self._client.is_configured
+
+    def supports_tts(self, language_code: str) -> bool:
+        return self.can_tts(language_code)
+
+    def supports_streaming_tts(self) -> bool:
+        return False
+
+    async def synthesize(self, text: str, language: str = "hi") -> TTSResult:
+        start_t = time.time()
+        audio = await self._client.generate_tts(text, language=language)
+        if audio:
+            return TTSResult(
+                audio_bytes=audio,
+                response_language=language[:2],
+                tts_provider="sarvam_tts",
+                credential_available=True,
+                latency_ms=(time.time() - start_t) * 1000,
+            )
+        return TTSResult(
+            audio_bytes=b"",
+            response_language=language[:2],
+            tts_provider="sarvam_tts_unavailable",
+            fallback_used=True,
+            fallback_reason="Sarvam TTS unavailable; caller falls back.",
+            credential_available=self._client.is_configured,
+            latency_ms=(time.time() - start_t) * 1000,
+        )
+
+
 # =============================================================================
 # 4. UNIFIED VOICE PROVIDER MANAGER
 # =============================================================================

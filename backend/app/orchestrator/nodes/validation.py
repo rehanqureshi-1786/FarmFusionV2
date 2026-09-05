@@ -7,7 +7,7 @@ Performs deterministic pre-synthesis verification:
 4. Verifies cross-tool consistency (e.g. Weather rain vs Smart Irrigation advice).
 5. Confirms RAG evidence quality and aligns confidence tiering.
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import structlog
 
 from app.orchestrator.state import OrchestratorState
@@ -36,59 +36,110 @@ def extract_verified_facts_from_state(state: OrchestratorState) -> VerifiedFactS
     # 1. Mandi Pricing & Forecasting Facts
     for k, v in tool_results.items():
         if "price" in k or "mandi" in k:
-                raw_p = v.get("current_price")
-                if isinstance(raw_p, dict):
-                    curr_price = raw_p.get("modal_price") or raw_p.get("price")
-                else:
-                    curr_price = raw_p or v.get("modal_price") or v.get("price")
-                if curr_price is not None:
-                    try:
-                        facts.append(VerifiedFact(
-                            key="mandi_current_price",
-                            value=round(float(curr_price), 2),
-                            unit="INR/quintal",
-                            source_tool=k,
-                            is_numeric=True,
-                        ))
-                    except (ValueError, TypeError):
-                        pass
-                if "daily_forecasts" in v and isinstance(v["daily_forecasts"], list) and v["daily_forecasts"]:
-                    last_f = v["daily_forecasts"][-1]
-                    pred_p = last_f.get("predicted_price")
-                    if pred_p is not None:
-                        facts.append(VerifiedFact(
-                            key="mandi_forecast_price",
-                            value=round(float(pred_p), 2),
-                            unit="INR/quintal",
-                            source_tool=k,
-                            is_numeric=True,
-                        ))
-                if "deterministic_action" in v and isinstance(v["deterministic_action"], dict):
-                    act = v["deterministic_action"].get("action")
-                    pct = v["deterministic_action"].get("expected_pct_change")
-                    if act:
-                        facts.append(VerifiedFact(
-                            key="mandi_decision_action",
-                            value=str(act),
-                            unit=None,
-                            source_tool=k,
-                            is_numeric=False,
-                        ))
-                    if pct is not None:
-                        facts.append(VerifiedFact(
-                            key="mandi_expected_change_pct",
-                            value=round(float(pct), 2),
-                            unit="percent",
-                            source_tool=k,
-                            is_numeric=True,
-                        ))
+            comm = v.get("commodity") or (v.get("observed", {}) or {}).get("commodity")
+            mkt = v.get("market") or (v.get("observed", {}) or {}).get("market")
+            if comm:
+                facts.append(VerifiedFact(
+                    key="mandi_commodity",
+                    value=str(comm),
+                    unit=None,
+                    source_tool=k,
+                    is_numeric=False,
+                ))
+            if mkt:
+                facts.append(VerifiedFact(
+                    key="mandi_market",
+                    value=str(mkt),
+                    unit=None,
+                    source_tool=k,
+                    is_numeric=False,
+                ))
+            raw_p = v.get("current_price")
+            if isinstance(raw_p, dict):
+                curr_price = raw_p.get("modal_price") or raw_p.get("price")
+            else:
+                curr_price = raw_p or v.get("modal_price") or v.get("price")
+            if curr_price is not None:
+                try:
+                    facts.append(VerifiedFact(
+                        key="mandi_current_price",
+                        value=round(float(curr_price), 2),
+                        unit="INR/quintal",
+                        source_tool=k,
+                        is_numeric=True,
+                    ))
+                except (ValueError, TypeError):
+                    pass
+            if "daily_forecasts" in v and isinstance(v["daily_forecasts"], list) and v["daily_forecasts"]:
+                last_f = v["daily_forecasts"][-1]
+                pred_p = last_f.get("predicted_price")
+                if pred_p is not None:
+                    facts.append(VerifiedFact(
+                        key="mandi_forecast_price",
+                        value=round(float(pred_p), 2),
+                        unit="INR/quintal",
+                        source_tool=k,
+                        is_numeric=True,
+                    ))
+            if "deterministic_action" in v and isinstance(v["deterministic_action"], dict):
+                act = v["deterministic_action"].get("action")
+                pct = v["deterministic_action"].get("expected_pct_change")
+                if act:
+                    facts.append(VerifiedFact(
+                        key="mandi_decision_action",
+                        value=str(act),
+                        unit=None,
+                        source_tool=k,
+                        is_numeric=False,
+                    ))
+                if pct is not None:
+                    facts.append(VerifiedFact(
+                        key="mandi_expected_change_pct",
+                        value=round(float(pct), 2),
+                        unit="percent",
+                        source_tool=k,
+                        is_numeric=True,
+                    ))
 
-    # 2. Weather Facts
+    # 2. Weather & Forecast Facts
     weather_task = next((v for k, v in tool_results.items() if "weather" in k), legacy_output)
     if isinstance(weather_task, dict):
         temp = weather_task.get("temperature_c") or weather_task.get("temperature")
         hum = weather_task.get("humidity_percent") or weather_task.get("humidity")
         rain = weather_task.get("annual_rainfall_mm") or weather_task.get("precipitation_mm")
+        wind = weather_task.get("wind_speed_kmh") or weather_task.get("wind_speed")
+        feels = weather_task.get("feels_like_c")
+
+        # Check forecast rows (e.g. for tomorrow / 7-day)
+        forecast_rows = weather_task.get("forecast")
+        if isinstance(forecast_rows, list) and forecast_rows:
+            f_row = forecast_rows[0]
+            if temp is None:
+                temp = f_row.get("temperature_avg_c") or f_row.get("temperature_c") or f_row.get("temperature_max_c")
+            if hum is None:
+                hum = f_row.get("humidity_percent")
+            f_precip = f_row.get("precipitation_mm")
+            f_prob = f_row.get("precipitation_probability_percent")
+            f_wind = f_row.get("wind_speed_max_kmh") or f_row.get("wind_speed_kmh")
+            if f_precip is not None:
+                facts.append(VerifiedFact(
+                    key="rainfall_mm",
+                    value=round(float(f_precip), 1),
+                    unit="mm",
+                    source_tool="weather_tool",
+                    is_numeric=True,
+                ))
+            if f_prob is not None:
+                facts.append(VerifiedFact(
+                    key="rainfall_probability_percent",
+                    value=round(float(f_prob), 1),
+                    unit="percent",
+                    source_tool="weather_tool",
+                    is_numeric=True,
+                ))
+            if f_wind is not None and wind is None:
+                wind = f_wind
+
         if temp is not None:
             facts.append(VerifiedFact(
                 key="temperature_c",
@@ -105,7 +156,7 @@ def extract_verified_facts_from_state(state: OrchestratorState) -> VerifiedFactS
                 source_tool="weather_tool",
                 is_numeric=True,
             ))
-        if rain is not None:
+        if rain is not None and not any(f.key == "rainfall_mm" for f in facts):
             facts.append(VerifiedFact(
                 key="rainfall_mm",
                 value=round(float(rain), 1),
@@ -113,11 +164,30 @@ def extract_verified_facts_from_state(state: OrchestratorState) -> VerifiedFactS
                 source_tool="weather_tool",
                 is_numeric=True,
             ))
+        if wind is not None:
+            facts.append(VerifiedFact(
+                key="wind_speed_kmh",
+                value=round(float(wind), 1),
+                unit="km/h",
+                source_tool="weather_tool",
+                is_numeric=True,
+            ))
+        if feels is not None:
+            facts.append(VerifiedFact(
+                key="feels_like_c",
+                value=round(float(feels), 1),
+                unit="C",
+                source_tool="weather_tool",
+                is_numeric=True,
+            ))
 
     # 3. Smart Irrigation Facts
     irrigation_task = next((v for k, v in tool_results.items() if "irrigation" in k), {})
-    if isinstance(irrigation_task, dict) and irrigation_task:
-        si_status = irrigation_task.get("status") or irrigation_task.get("recommendation")
+    si_source = irrigation_task if (isinstance(irrigation_task, dict) and irrigation_task) else (
+        weather_task.get("smart_irrigation") if isinstance(weather_task, dict) else {}
+    )
+    if isinstance(si_source, dict) and si_source:
+        si_status = si_source.get("status") or si_source.get("action") or si_source.get("recommendation")
         if si_status:
             facts.append(VerifiedFact(
                 key="irrigation_status",
@@ -126,13 +196,50 @@ def extract_verified_facts_from_state(state: OrchestratorState) -> VerifiedFactS
                 source_tool="smart_irrigation_tool",
                 is_numeric=False,
             ))
+        sm = (
+            si_source.get("root_zone_moisture_percent")
+            or si_source.get("soil_moisture_percent")
+            or si_source.get("soil_moisture_pct")
+            or si_source.get("soil_moisture")
+        )
+        if sm is not None:
+            facts.append(VerifiedFact(
+                key="soil_moisture_percent",
+                value=round(float(sm), 1),
+                unit="percent",
+                source_tool="smart_irrigation_tool",
+                is_numeric=True,
+            ))
+        r24 = (
+            si_source.get("next_24h_rain_sum_mm")
+            or si_source.get("next_24h_rainfall_mm")
+            or si_source.get("expected_rain_mm")
+            or si_source.get("rainfall_mm")
+        )
+        if r24 is not None:
+            facts.append(VerifiedFact(
+                key="irrigation_24h_rain_mm",
+                value=round(float(r24), 1),
+                unit="mm",
+                source_tool="smart_irrigation_tool",
+                is_numeric=True,
+            ))
+        score = si_source.get("irrigation_need_score")
+        if score is not None:
+            facts.append(VerifiedFact(
+                key="irrigation_need_score",
+                value=round(float(score), 1),
+                unit=None,
+                source_tool="smart_irrigation_tool",
+                is_numeric=True,
+            ))
 
     # 4. Disaster Risk Facts
     disaster_task = next((v for k, v in tool_results.items() if "disaster" in k), {})
     if isinstance(disaster_task, dict) and disaster_task:
-        risk_lvl = disaster_task.get("peak_risk_level") or disaster_task.get("current_risk_level")
-        risk_score = disaster_task.get("peak_risk_score") or disaster_task.get("current_risk_score")
-        hazard = disaster_task.get("peak_disaster_type") or disaster_task.get("current_disaster_type")
+        risk_lvl = disaster_task.get("peak_risk_level") or disaster_task.get("current_risk_level") or disaster_task.get("risk_level")
+        risk_score = disaster_task.get("peak_risk_score") or disaster_task.get("current_risk_score") or disaster_task.get("risk_score")
+        hazard = disaster_task.get("peak_disaster_type") or disaster_task.get("current_disaster_type") or disaster_task.get("hazard_type")
         if risk_lvl:
             facts.append(VerifiedFact(
                 key="disaster_risk_level",
@@ -313,7 +420,7 @@ def compute_deterministic_confidence(
 
     # RAG evidence factor
     rag_data = state.get("rag_grounding") or {}
-    evidence_lvl = rag_data.get("evidence_level")
+    evidence_lvl = rag_data.get("evidence_level") or rag_data.get("evidence_strength")
     if evidence_lvl == EvidenceLevel.HIGH_EVIDENCE.value:
         rag_factor = 1.0
     elif evidence_lvl == EvidenceLevel.LOW_EVIDENCE.value:
@@ -336,7 +443,90 @@ def compute_deterministic_confidence(
     freshness_factor = 0.90 if state.get("fallback_used") else 1.0
 
     final_conf = round(base_conf * rag_factor * val_factor * freshness_factor, 2)
+    # Strictly align aggregated confidence with confidence_tier bounds (Safety Rule #3)
+    if conf_tier == "medium":
+        final_conf = min(final_conf, 0.74)
+    elif conf_tier == "low":
+        final_conf = min(final_conf, 0.44)
+    elif conf_tier == "unclear":
+        final_conf = min(final_conf, 0.29)
     return max(min(final_conf, 1.0), 0.05)
+
+
+def validate_response_temporal_alignment(
+    text: str,
+    relative_day: str,
+    horizon_days: int = 1,
+) -> Tuple[bool, Optional[str]]:
+    """
+    Deterministic validation that final text's temporal framing matches requested horizon.
+    """
+    text_lower = text.lower()
+    if relative_day == "TOMORROW":
+        # Must contain tomorrow markers
+        has_tomorrow = any(w in text_lower for w in ["कल", "tomorrow", "kal", "अगले दिन", "next day"])
+        if not has_tomorrow:
+            return False, "Response omitted tomorrow framing ('कल' / 'tomorrow') for tomorrow question."
+    elif relative_day == "TODAY":
+        # Must contain today markers or current framing
+        has_today = any(w in text_lower for w in ["आज", "today", "aaj", "वर्तमान", "अभी", "current"])
+        if not has_today:
+            return False, "Response omitted today framing ('आज' / 'today') for today question."
+    elif relative_day in ("NEXT_7_DAYS", "NEXT_WEEK") or horizon_days == 7:
+        has_7days = any(w in text_lower for w in ["7 दिन", "7 days", "सात दिन", "हफ्ते", "हफ्ता", "next 7 days", "week"])
+        if not has_7days:
+            return False, "Response omitted 7-day horizon framing for 7-day question."
+    return True, None
+
+
+def check_temporal_consistency(state: OrchestratorState) -> Optional[ValidationCheck]:
+    """
+    Deterministic temporal-consistency guard (F7 fix): if the user asked about a
+    FUTURE day (tomorrow / explicit date) but the weather tool returned today's
+    current observations (no forecast window), flag a BLOCKING inconsistency so the
+    synthesizer never answers today's weather for a tomorrow question.
+    """
+    intent = state.get("intent")
+    sf = state.get("semantic_frame") or {}
+    sf_entities = sf.get("entities") or {}
+    rd = (sf_entities.get("time_context") or {}).get("relative_day") or "UNSPECIFIED"
+    tool_results = state.get("tool_results", {}) or {}
+    weather_data = next((v for k, v in tool_results.items() if "weather" in k), None)
+
+    if intent not in ("weather", "smart_irrigation", "irrigation_advisory"):
+        return None
+    if not weather_data:
+        return None
+
+    asked_future = rd in ("TOMORROW", "DAY_AFTER_TOMORROW", "NEXT_WEEK", "NEXT_7_DAYS", "EXPLICIT_DATE")
+    # Current tool returns observations WITHOUT a forecast window => cannot satisfy future query.
+    has_forecast = isinstance(weather_data.get("forecast"), list) and weather_data.get("forecast")
+    has_forecast_date = bool(weather_data.get("forecast_date"))
+
+    if asked_future and not has_forecast and not has_forecast_date:
+        return ValidationCheck(
+            check_name="temporal_consistency",
+            passed=False,
+            severity=CheckSeverity.BLOCKING,
+            details=(
+                f"User asked about future day ({rd}) but weather tool returned current-weather "
+                "observations. Replanning required to fetch forecast."
+            ),
+            target_tool="weather_tool",
+        )
+    # User asked for TODAY but tool returned a forecast anchored elsewhere.
+    if rd == "TODAY" and weather_data and "forecast" in weather_data and not weather_data.get("forecast_date", ""):
+        # a multi-day forecast used for a today-ask is acceptable; only flag when a
+        # specific future forecast_date was selected yet the user asked today.
+        if weather_data.get("forecast_date"):
+            return ValidationCheck(
+                check_name="temporal_consistency",
+                passed=False,
+                severity=CheckSeverity.WARNING,
+                details="User asked about today but tool returned a specific forecast date.",
+                target_tool="weather_tool",
+            )
+    return None
 
 
 def check_cross_tool_consistency(state: OrchestratorState, facts: VerifiedFactSet) -> CrossToolConsistencyResult:
@@ -455,9 +645,15 @@ async def validation_node(state: OrchestratorState) -> OrchestratorState:
         checks.append(disease_contradiction)
         warnings.append(disease_contradiction.details or "Contradictory disease indicators detected.")
 
+    # 3c. Temporal consistency check (F7 fix)
+    temporal_check = check_temporal_consistency(state)
+    if temporal_check:
+        checks.append(temporal_check)
+        warnings.append(temporal_check.details or "Temporal mismatch detected.")
+
     # 4. RAG Evidence check
     rag_data = state.get("rag_grounding") or {}
-    evidence_lvl = rag_data.get("evidence_level")
+    evidence_lvl = rag_data.get("evidence_level") or rag_data.get("evidence_strength")
     if evidence_lvl == EvidenceLevel.LOW_EVIDENCE.value:
         warnings.append("Retrieved agronomic evidence is partial; preserve uncertainty in response.")
     elif evidence_lvl == EvidenceLevel.NO_EVIDENCE.value and rag_data.get("status") == "NO_RELEVANT_CHUNKS":
@@ -487,8 +683,18 @@ async def validation_node(state: OrchestratorState) -> OrchestratorState:
             conf_tier = "medium"
         else:
             conf_tier = "low"
+    elif evidence_lvl == EvidenceLevel.LOW_EVIDENCE.value:
+        conf_tier = "medium"
+    elif evidence_lvl == EvidenceLevel.NO_EVIDENCE.value and rag_data.get("status") in ["NO_RELEVANT_CHUNKS", "ERROR"]:
+        conf_tier = "low"
     else:
         conf_tier = "high"
+
+    # Enforce: LOW_EVIDENCE RAG can never be presented as HIGH confidence (Section 11 requirement)
+    if evidence_lvl == EvidenceLevel.LOW_EVIDENCE.value and conf_tier == "high":
+        conf_tier = "medium"
+    elif evidence_lvl == EvidenceLevel.NO_EVIDENCE.value and rag_data.get("status") in ["NO_RELEVANT_CHUNKS", "ERROR"] and conf_tier in ["high", "medium"]:
+        conf_tier = "low"
 
     # 6. Compute Aggregated Deterministic Confidence (Critical Fix 4)
     aggregated_conf = compute_deterministic_confidence(state, facts, checks, conf_tier)

@@ -67,14 +67,17 @@ def generate_task_plan(
         semantic_frame.intent == CanonicalIntent.CLARIFICATION
         or semantic_frame.confidence.intent_confidence < 0.60
     ):
+        raw_lower = semantic_frame.raw_text.lower()
+        if any(w in raw_lower for w in ["इस फसल", "यह फसल", "ये फसल", "my crop", "the crop", "this crop", "is fasal", "ye fasal", "meri fasal", "dekhbhal", "देखभाल"]):
+            clarif_msg = "क्या आप कृपया अपनी फसल का नाम बता सकते हैं जिसकी देखभाल के बारे में आप पूछ रहे हैं?"
+        else:
+            clarif_msg = "क्या आप कृपया अपना सवाल दोबारा स्पष्ट कह सकते हैं? (जैसे मौसम, मंडी भाव या फसल सलाह)"
+
         return TaskPlan(
             session_id=semantic_frame.session_id,
             objective="Query ambiguous or confidence low. Requesting farmer clarification.",
             action_type=ActionType.CLARIFY,
-            clarification_message=(
-                "क्या आप कृपया अपना सवाल दोबारा स्पष्ट कह सकते हैं? "
-                "(जैसे मौसम, मंडी भाव या फसल सलाह)"
-            ),
+            clarification_message=clarif_msg,
             status=PlanStatus.READY,
         )
 
@@ -191,21 +194,52 @@ def generate_task_plan(
 
     # 6.1 Weather Tool Task
     if CapabilityType.WEATHER in caps:
-        tasks.append(
-            PlannedTask(
-                task_id="weather_1",
-                capability=CapabilityType.WEATHER,
-                tool_name="weather_tool",
-                description="Fetch real-time physical temperature, humidity, rainfall, and wind.",
-                depends_on=[],
-                static_inputs={
-                    "latitude": float(lat) if lat is not None else 26.9124,
-                    "longitude": float(lon) if lon is not None else 75.7873,
-                    "location_name": district_name or state_name,
-                },
-                is_blocking=False,
+        # First-class temporal routing: tomorrow/explicit-date/multi-day requests must
+        # use the forecast tool anchored to the requested date, NOT today's current weather.
+        tc = None
+        if isinstance(entities.time_context, dict):
+            tc = entities.time_context
+        elif entities.time_context is not None:
+            tc = entities.time_context.model_dump()
+        tc = tc or {}
+        rd = tc.get("relative_day") or "UNSPECIFIED"
+        target_date = tc.get("resolved_date")
+        wants_forecast = rd in ("TOMORROW", "DAY_AFTER_TOMORROW", "NEXT_WEEK", "NEXT_7_DAYS", "EXPLICIT_DATE")
+
+        if wants_forecast:
+            tasks.append(
+                PlannedTask(
+                    task_id="weather_1",
+                    capability=CapabilityType.WEATHER,
+                    tool_name="weather_forecast_tool",
+                    description="Fetch physical forecast for the requested date/horizon.",
+                    depends_on=[],
+                    static_inputs={
+                        "latitude": float(lat) if lat is not None else 26.9124,
+                        "longitude": float(lon) if lon is not None else 75.7873,
+                        "location_name": district_name or state_name,
+                        "days": int((tc or {}).get("forecast_days") or (tc or {}).get("horizon_days") or entities.forecast_days or 7),
+                        "target_date": target_date,
+                    },
+                    is_blocking=False,
+                )
             )
-        )
+        else:
+            tasks.append(
+                PlannedTask(
+                    task_id="weather_1",
+                    capability=CapabilityType.WEATHER,
+                    tool_name="weather_tool",
+                    description="Fetch real-time physical temperature, humidity, rainfall, and wind.",
+                    depends_on=[],
+                    static_inputs={
+                        "latitude": float(lat) if lat is not None else 26.9124,
+                        "longitude": float(lon) if lon is not None else 75.7873,
+                        "location_name": district_name or state_name,
+                    },
+                    is_blocking=False,
+                )
+            )
 
     # 6.2 Smart Irrigation Tool Task (Depends on Weather if present)
     if CapabilityType.SMART_IRRIGATION in caps:
@@ -433,6 +467,9 @@ def generate_task_plan(
 
     # 6.13 Calling Tool Task
     if CapabilityType.CALLING in caps:
+        extracted_phone = entities.additional_entities.get("phone") if hasattr(entities, "additional_entities") and entities.additional_entities else None
+        target_phone = extracted_phone or f_ctx.get("phone") or "+919876543210"
+        target_name = f_ctx.get("name") or "Farmer"
         tasks.append(
             PlannedTask(
                 task_id="calling_1",
@@ -441,8 +478,8 @@ def generate_task_plan(
                 description="Initiate outbound voice advisory call via Vobiz telephony gateway.",
                 depends_on=[],
                 static_inputs={
-                    "phone": f_ctx.get("phone", "+919876543210"),
-                    "farmer_name": f_ctx.get("name", "Farmer"),
+                    "phone": target_phone,
+                    "farmer_name": target_name,
                     "language": semantic_frame.language or "hi",
                     "crop_name": crop,
                     "mandi_name": market,

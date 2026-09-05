@@ -183,6 +183,15 @@ class VoiceQueryResponse(BaseModel):
     follow_up_suggestions: Optional[List[str]] = Field(None, description="Suggested follow-up questions/actions")
     timestamp: str = Field(..., description="ISO format timestamp of the response")
 
+    # F7 typed action survival (requirement #8): the full ResponseEnvelope and its
+    # action_payload are passed through so Android can handle ANSWER / NAVIGATE /
+    # REQUEST_INPUT / CALL / NOTIFY / CLARIFY directly instead of a legacy intent->action map.
+    envelope: Optional[Dict[str, Any]] = Field(None, description="Full F7 ResponseEnvelope payload")
+    action_payload: Optional[Dict[str, Any]] = Field(
+        None,
+        description="F7 StructuredActionPayload {action, destination, android_route, required_input, target_phone, call_reason, ...}",
+    )
+
 
 # ============ ERROR MODELS ============
 

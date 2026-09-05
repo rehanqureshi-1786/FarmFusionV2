@@ -36,6 +36,7 @@ class CanonicalIntent(str, Enum):
     ANIMAL_ALERT = "animal_alert"
     GENERAL_AGRICULTURE = "general_agriculture"
     NAVIGATION_REQUEST = "navigation_request"
+    CALLING = "calling"
     REPEAT_LAST = "repeat_last"
     CLARIFICATION = "clarification"
     UNSUPPORTED = "unsupported"
@@ -113,6 +114,54 @@ ANDROID_ROUTE_MAP: Dict[NavigationDestination, str] = {
 }
 
 
+class RelativeDay(str, Enum):
+    """First-class temporal anchor resolved from relative-day semantics (multilingual)."""
+    UNSPECIFIED = "UNSPECIFIED"
+    TODAY = "TODAY"
+    TOMORROW = "TOMORROW"
+    DAY_AFTER_TOMORROW = "DAY_AFTER_TOMORROW"
+    NEXT_WEEK = "NEXT_WEEK"
+    NEXT_7_DAYS = "NEXT_7_DAYS"
+    THIS_WEEK = "THIS_WEEK"
+    NEXT_MONTH = "NEXT_MONTH"
+    EXPLICIT_DATE = "EXPLICIT_DATE"
+
+
+class TimeContext(BaseModel):
+    """Canonical temporal context attached to the semantic frame (requirement #3).
+
+    Time is a first-class entity: the planner and specialist tools consume
+    ``relative_day`` / ``resolved_date`` instead of relying on LLM text at
+    synthesis time.
+    """
+    model_config = ConfigDict(extra="forbid")
+
+    relative_day: RelativeDay = Field(default=RelativeDay.UNSPECIFIED)
+    reference_date: Optional[str] = Field(default=None, description="ISO date the relative day anchors against")
+    resolved_date: Optional[str] = Field(default=None, description="ISO date (YYYY-MM-DD) of the day the user asked about")
+    horizon_days: int = Field(default=1, ge=1, le=30, description="Forecast window length in days")
+    forecast_days: Optional[int] = Field(default=None, ge=1, le=30, description="Explicit multi-day horizon when requested")
+    explicit_date: Optional[str] = Field(default=None, description="NCBI-style raw date token if explicitly stated")
+    is_relative: bool = Field(default=False, description="True if resolved from a relative day word")
+    raw_hint: Optional[str] = Field(default=None, description="Non-normalized surface token matched")
+
+    @property
+    def day_offset(self) -> int:
+        """Zero-based offset from reference date to the requested target day."""
+        mapping = {
+            RelativeDay.TODAY: 0,
+            RelativeDay.TOMORROW: 1,
+            RelativeDay.DAY_AFTER_TOMORROW: 2,
+            RelativeDay.NEXT_WEEK: 7,
+            RelativeDay.THIS_WEEK: 0,
+            RelativeDay.NEXT_7_DAYS: 0,
+            RelativeDay.NEXT_MONTH: 30,
+            RelativeDay.EXPLICIT_DATE: 0,
+            RelativeDay.UNSPECIFIED: 0,
+        }
+        return mapping.get(self.relative_day, 0)
+
+
 # =============================================================================
 # 2. CONFIDENCE & ENTITY SCHEMAS
 # =============================================================================
@@ -181,6 +230,10 @@ class EntitySet(BaseModel):
     farm_location: Optional[FarmLocation] = None
     timeframe: Optional[str] = Field(None, description="Relative or absolute timeframe (e.g. 'today', 'tomorrow', 'next week')")
     forecast_days: Optional[int] = Field(None, ge=1, le=30, description="Requested forecast horizon in days")
+    time_context: Optional[TimeContext] = Field(
+        default=None,
+        description="First-class temporal context (relative_day, resolved_date, horizon). Planner and tools consume this field.",
+    )
     soil_values: Optional[SoilValues] = None
     farm_size: Optional[float] = Field(None, ge=0.0, description="Acreage or land size")
     farm_size_unit: Optional[str] = Field(default="acre")

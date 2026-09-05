@@ -16,22 +16,38 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 def _find_commodity_csv() -> str:
+    """
+    Finds the longitudinal mandi price dataset.
+    Prioritizes the cleaned longitudinal dataset (backend/data/mandi_training_timeseries.csv),
+    then backend/data/mandi_processed/mandi_historical_clean.csv, then legacy snapshots.
+    """
     cur = os.path.dirname(os.path.abspath(__file__))
     for _ in range(6):
-        candidate = os.path.join(cur, "commodity_price.csv")
-        if os.path.exists(candidate):
-            return candidate
+        candidates = [
+            os.path.join(cur, "data", "mandi_training_timeseries.csv"),
+            os.path.join(cur, "data", "mandi_processed", "mandi_historical_clean.csv"),
+            os.path.join(cur, "commodity_price.csv"),
+        ]
+        for cand in candidates:
+            if os.path.exists(cand):
+                return cand
         parent = os.path.dirname(cur)
         if parent == cur:
             break
         cur = parent
-    return "commodity_price.csv"
+    return "mandi_training_timeseries.csv"
 
 CSV_PATH = _find_commodity_csv()
 
 
 class MandiPriceForecaster:
-    """Production ML price forecasting engine using Prophet + LightGBM ensemble."""
+    """
+    Production ML price forecasting engine using Prophet + LightGBM ensemble.
+    Trained strictly on genuine longitudinal Agmarknet arrival & price records.
+    Never generates synthetic dates, sine waves, or Gaussian jitter.
+    """
+
+    MIN_OBSERVATIONS: int = 30  # Minimum authentic daily observations required to forecast
 
     def __init__(self, csv_path: str = CSV_PATH):
         self.csv_path = csv_path
@@ -40,26 +56,17 @@ class MandiPriceForecaster:
         self._cache_ttl_seconds = 12 * 3600  # 12 hours
 
     def _load_data(self) -> pd.DataFrame:
-        """Loads and cleans raw Agmarknet commodity price records."""
+        """Loads and cleans genuine Agmarknet longitudinal commodity price records."""
         if self._df is not None:
             return self._df
 
         if not os.path.exists(self.csv_path):
-            logger.warning("mandi_csv_not_found", path=self.csv_path)
-            # Create a fallback baseline historical series
-            dates = pd.date_range(end=datetime.now(), periods=90)
-            self._df = pd.DataFrame({
-                "Arrival_Date": dates.strftime("%d/%m/%Y"),
-                "Commodity": ["Wheat"] * 90,
-                "Market": ["Jaipur"] * 90,
-                "Modal_x0020_Price": [2400 + i * 2 + (i % 5) * 10 for i in range(90)],
-                "Min_x0020_Price": [2350 + i * 2 for i in range(90)],
-                "Max_x0020_Price": [2450 + i * 2 for i in range(90)],
-            })
+            logger.error("mandi_csv_not_found", path=self.csv_path)
+            self._df = pd.DataFrame(columns=["ds", "commodity", "market", "modal_price", "state", "district"])
             return self._df
 
         df = pd.read_csv(self.csv_path)
-        # Standardize column names
+        # Standardize column names across new normalized format and legacy format
         rename_map = {
             "Modal_x0020_Price": "modal_price",
             "Min_x0020_Price": "min_price",
@@ -68,84 +75,101 @@ class MandiPriceForecaster:
             "Commodity": "commodity",
             "Market": "market",
             "State": "state",
-            "District": "district"
+            "District": "district",
+            "date": "arrival_date",
         }
         df = df.rename(columns=rename_map)
 
         # Convert date to datetime
-        try:
-            df["ds"] = pd.to_datetime(df["arrival_date"], format="%d/%m/%Y", errors="coerce")
-        except Exception:
+        if "arrival_date" in df.columns:
             df["ds"] = pd.to_datetime(df["arrival_date"], errors="coerce")
+        elif "date" in df.columns:
+            df["ds"] = pd.to_datetime(df["date"], errors="coerce")
 
         df["modal_price"] = pd.to_numeric(df["modal_price"], errors="coerce")
         df = df.dropna(subset=["modal_price", "ds"]).sort_values("ds")
         self._df = df
-        logger.info("mandi_data_loaded", rows=len(df), commodities=df["commodity"].nunique())
+        logger.info(
+            "mandi_data_loaded",
+            rows=len(df),
+            commodities=df["commodity"].nunique(),
+            unique_dates=df["ds"].nunique(),
+            path=self.csv_path
+        )
         return self._df
 
-    def _build_synthetic_history_if_needed(self, commodity: str, market: str, base_price: float) -> pd.DataFrame:
+    def _get_commodity_history(
+        self, commodity: str, market: Optional[str] = None
+    ) -> Tuple[Optional[pd.DataFrame], float]:
         """
-        Generates realistic 90-day time-series using seasonal patterns and realistic volatility
-        when sparse single-day records exist for a specific commodity/mandi pair.
+        Retrieves authentic longitudinal daily price observations for a given commodity and market.
+        NEVER creates synthetic, sine-wave, or jittered prices.
+
+        Returns:
+            Tuple of (daily_df, latest_observed_price) where daily_df has columns ['ds', 'y'].
+            If fewer than MIN_OBSERVATIONS genuine dates exist, returns (None, latest_observed_price).
         """
-        end_date = datetime.now()
-        dates = pd.date_range(end=end_date, periods=90, freq="D")
-        np.random.seed(abs(hash(commodity + market)) % (2**31))
-
-        # Real agricultural price dynamics: drift + weekly cycle + stochastic noise
-        trend = np.linspace(-base_price * 0.03, base_price * 0.04, 90)
-        weekly = 15.0 * np.sin(2 * np.pi * np.arange(90) / 7.0)
-        monthly = 25.0 * np.cos(2 * np.pi * np.arange(90) / 30.0)
-        noise = np.random.normal(0, base_price * 0.008, 90)
-
-        prices = base_price + trend + weekly + monthly + noise
-        prices = np.clip(prices, base_price * 0.7, base_price * 1.4)
-
-        df_synth = pd.DataFrame({
-            "ds": dates,
-            "y": prices,
-            "commodity": commodity,
-            "market": market
-        })
-        return df_synth
-
-    def _get_commodity_history(self, commodity: str, market: Optional[str] = None) -> Tuple[pd.DataFrame, float]:
-        """Filters historical price points or generates historical series anchored on observed prices."""
         df = self._load_data()
+        if df.empty:
+            return None, 0.0
+
         comm_clean = commodity.lower().strip()
+        mask_comm = df["commodity"].str.lower().str.contains(comm_clean, na=False)
 
-        # Find matching records
-        mask = df["commodity"].str.lower().str.contains(comm_clean)
-        if market:
-            mkt_mask = df["market"].str.lower().str.contains(market.lower().strip())
-            if (mask & mkt_mask).sum() > 0:
-                mask = mask & mkt_mask
+        # Handle common crop naming variations
+        if not mask_comm.any():
+            aliases = {
+                "paddy": "paddy (dhan)",
+                "rice": "paddy",
+                "chana": "gram",
+            }
+            if comm_clean in aliases:
+                mask_comm = df["commodity"].str.lower().str.contains(aliases[comm_clean], na=False)
 
-        sub = df[mask].copy()
-        if sub["ds"].nunique() >= 15:
-            # Aggregate by date
-            daily = sub.groupby("ds")["modal_price"].mean().reset_index()
+        if not mask_comm.any():
+            logger.info("mandi_commodity_not_found", commodity=commodity)
+            return None, 0.0
+
+        # Case 1: Specific market requested
+        mkt_clean = market.lower().strip() if market else ""
+        if mkt_clean and mkt_clean not in ["all", "regional mandi", "national", "none"]:
+            mask_mkt = df["market"].str.lower().str.contains(mkt_clean, na=False)
+            sub_mkt = df[mask_comm & mask_mkt].copy()
+            if sub_mkt["ds"].nunique() >= self.MIN_OBSERVATIONS:
+                daily = sub_mkt.groupby("ds")["modal_price"].mean().reset_index()
+                daily = daily.rename(columns={"modal_price": "y"}).sort_values("ds")
+                current_p = float(daily["y"].iloc[-1])
+                return daily, current_p
+            else:
+                latest_p = float(sub_mkt["modal_price"].iloc[-1]) if len(sub_mkt) > 0 else 0.0
+                logger.info(
+                    "insufficient_market_history",
+                    commodity=commodity,
+                    market=market,
+                    found_dates=sub_mkt["ds"].nunique(),
+                    required=self.MIN_OBSERVATIONS,
+                )
+                return None, latest_p
+
+        # Case 2: Aggregate across all markets for commodity
+        sub_comm = df[mask_comm].copy()
+        if sub_comm["ds"].nunique() >= self.MIN_OBSERVATIONS:
+            daily = sub_comm.groupby("ds")["modal_price"].mean().reset_index()
             daily = daily.rename(columns={"modal_price": "y"}).sort_values("ds")
             current_p = float(daily["y"].iloc[-1])
             return daily, current_p
 
-        # Derive anchor price from any commodity match, or default
-        if len(sub) > 0:
-            current_p = float(sub["modal_price"].median())
-        else:
-            defaults = {
-                "wheat": 2450.0, "mustard": 5400.0, "soybean": 4600.0, "cotton": 7150.0,
-                "gram": 5120.0, "chana": 5120.0, "onion": 2100.0, "tomato": 1850.0,
-                "potato": 1600.0, "paddy": 2300.0, "rice": 3200.0, "maize": 2200.0
-            }
-            current_p = next((v for k, v in defaults.items() if k in comm_clean), 2500.0)
-
-        daily = self._build_synthetic_history_if_needed(commodity, market or "Regional Mandi", current_p)
-        return daily, current_p
+        latest_p = float(sub_comm["modal_price"].iloc[-1]) if len(sub_comm) > 0 else 0.0
+        logger.info(
+            "insufficient_commodity_history",
+            commodity=commodity,
+            found_dates=sub_comm["ds"].nunique(),
+            required=self.MIN_OBSERVATIONS,
+        )
+        return None, latest_p
 
     def _fit_predict_prophet(self, df_history: pd.DataFrame, days: int) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Fits real Facebook/Meta Prophet time-series model and predicts future dates."""
+        """Fits real Facebook/Meta Prophet time-series model on genuine historical dates."""
         from prophet import Prophet
         import logging
         logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
@@ -168,17 +192,20 @@ class MandiPriceForecaster:
         return yhat, yhat_lower, yhat_upper
 
     def _fit_predict_lightgbm(self, df_history: pd.DataFrame, days: int, base_price: float) -> np.ndarray:
-        """Trains real LightGBM regressor on price lags and calendar features."""
+        """
+        Trains real LightGBM regressor on historical price lags and calendar features.
+        Uses strictly chronological feature engineering with zero future lookahead.
+        """
         import lightgbm as lgb
 
         df = df_history.copy().sort_values("ds")
-        # Feature Engineering
+        # Feature Engineering (strictly preceding observations and calendar variables)
         df["dayofweek"] = df["ds"].dt.dayofweek
         df["dayofyear"] = df["ds"].dt.dayofyear
         df["sin_day"] = np.sin(2 * np.pi * df["dayofyear"] / 365.25)
         df["cos_day"] = np.cos(2 * np.pi * df["dayofyear"] / 365.25)
 
-        # Lags
+        # Lags: strictly backward looking, no future leakage
         df["lag_1"] = df["y"].shift(1)
         df["lag_2"] = df["y"].shift(2)
         df["lag_7"] = df["y"].shift(7)
@@ -188,21 +215,39 @@ class MandiPriceForecaster:
         feature_cols = ["dayofweek", "dayofyear", "sin_day", "cos_day", "lag_1", "lag_2", "lag_7", "rolling_mean_7"]
 
         if len(df) < 10:
-            # Not enough data for GBDT, return flat trend
             return np.full(days, base_price)
 
         X = df[feature_cols].values
         y = df["y"].values
 
-        model = lgb.LGBMRegressor(
-            n_estimators=30,
-            learning_rate=0.08,
-            num_leaves=15,
-            min_child_samples=5,
-            random_state=42,
-            verbosity=-1
-        )
-        model.fit(X, y)
+        # Chronological split: train on earlier 80%, early stop/validate on recent 20% if sufficient samples
+        if len(df) >= 40:
+            split_idx = int(len(df) * 0.85)
+            X_train, y_train = X[:split_idx], y[:split_idx]
+            X_val, y_val = X[split_idx:], y[split_idx:]
+            model = lgb.LGBMRegressor(
+                n_estimators=50,
+                learning_rate=0.08,
+                num_leaves=15,
+                min_child_samples=5,
+                random_state=42,
+                verbosity=-1
+            )
+            model.fit(
+                X_train, y_train,
+                eval_set=[(X_val, y_val)],
+                callbacks=[lgb.early_stopping(stopping_rounds=10, verbose=False)]
+            )
+        else:
+            model = lgb.LGBMRegressor(
+                n_estimators=30,
+                learning_rate=0.08,
+                num_leaves=15,
+                min_child_samples=5,
+                random_state=42,
+                verbosity=-1
+            )
+            model.fit(X, y)
 
         # Iterative auto-regressive multi-step forward prediction
         preds = []
@@ -236,7 +281,8 @@ class MandiPriceForecaster:
     ) -> Dict[str, Any]:
         """
         Runs the Prophet + LightGBM ensemble pipeline with 95% confidence intervals
-        and deterministic trading signals.
+        and deterministic trading signals on genuine longitudinal Agmarknet observations.
+        Returns INSUFFICIENT_HISTORY if fewer than MIN_OBSERVATIONS genuine dates exist.
         """
         cache_key = f"{commodity.lower()}:{mandi.lower()}:{days}"
         now_ts = time.time()
@@ -250,14 +296,56 @@ class MandiPriceForecaster:
         logger.info("mandi_ml_forecast_run", commodity=commodity, mandi=mandi, days=days)
         history_df, current_price = self._get_commodity_history(commodity, mandi)
 
+        # Gatecheck: Insufficient genuine historical observations
+        if history_df is None or len(history_df) < self.MIN_OBSERVATIONS:
+            obs_count = len(history_df) if history_df is not None else 0
+            logger.warning(
+                "mandi_insufficient_history_gatecheck",
+                commodity=commodity,
+                mandi=mandi,
+                observations=obs_count,
+                threshold=self.MIN_OBSERVATIONS,
+            )
+            result = {
+                "status": "INSUFFICIENT_HISTORY",
+                "commodity": commodity,
+                "mandi": mandi,
+                "current_price": round(current_price, 2) if current_price > 0 else 0.0,
+                "observations_count": obs_count,
+                "required_observations": self.MIN_OBSERVATIONS,
+                "forecast_horizon_days": days,
+                "daily_forecasts": [],
+                "ensemble_weights": {"prophet": 0.60, "lightgbm": 0.40},
+                "deterministic_action": {
+                    "action": "INSUFFICIENT_EVIDENCE",
+                    "expected_pct_change": 0.0,
+                    "reason_en": (
+                        f"Insufficient historical observations ({obs_count} dates found, minimum required: {self.MIN_OBSERVATIONS}). "
+                        f"FarmFusion requires authentic historical depth to generate valid forecasts."
+                    ),
+                    "reason_hi": (
+                        f"ऐतिहासिक आंकड़ों की कमी है (केवल {obs_count} तिथियां उपलब्ध हैं, न्यूनतम {self.MIN_OBSERVATIONS} आवश्यक)। "
+                        f"सटीक पूर्वानुमान के लिए वास्तविक ऐतिहासिक रिकॉर्ड अनिवार्य हैं।"
+                    ),
+                },
+                "confidence_level": 0.0,
+                "model_ensemble": "None (Forecast suppressed due to insufficient longitudinal data)",
+                "disclaimer": (
+                    "Forecast suppressed due to insufficient historical observations. "
+                    "FarmFusion strictly adheres to data integrity rules and never generates synthetic or jittered price series."
+                ),
+            }
+            self._cache[cache_key] = (now_ts, result)
+            return result
+
         # 1. Prophet Model
         try:
             prophet_y, p_lower, p_upper = self._fit_predict_prophet(history_df, days)
         except Exception as e:
             logger.warning("prophet_fit_warning", error=str(e))
-            prophet_y = np.linspace(current_price, current_price * 1.02, days)
-            p_lower = prophet_y * 0.96
-            p_upper = prophet_y * 1.04
+            prophet_y = np.linspace(current_price, current_price * 1.01, days)
+            p_lower = prophet_y * 0.95
+            p_upper = prophet_y * 1.05
 
         # 2. LightGBM Model
         try:
@@ -279,7 +367,7 @@ class MandiPriceForecaster:
             low_p = round(float(min(p_lower[i], pred_p * 0.95)), 2)
             high_p = round(float(max(p_upper[i], pred_p * 1.05)), 2)
 
-            pct_change = ((pred_p - current_price) / current_price) * 100.0
+            pct_change = ((pred_p - current_price) / current_price) * 100.0 if current_price > 0 else 0.0
             if pct_change > 1.2:
                 trend = "bullish"
             elif pct_change < -1.2:
@@ -296,8 +384,8 @@ class MandiPriceForecaster:
             })
 
         # 5. Deterministic Trading Signal
-        final_price = daily_items[-1]["predicted_price"]
-        total_pct = ((final_price - current_price) / current_price) * 100.0
+        final_price = daily_items[-1]["predicted_price"] if daily_items else current_price
+        total_pct = ((final_price - current_price) / current_price) * 100.0 if current_price > 0 else 0.0
 
         if total_pct >= 2.5:
             action = "HOLD"
@@ -314,9 +402,12 @@ class MandiPriceForecaster:
             reason_hi = f"आने वाले दिनों में भाव लगभग स्थिर (±1.5% के दायरे में) रहने की संभावना है। अपनी आवश्यकतानुसार बिक्री करें।"
 
         result = {
+            "status": "SUCCESS",
             "commodity": commodity,
             "mandi": mandi,
             "current_price": round(current_price, 2),
+            "observations_count": len(history_df),
+            "required_observations": self.MIN_OBSERVATIONS,
             "forecast_horizon_days": days,
             "daily_forecasts": daily_items,
             "ensemble_weights": {"prophet": 0.60, "lightgbm": 0.40},
@@ -329,7 +420,7 @@ class MandiPriceForecaster:
             "confidence_level": 0.95,
             "model_ensemble": "Prophet (Additive Seasonality) + LightGBM (Gradient Boosted Residuals)",
             "disclaimer": (
-                "Forecasts are produced by a machine learning ensemble (Prophet + LightGBM) trained on Agmarknet market data. "
+                "Forecasts are produced by a machine learning ensemble (Prophet + LightGBM) trained on authentic Agmarknet historical data. "
                 "Forecasts represent statistical expectations and carry market risk."
             )
         }

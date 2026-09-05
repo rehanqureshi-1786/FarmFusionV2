@@ -44,8 +44,14 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         ) if farmer_ctx else None,
         soil_type=farmer_ctx.get("soil_type"),
     )
+    active_crop_ctx = (
+        state.get("active_crop")
+        or farmer_ctx.get("active_crop")
+        or (farmer_ctx.get("profile") or {}).get("active_crop")
+        or (last_recs[0].get("crop_name") if last_recs else None)
+    )
     conversation_context = ConversationContext(
-        active_crop=state.get("active_crop") or (last_recs[0].get("crop_name") if last_recs else None),
+        active_crop=active_crop_ctx,
         last_intent=state.get("intent"),
         accumulated_slots=filled_slots,
     )
@@ -133,6 +139,21 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         intent = "unsupported_capability"
         confidence = 0.95
         filled_slots["capability_type"] = "scheme_application"
+
+    # 3b. Outbound Voice Calling Intent (High Priority - before navigation & market)
+    elif any(kw in query for kw in [
+        "कॉल करो", "कॉल कर दो", "फोन करो", "फोन कर दो", "कॉल करें", "फोन करें", "फोन लगाओ", "फोन मिलाओ",
+        "call", "phone karo", "call karo", "call the farmer", "phone kar do", "phone mila do",
+        "call kijiye", "phone milao", "कॉल मिलाओ", "फोन लगाओ", "call lagao", "outbound call",
+        "farmer ko call", "किसान को फोन", "किसान को कॉल", "alert call", "अलर्ट कॉल"
+    ]):
+        intent = "calling"
+        confidence = 0.98
+        phone_match = re.search(r'(\+?91[\-\s]?)?[6789]\d{9}', query)
+        if phone_match:
+            filled_slots["phone"] = phone_match.group(0).strip()
+        elif farmer_ctx.get("phone"):
+            filled_slots["phone"] = farmer_ctx.get("phone")
 
     # 4. In-App Navigation Intent (Strict Priority for "खोलो", "स्क्रीन", "पेज")
     elif any(kw in query for kw in ["स्क्रीन खोलो", "पेज खोलो", "स्क्रीन", "खोलो", "खोल", "चलो", "जाओ", "वापस", "दिखाओ", "होम पर", "navigate", "open screen", "open"]):
@@ -243,7 +264,7 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
 
     # 12. Mandi Intelligence & Price Queries (High-value farmer features)
     # 12a. Price Opportunity Alert Intent: "अगर गेहूं 2600 रुपये से ऊपर जाए तो बताना", "गेहूं के लिए alert लगाओ"
-    elif any(kw in query for kw in ["alert", "अलर्ट"]) or (any(kw in query for kw in ["अगर", "यदि", "बता देना", "बताओ जब", "notify"]) and any(kw in query for kw in ["से ऊपर", "बढ़े", "घटे", "रुपये से", "ऊपर जाए", "above", "below", "reach"])):
+    elif (any(kw in query for kw in ["alert", "अलर्ट"]) and any(kw in query for kw in ["bhav", "price", "rate", "कीमत", "भाव", "रुपये", "rs", "₹", "फसल", "crop", "मंडी", "mandi"])) or (any(kw in query for kw in ["अगर", "यदि", "बता देना", "बताओ जब", "notify"]) and any(kw in query for kw in ["से ऊपर", "बढ़े", "घटे", "रुपये से", "ऊपर जाए", "above", "below", "reach"])):
         intent = "price_alert"
         confidence = 0.95
         num_match = re.search(r'(\d{3,6})', query)
@@ -302,6 +323,7 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
             "कोटा": "Kota", "kota": "Kota",
             "जोधपुर": "Jodhpur", "jodhpur": "Jodhpur",
             "बीकानेर": "Bikaner", "bikaner": "Bikaner",
+            "अलवर": "Alwar", "alwar": "Alwar",
             "इंदौर": "Indore", "indore": "Indore",
             "भोपाल": "Bhopal", "bhopal": "Bhopal",
             "लुधियाना": "Ludhiana", "ludhiana": "Ludhiana",
@@ -324,10 +346,19 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         elif len(cities) == 1:
             filled_slots["market_a"] = cities[0]
 
-        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "onion"]:
+        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "onion", "gehu", "dhan", "chawal", "sarso", "kapas", "soyabean", "makka", "mungfali"]:
             if c_word in query:
                 filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
                 break
+
+        sf = state.get("semantic_frame") or {}
+        sf_entities = sf.get("entities") or {} if isinstance(sf, dict) else (sf.entities.__dict__ if hasattr(sf, "entities") else {})
+        if "commodity" not in filled_slots and sf_entities.get("crop"):
+            filled_slots["commodity"] = sf_entities.get("crop")
+        if not filled_slots.get("market_b") and sf_entities.get("target_locations") and len(sf_entities.get("target_locations")) >= 2:
+            locs = sf_entities.get("target_locations")
+            filled_slots["market_a"] = locs[0]
+            filled_slots["market_b"] = locs[1]
 
         # Multi-turn slot clarification
         if "commodity" not in filled_slots and not (last_recs and any(w in query for w in ["इसका", "इस फसल"])):
@@ -458,8 +489,9 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
 
     # 15. IoT Animal Intrusion Detection & Farm Security Intent
     elif any(kw in query for kw in [
-        "जानवर", "पशु", "नीलगाय", "सूअर", "खेत सुरक्षित", "सुरक्षा", "घुसपैठ", "सेंसर", "अलर्ट",
-        "animal", "intrusion", "wild animal", "pig", "nilgai", "is farm safe", "security status", "sensor status"
+        "जानवर", "पशु", "नीलगाय", "सूअर", "खेत सुरक्षित", "सुरक्षा", "घुसपैठ", "सेंसर",
+        "animal", "intrusion", "wild animal", "pig", "nilgai", "is farm safe", "security status", "sensor status",
+        "suar", "janwar", "ghus", "boundary", "tarbandi"
     ]):
         intent = "animal_detection"
         confidence = 0.95
@@ -470,6 +502,11 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         intent = "crop_care"
         confidence = 0.90
         filled_slots["crop_name"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
+
+    # Inherit semantic_frame intent if deterministic/LLM extractor identified higher confidence
+    if intent == "unknown" and semantic_frame.intent not in [CanonicalIntent.GENERAL_AGRICULTURE, CanonicalIntent.CLARIFICATION]:
+        intent = semantic_frame.intent.value
+        confidence = max(confidence, semantic_frame.confidence.intent_confidence)
 
     # Enforce Safety Rule #6: Low Confidence Clarification
     if confidence < 0.6:

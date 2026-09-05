@@ -20,10 +20,14 @@ from .semantic_frame import (
     ToolResultReference,
     ResponseEnvelope,
 )
-from .orchestration import (
-    ObjectiveStatus,
-    ReplanReason,
-    OrchestrationState,
-    ExecutionTrace,
-)
+
+
+def __getattr__(name: str):
+    # F7 orchestration schemas are loaded lazily to break the import cycle:
+    # planner/schemas.py -> app.schemas.semantic_frame (package __init__)
+    #   -> orchestration.py -> planner/schemas.py (partially initialized).
+    if name in ("ObjectiveStatus", "ReplanReason", "OrchestrationState", "ExecutionTrace"):
+        from . import orchestration as _orch
+        return getattr(_orch, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

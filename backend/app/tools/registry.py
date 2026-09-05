@@ -469,6 +469,7 @@ class ToolRegistry:
         lon = float(slots.get("longitude") or context.get("longitude") or 75.7873)
         loc_name = slots.get("location_name") or context.get("location_name") or "Your Farm"
         days = int(slots.get("days") or 7)
+        target_date = slots.get("target_date")
 
         forecast_res = await WeatherService.get_forecast(lat, lon, days=days, location_name=loc_name)
         if not forecast_res.get("success"):
@@ -480,16 +481,32 @@ class ToolRegistry:
             )
 
         forecast_items = forecast_res.get("forecast", [])
+
+        # If a specific target date was requested ("kal"/tomorrow/15 September), select the
+        # exact matching day; multi-day (7-day) requests keep the full list.
+        selected_items = forecast_items
+        if target_date and isinstance(target_date, str):
+            matched = [it for it in forecast_items if str(it.get("date", "")).startswith(target_date)]
+            if matched:
+                selected_items = matched
+                days = len(matched)
+
         return ToolResult(
             status=ToolStatus.SUCCESS,
-            data={"location": loc_name, "forecast": forecast_items, "farming_advice": forecast_res.get("farming_advice")},
+            data={
+                "location": loc_name,
+                "forecast": selected_items,
+                "forecast_date": target_date,
+                "days": days,
+                "farming_advice": forecast_res.get("farming_advice"),
+            },
             provenance=ProvenanceMetadata(
                 source="Open-Meteo Physical NWP Forecast",
                 confidence=1.0,
                 estimated_vs_measured="measured",
                 location=loc_name,
             ),
-            message=f"Fetched {len(forecast_items)}-day forecast for {loc_name}. {forecast_res.get('farming_advice', '')}",
+            message=f"Fetched {len(selected_items)}-day forecast for {loc_name}. {forecast_res.get('farming_advice', '')}",
         )
 
     async def _execute_weather_alerts(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:

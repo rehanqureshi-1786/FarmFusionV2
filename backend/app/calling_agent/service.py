@@ -155,4 +155,9 @@ class KisanCallingService:
             call_type=request.call_type
         )
 
+    # Alias for FarmFusion ToolRegistry compatibility
+    initiate_outbound_call = trigger_call
+
+
 kisan_calling_service = KisanCallingService()
+

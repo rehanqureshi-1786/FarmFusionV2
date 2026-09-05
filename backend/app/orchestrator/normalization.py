@@ -7,7 +7,8 @@ and Indian regional languages (Punjabi, Gujarati, Marathi, Telugu, Tamil, etc.).
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Tuple
+from datetime import date, datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 
 # =============================================================================
 # 1. CROP DICTIONARY (Surface Forms -> Canonical English Title)
@@ -243,3 +244,130 @@ def extract_timeframe(text: str) -> Optional[str]:
     if any(w in cleaned for w in ["इस महीने", "this month"]):
         return "this_month"
     return None
+
+
+# =============================================================================
+# 5. SEMANTIC TEMPORAL NORMALIZATION (First-class time entity — F7 fix)
+#    Maps multilingual relative-day expressions to a canonical TemporalAnchor so
+#    the planner/tools resolve the ACTUAL requested date instead of defaulting to
+#    today. This is a vocabulary→semantic normalization, NOT a string patcher.
+# =============================================================================
+
+# Ordered probes: (surface token, RelativeDay value, day_offset). Longer/more
+# specific phrases first so "day after tomorrow" wins over "day" and "agle 7 din"
+# beats "agle din".
+_RELATIVE_PROBES: List[Tuple[str, str, int]] = [
+    ("day after tomorrow", "DAY_AFTER_TOMORROW", 2),
+    ("agle 7 din", "NEXT_7_DAYS", 0),
+    ("अगले 7 दिन", "NEXT_7_DAYS", 0),
+    ("next 7 days", "NEXT_7_DAYS", 0),
+    ("अगले सात दिन", "NEXT_7_DAYS", 0),
+    ("this week", "THIS_WEEK", 0),
+    ("इस हफ्ते", "THIS_WEEK", 0),
+    ("next week", "NEXT_WEEK", 7),
+    ("agle hafte", "NEXT_WEEK", 7),
+    ("अगले हफ्ते", "NEXT_WEEK", 7),
+    ("next month", "NEXT_MONTH", 30),
+    ("अगले महीने", "NEXT_MONTH", 30),
+    ("agle mahine", "NEXT_MONTH", 30),
+    ("next day", "TOMORROW", 1),
+    ("agle din", "TOMORROW", 1),
+    ("अगले दिन", "TOMORROW", 1),
+    ("parson", "DAY_AFTER_TOMORROW", 2),
+    ("parso", "DAY_AFTER_TOMORROW", 2),
+    ("परसों", "DAY_AFTER_TOMORROW", 2),
+    ("tomorrow", "TOMORROW", 1),
+    ("kal", "TOMORROW", 1),
+    ("कल", "TOMORROW", 1),
+    ("next day", "TOMORROW", 1),
+    # Regional-language tomorrow today tokens
+    ("আগামীকাল", "TOMORROW", 1),
+    ("நாளை", "TOMORROW", 1),
+    ("రేపు", "TOMORROW", 1),
+    ("ಮುಂದಿನ ದಿನ", "TOMORROW", 1),
+    ("morrow", "TOMORROW", 1),
+    ("आज", "TODAY", 0),
+    ("aaj", "TODAY", 0),
+    ("abhi", "TODAY", 0),
+    ("अभी", "TODAY", 0),
+    ("today", "TODAY", 0),
+    ("current", "TODAY", 0),
+    ("currently", "TODAY", 0),
+    ("இன்று", "TODAY", 0),
+    ("ఈ రోజు", "TODAY", 0),
+    ("আজ", "TODAY", 0),
+]
+
+_MONTHS_EN = {"january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
+              "july": 7, "august": 8, "september": 9, "october": 10, "november": 11,
+              "december": 12, "jan": 1, "feb": 2, "mar": 3, "apr": 4, "jun": 6,
+              "jul": 7, "aug": 8, "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12}
+_HINDI_MONTHS = {"जनवरी": 1, "फरवरी": 2, "मार्च": 3, "अप्रैल": 4, "मई": 5, "जून": 6,
+                 "जुलाई": 7, "अगस्त": 8, "सितंबर": 9, "अक्टूबर": 10, "नवंबर": 11, "दिसंबर": 12}
+_NATIVE_DIGITS = str.maketrans({
+    "०": "0", "१": "1", "२": "2", "३": "3", "४": "4", "५": "5", "६": "6", "७": "7",
+    "८": "8", "९": "9", "০": "0", "১": "1", "২": "2", "৩": "3", "৪": "4", "৫": "5",
+    "৬": "6", "৭": "7", "৮": "8", "৯": "9", "૦": "0", "૧": "1", "૨": "2", "૩": "3",
+    "૪": "4", "૫": "5", "૬": "6", "૭": "7", "૮": "8", "૯": "9"})
+
+
+def _extract_explicit_date(cleaned: str) -> Optional[str]:
+    """Resolve explicit dates: '15 September', '15 sept', '2026-09-15', '१५ सितंबर'."""
+    iso = re.search(r"(20\d{2})[-/.](1[0-2]|0[1-9])[-/.](3[01]|[12]\d|0[1-9])", cleaned)
+    if iso:
+        return f"{iso.group(1)}-{int(iso.group(2)):02d}-{int(iso.group(3)):02d}"
+    for m in re.finditer(r"(\d{1,2})\s*(%s)(?:\s*(20\d{2}))?" % "|".join(_MONTHS_EN), cleaned):
+        day = int(m.group(1).translate(_NATIVE_DIGITS))
+        if 1 <= day <= 31:
+            year = int(m.group(3)) if m.group(3) else datetime.now().year
+            return f"{year}-{_MONTHS_EN[m.group(2)]:02d}-{day:02d}"
+    for hname, hnum in _HINDI_MONTHS.items():
+        m = re.search(r"(\d{1,2})\s*" + hname, cleaned)
+        if m:
+            day = int(m.group(1).translate(_NATIVE_DIGITS))
+            if 1 <= day <= 31:
+                return f"{datetime.now().year}-{hnum:02d}-{day:02d}"
+    return None
+
+
+def resolve_time_context(text: str, reference_date: Optional[str] = None) -> Dict[str, Any]:
+    """Canonical temporal resolution. Returns fields matching ``TimeContext``."""
+    empty = {
+        "relative_day": "UNSPECIFIED", "reference_date": reference_date,
+        "resolved_date": None, "horizon_days": 1, "forecast_days": None,
+        "explicit_date": None, "is_relative": False, "raw_hint": None,
+    }
+    if not text:
+        return empty
+    cleaned = text.strip().lower()
+
+    try:
+        ref_dt = datetime.strptime(reference_date, "%Y-%m-%d").date() if reference_date else date.today()
+    except (ValueError, TypeError):
+        ref_dt = date.today()
+
+    base = dict(empty)
+    base["reference_date"] = ref_dt.isoformat()
+    base["resolved_date"] = ref_dt.isoformat()
+
+    explicit = _extract_explicit_date(cleaned)
+    if explicit:
+        base.update({"relative_day": "EXPLICIT_DATE", "resolved_date": explicit,
+                     "explicit_date": explicit, "is_relative": False, "raw_hint": explicit})
+        return base
+
+    for probe, rd, offset in _RELATIVE_PROBES:
+        if probe in cleaned:
+            target = ref_dt + timedelta(days=offset)
+            multi_day = rd in ("NEXT_7_DAYS", "NEXT_WEEK", "THIS_WEEK")
+            base.update({
+                "relative_day": rd,
+                "resolved_date": target.isoformat(),
+                "horizon_days": 7 if multi_day else 1,
+                "forecast_days": 7 if rd in ("NEXT_7_DAYS", "NEXT_WEEK") else None,
+                "is_relative": True,
+                "raw_hint": probe,
+            })
+            return base
+
+    return base

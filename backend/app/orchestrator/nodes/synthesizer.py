@@ -7,6 +7,7 @@ Enforces that specialist outputs and RAG context are the sole sources of agricul
 import os
 import re
 import json
+from datetime import date
 from typing import Dict, Any, Optional, List, Tuple, Set
 import httpx
 import structlog
@@ -19,23 +20,48 @@ from app.voice.languages import get_language_profile
 
 logger = structlog.get_logger(__name__)
 
+
+def _safe_g(val: Any) -> str:
+    """Safely formats numeric float/int using :g without throwing ValueError on strings like '--'."""
+    if val is None or val == "--":
+        return "--"
+    if isinstance(val, (int, float)):
+        return f"{val:g}"
+    try:
+        f = float(str(val).strip())
+        return f"{f:g}"
+    except (ValueError, TypeError):
+        return str(val)
+
+
 SYNTHESIS_SYSTEM_PROMPT = """You are FarmFusion AI, an expert, caring, and grounded multilingual agricultural assistant for Indian farmers.
+
 
 CRITICAL ARCHITECTURAL CONSTRAINTS:
 1. NUMERICAL & FACTUAL IMMUTABILITY:
-   - You MUST NOT invent, estimate, alter, round, or extrapolate any numbers, prices, weather figures, or percentages.
+   - You MUST NOT invent, estimate, alter, round away, or extrapolate any numbers, prices, weather figures, moisture levels, or percentages.
    - You can ONLY use numerical facts explicitly present in the provided Verified Fact Set.
-   - Any price, temperature, humidity, rainfall, or disease confidence in your response MUST match the Verified Fact Set exactly.
-2. CONFIDENCE-AWARE WORDING:
-   - High confidence (>=0.75): "Your crop is likely affected by..." / "आपके खेत के लिए सबसे उपयुक्त..."
-   - Medium confidence (0.45-0.74): "The model indicates..." / "मॉडल के अनुसार..."
-   - Low confidence (<0.45): "The image/result is not reliable enough to confirm..." / "तस्वीर स्पष्ट न होने के कारण..."
-3. LENGTH & STYLE:
-   - Simple, rural-friendly vocabulary. Keep response to 2-3 sentences.
-   - No technical jargon. Be supportive and practical.
-4. LANGUAGE:
-   - Respond in the requested language and dialect. All numbers and units must remain identical.
-5. ACTION DIRECTIVE:
+   - Any price, temperature, humidity, rainfall, probability, wind speed, or soil moisture in your response MUST match the Verified Fact Set exactly.
+   - NEVER replace verified numerical facts with vague adjectives (e.g. do NOT say "मौसम गर्म रहेगा और बारिश हो सकती है"; you MUST state the exact verified values, for example "तापमान 31°C रहेगा, बारिश की संभावना 70% है और लगभग 8 mm वर्षा हो सकती है").
+2. LANGUAGE ≠ CONTENT TRANSFORMATION:
+   - User language determines presentation language, but translation must NEVER suppress, drop, or alter factual content.
+   - For Hindi/Hinglish responses:
+     * Use natural Hindi or Hinglish sentence structure.
+     * Keep numbers and units (°C, mm, %, km/h, ₹, प्रति क्विंटल, kg) exact.
+     * PRESERVE ENGLISH TECHNICAL TERMS where direct translation would reduce clarity for Indian farmers:
+       e.g., pH, NPK, humidity, rainfall, irrigation, forecast, market price, confidence, soil moisture, EC, XGBoost, Disaster risk.
+     * Use natural Hindi/Hinglish around them:
+       "आज humidity 72% है।"
+       "वर्तमान soil moisture 16% है और अगले 24 घंटे में rainfall 2 mm अनुमानित है।"
+       "Disaster risk LOW है।"
+   - For Hinglish queries, respond in natural conversational Hinglish preserving English technical terms and numbers:
+     "Kal temperature 31°C rahega aur rain probability 70% hai."
+     "Abhi soil moisture 18% hai, isliye irrigation ki zarurat nahi lag rahi."
+3. CONFIDENCE-AWARE WORDING:
+   - High confidence (>=0.75): Clear guidance based on verified findings.
+   - Medium confidence (0.45-0.74): "The model / available data indicates..." / "मॉडल / उपलब्ध जानकारी के अनुसार..."
+   - Low / Unclear confidence (<0.45): State uncertainty clearly; advise consulting an expert or taking a clearer photo.
+4. ACTION DIRECTIVE:
    - Choose one action from: ANSWER, CLARIFY, NAVIGATE, REQUEST_INPUT, CALL, NOTIFY.
    - If leaf photo is required: action="NAVIGATE", destination="DISEASE_SCAN", required_input="LEAF_IMAGE".
    - If critical disaster alert: action="CALL", call_reason="CRITICAL_DISASTER_ALERT".
@@ -44,7 +70,7 @@ CRITICAL ARCHITECTURAL CONSTRAINTS:
 OUTPUT FORMAT:
 You must return valid JSON strictly conforming to this schema:
 {
-  "response_text": "Localized 2-3 sentence farmer explanation",
+  "response_text": "Localized farmer explanation preserving all verified facts, numbers, units, and English technical terms",
   "action": "ANSWER",
   "destination": null,
   "required_input": null,
@@ -149,6 +175,33 @@ def verify_numerical_immutability(
                 )
 
 
+    # 3b. Check percentage alteration (e.g. soil moisture, humidity, rain probability)
+    found_pcts = [
+        float(m)
+        for m in re.findall(r"(\d+(?:\.\d+)?)\s*%", text)
+    ]
+    if found_pcts:
+        for fp in found_pcts:
+            if fp not in verified_nums and not (allowed_context_numbers and fp in allowed_context_numbers):
+                if not any(abs(fp - vn) < 0.5 for vn in verified_nums):
+                    violations.append(
+                        f"Percentage value altered or invented: found {fp}%, verified: {verified_nums}"
+                    )
+
+    # 3c. Check wind speed alteration: (\d+)\s*(?:km/h|किमी/घंटा)
+    found_winds = [
+        float(m)
+        for m in re.findall(r"(\d+(?:\.\d+)?)\s*(?:km/h|किमी/घंटा|किमी/घंटे)", text, re.IGNORECASE)
+    ]
+    if found_winds:
+        wind_facts = [f for f in verified_facts if "wind" in f.key and f.is_numeric]
+        allowed_winds = {round(float(f.value), 1) for f in wind_facts}
+        for fw in found_winds:
+            if not any(abs(fw - aw) < 0.5 for aw in allowed_winds):
+                violations.append(
+                    f"Wind speed altered or invented: found {fw} km/h, verified: {allowed_winds}"
+                )
+
     # 4. Check risk level contradiction
     for rf in verified_facts:
         if rf.key == "disaster_risk_level":
@@ -168,10 +221,10 @@ def verify_numerical_immutability(
 async def call_llm_synthesizer(
     user_prompt: str,
     timeout_seconds: float = 4.0,
-) -> Optional[Dict[str, Any]]:
+) -> Tuple[Optional[Dict[str, Any]], str]:
     """
     Invokes configured cloud LLM (OpenRouter or Groq) with structured JSON response.
-    Returns parsed JSON dict or None on timeout/error.
+    Returns (parsed_json_dict, failure_reason).
     """
     openrouter_key = os.getenv("OPENROUTER_API_KEY")
     groq_key = os.getenv("GROQ_API_KEY")
@@ -189,7 +242,7 @@ async def call_llm_synthesizer(
         api_url = "https://api.groq.com/openai/v1/chat/completions"
         model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
     else:
-        return None
+        return None, "llm_unavailable_no_api_key"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -211,13 +264,37 @@ async def call_llm_synthesizer(
             if resp.status_code == 200:
                 data = resp.json()
                 content = data["choices"][0]["message"]["content"]
-                return json.loads(content)
+                try:
+                    parsed = json.loads(content)
+                    return parsed, "success"
+                except json.JSONDecodeError:
+                    return None, "malformed_structured_output_json_decode_error"
             else:
                 logger.warning("llm_synthesizer_http_error", status_code=resp.status_code, body=resp.text[:200])
-                return None
+                return None, f"http_error_{resp.status_code}"
+    except httpx.TimeoutException:
+        logger.warning("llm_synthesizer_timeout")
+        return None, "timeout"
     except Exception as exc:
         logger.warning("llm_synthesizer_call_failed", error=str(exc))
-        return None
+        return None, f"other_error_{type(exc).__name__}"
+
+
+def is_hinglish_query(query: str, detected_lang: str) -> bool:
+    """Detects whether user query is in Hinglish (Romanized Hindi)."""
+    if detected_lang in ["hi-en", "hinglish"]:
+        return True
+    if not query:
+        return False
+    if re.search(r'[\u0900-\u097F]', query):
+        return False
+    q_lower = query.lower()
+    hinglish_words = [
+        "kaisa", "kya", "hogi", "batao", "rahega", "chahiye", "hai", "hain",
+        "ka", "ki", "ke", "ko", "mein", "se", "karun", "karni", "kal", "aaj",
+        "parson", "bhav", "khet", "fasal", "pani", "barish", "zarurat", "irrigation"
+    ]
+    return any(re.search(r'\b' + re.escape(w) + r'\b', q_lower) for w in hinglish_words)
 
 
 def deterministic_fallback_synthesizer(
@@ -226,6 +303,7 @@ def deterministic_fallback_synthesizer(
     dialect: Optional[str],
     is_marwari: bool,
     conf_tier: str,
+    is_hinglish: bool = False,
 ) -> Tuple[str, StructuredActionPayload]:
     """
     Deterministic safe fallback synthesizer:
@@ -284,38 +362,68 @@ def deterministic_fallback_synthesizer(
             required_input="LEAF_IMAGE",
         )
 
+    # 2b. Outbound Voice Calling (Top priority)
+    if intent in ["calling", "call"] or any("calling" in k for k in tool_results.keys()) or state.get("next_action") == "CALL":
+        call_info = next((v for k, v in tool_results.items() if "calling" in k), tool_data)
+        call_id = (call_info.get("call_id") if isinstance(call_info, dict) else None) or "active"
+        phone = (call_info.get("phone") if isinstance(call_info, dict) else None) or "farmer"
+        farmer_name = (call_info.get("farmer_name") if isinstance(call_info, dict) else None) or "किसान भाई"
+        if is_hinglish:
+            text = f"{farmer_name} ({phone}) ko outbound call lagaya ja raha hai. Call ID: {call_id}."
+        elif is_marwari:
+            text = f"{farmer_name} ({phone}) ने फोन कॉल मिलायो जा रह्यो है। कॉल आईडी: {call_id}।"
+        elif lang == "hi":
+            text = f"{farmer_name} ({phone}) को फोन कॉल मिलाया जा रहा है। कॉल आईडी: {call_id}।"
+        else:
+            text = f"Outbound advisory call initiated to {farmer_name} at {phone}. Call ID: {call_id}."
+        return text, StructuredActionPayload(action="CALL", call_reason="USER_REQUESTED_CALL")
+
     # 3. Navigation
-    if intent == "navigation":
-        dest = tool_data.get("destination", "home")
+    if intent in ["navigation", "navigation_request"] or state.get("next_action") == "NAVIGATE":
+        dest = tool_data.get("destination") or state.get("last_navigation_destination") or "home"
         route = tool_data.get("android_route") or f"nav_{dest}"
-        req_in = "LEAF_IMAGE" if dest in ["disease_detection", "DISEASE_SCAN"] else None
+        req_in = tool_data.get("required_input") or ("LEAF_IMAGE" if dest in ["disease_detection", "DISEASE_SCAN"] else None)
         dest_hi = {
             "home": "होम स्क्रीन", "market_prices": "मंडी भाव स्क्रीन",
             "weather": "मौसम स्क्रीन", "crop_recommendation": "फसल सलाह स्क्रीन",
-            "disease_detection": "बीमारी जांच स्क्रीन", "government_schemes": "सरकारी योजना स्क्रीन",
+            "disease_detection": "बीमारी जांच स्क्रीन", "DISEASE_SCAN": "रोग पहचान (कैमरा)", "government_schemes": "सरकारी योजना स्क्रीन",
         }.get(dest, dest)
-        if is_marwari:
-            text = f"म्हूँ थांके खातर {dest_hi} खोल रैयो हूँ।"
-        elif lang == "hi":
-            text = f"मैं आपके लिए {dest_hi} खोल रहा हूँ।"
+        if dest in ["DISEASE_SCAN", "disease_detection"] or req_in == "LEAF_IMAGE":
+            if is_marwari:
+                text = "फसल में बीमारी री सही पहचान खातर, किरपा कर'र पत्ती री साफ फोटो खींचो।"
+            elif lang == "hi":
+                text = "फसल की बीमारी की सही पहचान के लिए, कृपया प्रभावित पत्ती की साफ फोटो लें ताकि सटीक पहचान की जा सके।"
+            else:
+                text = "To accurately identify the crop disease, please capture a clear photo of the affected leaf."
+            return text, StructuredActionPayload(
+                action="NAVIGATE",
+                destination="DISEASE_SCAN",
+                android_route="disease_scan",
+                required_input="LEAF_IMAGE",
+            )
         else:
-            text = f"Navigating to {dest.replace('_', ' ')} screen."
-        return text, StructuredActionPayload(
-            action="NAVIGATE",
-            destination=dest,
-            android_route=route,
-            required_input=req_in,
-        )
+            if is_marwari:
+                text = f"म्हूँ थांके खातर {dest_hi} खोल रैयो हूँ।"
+            elif lang == "hi":
+                text = f"मैं आपके लिए {dest_hi} खोल रहा हूँ।"
+            else:
+                text = f"Navigating to {dest.replace('_', ' ')} screen."
+            return text, StructuredActionPayload(
+                action="NAVIGATE",
+                destination=dest,
+                android_route=route,
+                required_input=req_in,
+            )
 
     # 4. Disease Detection
-    if intent == "disease":
-        if tool_status == "requires_photo":
+    if intent in ["disease", "disease_detection"]:
+        if tool_status == "requires_photo" or state.get("next_action") == "NAVIGATE":
             if is_marwari:
-                text = "फसल में बीमारी री सही जांच खातर, किरपा कर'र पत्ती री साफ फोटो खींचो।"
+                text = "फसल में बीमारी री सही पहचान खातर, किरपा कर'र पत्ती री साफ फोटो खींचो।"
             elif lang == "hi":
-                text = "फसल की बीमारी की सही पहचान के लिए, कृपया ऐप के कैमरा बटन से पत्ती की साफ फोटो खींचें।"
+                text = "फसल की बीमारी की सही पहचान के लिए, कृपया प्रभावित पत्ती की साफ फोटो लें ताकि सटीक पहचान की जा सके।"
             else:
-                text = "To diagnose plant disease, please capture a clear leaf photo using the in-app camera."
+                text = "To accurately diagnose the crop disease, please capture a clear leaf photo using the camera."
             return text, StructuredActionPayload(
                 action="NAVIGATE",
                 destination="DISEASE_SCAN",
@@ -370,17 +478,20 @@ def deterministic_fallback_synthesizer(
             )
 
     # 5. Disaster Risk Prediction (Evaluated before generic weather to preserve horizon and alerts)
-    if intent == "disaster_risk":
+    if intent in ["disaster_risk", "disaster_alert"] or any("disaster" in k for k in tool_results.keys()):
         disaster_data = next((v for k, v in tool_results.items() if "disaster" in k), tool_data)
         loc = disaster_data.get("location", "आपके क्षेत्र")
         horizon = state.get("forecast_horizon") or disaster_data.get("forecast_horizon") or "7_DAYS"
         days = disaster_data.get("forecast_days") or (7 if horizon == "7_DAYS" else (2 if horizon == "48_HOURS" else 1))
         peak_hazard = disaster_data.get("peak_disaster_type") or disaster_data.get("hazard_type") or (disaster_data.get("active_hazards", ["Low Risk"])[0] if disaster_data.get("active_hazards") else "Low Risk")
         peak_level = disaster_data.get("peak_risk_level") or disaster_data.get("risk_level") or "LOW"
-        peak_score = disaster_data.get("peak_risk_score") or disaster_data.get("risk_score") or 0.0
+        peak_score = disaster_data.get("peak_risk_score") if disaster_data.get("peak_risk_score") is not None else disaster_data.get("risk_score", 0.0)
         peak_date = disaster_data.get("peak_risk_date", "")
 
         has_critical = disaster_data.get("has_critical_alert", False)
+        recs = disaster_data.get("recommendations", [])
+        rec_str_hi = f" सलाह: {recs[0]}।" if recs else ""
+        rec_str_en = f" Advisory: {recs[0]}." if recs else ""
 
         horizon_label_hi = "अगले 7 दिनों में" if horizon == "7_DAYS" else ("अगले 48 घंटों में" if horizon == "48_HOURS" else "अगले 24 घंटों में")
         horizon_label_en = "over the next 7 days" if horizon == "7_DAYS" else ("over the next 48 hours" if horizon == "48_HOURS" else "over the next 24 hours")
@@ -393,29 +504,35 @@ def deterministic_fallback_synthesizer(
         }.get(peak_hazard, peak_hazard)
 
         if has_critical or peak_level == "CRITICAL":
-            if is_marwari:
-                text = f"सावधान किसान भाई! {loc} में {horizon_label_hi} ({peak_date}) {hazard_hi} रो भारी खतरा ({peak_level} स्तर, स्कोर {peak_score:.0f}) है। आपरी फसल अर पशुआं री सुरक्षा करो।"
+            if is_hinglish:
+                text = f"Savdhan kisan bhai! {loc} mein {horizon_label_en} ({peak_date}) {peak_hazard} ka bhari khatra (Disaster risk {peak_level} hai, score {_safe_g(peak_score)}). Suraksha ke upay karein.{rec_str_en}"
+            elif is_marwari:
+                text = f"सावधान किसान भाई! {loc} में {horizon_label_hi} ({peak_date}) {hazard_hi} रो भारी खतरा (Disaster risk {peak_level} है, स्कोर {_safe_g(peak_score)}) है। आपरी फसल अर पशुआं री सुरक्षा करो।"
             elif lang == "hi":
-                text = f"सावधान किसान भाई! {loc} में {horizon_label_hi} ({peak_date}) {hazard_hi} का गंभीर खतरा ({peak_level} स्तर, स्कोर {peak_score:.0f}) है। कृपया तुरंत फसल सुरक्षा के उपाय करें।"
+                text = f"सावधान किसान भाई! {loc} में {horizon_label_hi} ({peak_date}) {hazard_hi} का गंभीर खतरा (Disaster risk {peak_level} है, स्कोर {_safe_g(peak_score)}) है। कृपया तुरंत फसल सुरक्षा के उपाय करें।{rec_str_hi}"
             else:
-                text = f"Warning for {loc}! {horizon_label_en.capitalize()}, a {peak_level} hazard of {peak_hazard} (risk score {peak_score:.0f}) is forecast on {peak_date}. Immediate precautions advised."
+                text = f"Warning for {loc}! {horizon_label_en.capitalize()}, a {peak_level} hazard of {peak_hazard} (Disaster risk score {_safe_g(peak_score)}) is forecast on {peak_date}. Immediate precautions advised.{rec_str_en}"
             return text, StructuredActionPayload(action="CALL", call_reason="CRITICAL_DISASTER_ALERT")
         elif peak_level == "MEDIUM":
-            if is_marwari:
-                text = f"किसान भाई, {loc} में {horizon_label_hi} ({peak_date}) मध्यम स्तर रो {hazard_hi} रैवेला। खेत री निगरानी राखो।"
+            if is_hinglish:
+                text = f"Kisan bhai, {loc} mein {horizon_label_en} ({peak_date}) medium level ka {peak_hazard} (Disaster risk score {_safe_g(peak_score)}) anumanit hai. Khet ki nigrani rakhein.{rec_str_en}"
+            elif is_marwari:
+                text = f"किसान भाई, {loc} में {horizon_label_hi} ({peak_date}) मध्यम स्तर रो {hazard_hi} (Disaster risk स्कोर {_safe_g(peak_score)}) रैवेला। खेत री निगरानी राखो।"
             elif lang == "hi":
-                text = f"किसान भाई, {horizon_label_hi} {loc} में स्थिति सामान्यतः ठीक रहेगी, लेकिन {peak_date} को मध्यम स्तर का {hazard_hi} (स्कोर {peak_score:.0f}) अनुमानित है। निगरानी रखें।"
+                text = f"किसान भाई, {horizon_label_hi} {loc} में स्थिति सामान्यतः ठीक रहेगी, लेकिन {peak_date} को मध्यम स्तर का {hazard_hi} (Disaster risk स्कोर {_safe_g(peak_score)}) अनुमानित है। निगरानी रखें।{rec_str_hi}"
             else:
-                text = f"Farmer advisory for {loc}: Generally moderate conditions {horizon_label_en}, with {peak_hazard} expected on {peak_date}."
+                text = f"Farmer advisory for {loc}: Generally moderate conditions {horizon_label_en}, with {peak_hazard} expected on {peak_date}.{rec_str_en}"
             return text, StructuredActionPayload(action="ANSWER")
         else:
-            # Low Risk: Explicitly ground in requested time horizon (CRITICAL FIX 5)
-            if is_marwari:
-                text = f"किसान भाई, खुशी री बात है! {loc} में {horizon_label_hi} मौसम सुरक्षित अर सामान्य (Low Risk) रैवेला। बाढ़ या गंभीर आपदा रो कोई खतरा कोनी।"
+            # Low Risk: Explicitly ground in requested time horizon
+            if is_hinglish:
+                text = f"Kisan bhai, achhi khabar hai! {loc} mein {horizon_label_en} mausam safe aur normal rahega (Disaster risk LOW hai, score {_safe_g(peak_score)}). Flood ka koi khatra nahi hai.{rec_str_en}"
+            elif is_marwari:
+                text = f"किसान भाई, खुशी री बात है! {loc} में {horizon_label_hi} मौसम सुरक्षित अर सामान्य (Disaster risk LOW है, स्कोर {_safe_g(peak_score)}) रैवेला। बाढ़ या गंभीर आपदा रो कोई खतरा कोनी।"
             elif lang == "hi":
-                text = f"किसान भाई, अच्छी खबर है! {loc} में {horizon_label_hi} मौसम पूरी तरह सुरक्षित और सामान्य (स्तर: Low Risk) रहेगा। बाढ़ या गंभीर मौसम आपदा का कोई खतरा नहीं है।"
+                text = f"किसान भाई, अच्छी खबर है! {loc} में {horizon_label_hi} मौसम पूरी तरह सुरक्षित और सामान्य (Disaster risk LOW है, स्कोर {_safe_g(peak_score)}) रहेगा। बाढ़ या गंभीर मौसम आपदा का कोई खतरा नहीं है।{rec_str_hi}"
             else:
-                text = f"Good news for {loc}! Weather conditions {horizon_label_en} are favorable with Low Risk. No flood or severe disaster hazard predicted."
+                text = f"Good news for {loc}! Weather conditions {horizon_label_en} are favorable with Disaster risk LOW (score {_safe_g(peak_score)}). No flood or severe disaster hazard predicted.{rec_str_en}"
             return text, StructuredActionPayload(action="ANSWER")
 
     # 6. Mandi Prices, Forecast & Compound Decision (CRITICAL FIX 3)
@@ -424,8 +541,12 @@ def deterministic_fallback_synthesizer(
         forecast_data = next((v for k, v in tool_results.items() if "forecast" in k), {})
         decision_data = next((v for k, v in tool_results.items() if "decision" in k or "sell" in k), tool_data.get("deterministic_action") or tool_data.get("advisory") or {})
 
-        comm = price_data.get("commodity") or tool_data.get("commodity", "सोयाबीन")
-        mandi = price_data.get("market") or tool_data.get("market", "कोटा")
+        comm = (
+            (price_data.get("hindi_name") or tool_data.get("hindi_name"))
+            if lang in ["hi", "rwr"] and not is_hinglish
+            else None
+        ) or price_data.get("commodity") or tool_data.get("commodity", "सोयाबीन")
+        mandi = price_data.get("market") or tool_data.get("market")
         price = (
             price_data.get("modal_price")
             or price_data.get("observed", {}).get("modal_price")
@@ -434,6 +555,10 @@ def deterministic_fallback_synthesizer(
             or next((f.get("value") for f in state.get("verified_facts", []) if isinstance(f, dict) and f.get("key") == "mandi_current_price"), None)
             or "--"
         )
+        if isinstance(price, (int, float)):
+            price_fmt = f"{price:,.0f}" if price == int(price) else f"{price:,.2f}"
+        else:
+            price_fmt = str(price)
 
         adv_action = decision_data.get("action") or decision_data.get("signal")
         exp_change = decision_data.get("expected_pct_change") or forecast_data.get("expected_pct_change")
@@ -457,18 +582,23 @@ def deterministic_fallback_synthesizer(
             adv_snippet_hi = f" 7-दिवसीय रुझान: {exp_change}% संभावित बदलाव।"
             adv_snippet_en = f" 7-day trend indicates {exp_change}% expected movement."
 
-        if is_marwari:
-            text = f"आज {mandi} मंडी में {comm} रो भाव ₹{price} प्रति क्विंटल चाल रैयो है।{adv_snippet_mrw}"
+        mandi_suffix_hi = f" ({mandi} मंडी)" if mandi else ""
+        mandi_suffix_en = f" at {mandi} market" if mandi else ""
+
+        if is_hinglish:
+            text = f"Aaj {comm} ka mandi bhav ₹{price_fmt} per quintal hai{mandi_suffix_en}.{adv_snippet_en}"
+        elif is_marwari:
+            text = f"आज {comm} रो मंडी भाव ₹{price_fmt} प्रति क्विंटल चाल रैयो है{mandi_suffix_hi}।{adv_snippet_mrw}"
         elif lang == "hi":
-            text = f"आज {mandi} मंडी में {comm} का ताजा भाव ₹{price} प्रति क्विंटल है।{adv_snippet_hi}"
+            text = f"आज {comm} का ताजा मंडी भाव ₹{price_fmt} प्रति क्विंटल है{mandi_suffix_hi}।{adv_snippet_hi}"
         elif lang == "gu":
-            text = f"આજે {mandi}માં {comm}નો સરેરાશ ભાવ ₹{price} પ્રતિ ક્વિન્ટલ છે.{adv_snippet_en}"
+            text = f"આજે {comm}નો સરેરાશ ભાવ ₹{price_fmt} પ્રતિ ક્વિન્ટલ છે.{adv_snippet_en}"
         elif lang == "mr":
-            text = f"आज {mandi} मध्ये {comm} चा सरासरी भाव ₹{price} प्रति क्विंटल आहे.{adv_snippet_en}"
+            text = f"आज {comm} चा सरासरी भाव ₹{price_fmt} प्रति क्विंटल आहे.{adv_snippet_en}"
         elif lang == "pa":
-            text = f"ਅੱਜ {mandi} ਵਿੱਚ {comm} ਦਾ ਭਾਅ ₹{price} ਪ੍ਰਤੀ ਕੁਇੰਟਲ ਹੈ।{adv_snippet_en}"
+            text = f"ਅੱਜ {comm} ਦਾ ਭਾਅ ₹{price_fmt} ਪ੍ਰਤੀ ਕੁਇੰਟਲ ਹੈ।{adv_snippet_en}"
         else:
-            text = f"Today at {mandi} market, the modal price for {comm} is ₹{price} per quintal.{adv_snippet_en}"
+            text = f"Today the modal price for {comm} is ₹{price_fmt} per quintal{mandi_suffix_en}.{adv_snippet_en}"
         return text, StructuredActionPayload(action="ANSWER")
 
     # 7. Crop Recommendation
@@ -497,51 +627,187 @@ def deterministic_fallback_synthesizer(
             text = "पर्याप्त मौसम या मिट्टी की जानकारी नहीं मिल सकी।" if lang == "hi" else "Insufficient environmental data to assess crop suitability."
         return text, StructuredActionPayload(action="ANSWER")
 
-    # 8. Weather & Smart Irrigation
-    if intent in ["weather", "irrigation_advisory", "smart_irrigation", "crop_care"] or any("weather" in k or "irrigation" in k for k in tool_results.keys()):
+    # 7b. Smart Irrigation (First-Class Dedicated Advisory)
+    user_query = state.get("user_input", "").lower()
+    is_irrigation_query = (
+        intent in ["irrigation_advisory", "smart_irrigation"]
+        or any(w in user_query for w in ["irrigation", "सिंचाई", "पानी देना", "सींचना", "water"])
+    )
+    if is_irrigation_query and intent != "weather":
+        irrigation_task = next((v for k, v in tool_results.items() if "irrigation" in k), {})
+        si_source = irrigation_task if (isinstance(irrigation_task, dict) and irrigation_task) else (
+            tool_data.get("smart_irrigation") or {}
+        )
+        weather_data = next((v for k, v in tool_results.items() if "weather" in k), tool_data)
+
+        sm = (
+            si_source.get("root_zone_moisture_percent")
+            or si_source.get("soil_moisture_percent")
+            or si_source.get("soil_moisture_pct")
+            or si_source.get("soil_moisture")
+            or next((f.get("value") for f in state.get("verified_facts", []) if isinstance(f, dict) and f.get("key") == "soil_moisture_percent"), 18.0)
+        )
+        rain_24h = (
+            si_source.get("next_24h_rain_sum_mm")
+            or si_source.get("next_24h_rainfall_mm")
+            or si_source.get("expected_rain_mm")
+            or si_source.get("rainfall_mm")
+            or next((f.get("value") for f in state.get("verified_facts", []) if isinstance(f, dict) and f.get("key") == "irrigation_24h_rain_mm"), None)
+            or (weather_data.get("forecast")[0].get("precipitation_mm") if isinstance(weather_data.get("forecast"), list) and weather_data.get("forecast") else 0.0)
+        )
+        si_action = str(si_source.get("action") or si_source.get("status") or "HOLD_IRRIGATION").upper()
+        si_advice = si_source.get("actionable_advice") or si_source.get("advice", "")
+
+        is_hold = si_action in ["HOLD", "HOLD_IRRIGATION", "OPTIMAL", "NO_IRRIGATION_NEEDED"]
+
+        if is_hinglish:
+            if is_hold:
+                text = f"Abhi soil moisture {_safe_g(sm)}% hai aur agle 24 ghante mein rainfall {_safe_g(rain_24h)} mm expected hai, isliye irrigation ki zarurat nahi lag rahi."
+            else:
+                text = f"Abhi soil moisture {_safe_g(sm)}% hai aur agle 24 ghante mein rainfall {_safe_g(rain_24h)} mm expected hai, isliye irrigation ki zarurat hai."
+            if si_advice and si_advice not in text:
+                text += f" {si_advice}"
+        elif is_marwari:
+            if is_hold:
+                text = f"खेत में हाल soil moisture {_safe_g(sm)}% है अर अगला 24 घंटा में rainfall {_safe_g(rain_24h)} mm अनुमानित है, इण वास्ते हाल सिंचाई (irrigation) री जरूरत कोनी।"
+            else:
+                text = f"खेत में soil moisture {_safe_g(sm)}% कम है अर अगला 24 घंटा में rainfall {_safe_g(rain_24h)} mm अनुमानित है, इण वास्ते सिंचाई (irrigation) करण री सलाह दीजै है।"
+        elif lang == "hi":
+            if is_hold:
+                text = f"अगर मिट्टी में नमी पर्याप्त है और अगले 24 घंटों में पर्याप्त बारिश की संभावना है, तो सिंचाई अभी जरूरी नहीं है। वर्तमान soil moisture {_safe_g(sm)}% है और अगले 24 घंटे में rainfall लगभग {_safe_g(rain_24h)} mm अनुमानित है।"
+            else:
+                text = f"अगर मिट्टी की नमी कम है और अगले 24 घंटों में पर्याप्त बारिश की संभावना नहीं है, तो सिंचाई पर विचार किया जा सकता है। वर्तमान soil moisture {_safe_g(sm)}% है और अगले 24 घंटे में rainfall {_safe_g(rain_24h)} mm अनुमानित है।"
+            if si_advice and si_advice not in text:
+                text += f" {si_advice}"
+        else:
+            text = f"Current soil moisture is {_safe_g(sm)}% and expected rainfall over the next 24 hours is {_safe_g(rain_24h)} mm. Recommendation: {si_action.replace('_', ' ')}."
+            if si_advice:
+                text += f" {si_advice}"
+        return text, StructuredActionPayload(action="ANSWER")
+
+    # 8. Weather (Today, Tomorrow, 7-Day Forecast)
+    if intent in ["weather", "crop_care"] or any("weather" in k for k in tool_results.keys()):
         weather_data = next((v for k, v in tool_results.items() if "weather" in k), tool_data)
         temp = weather_data.get("temperature_c", tool_data.get("temperature_c", "--"))
         hum = weather_data.get("humidity_percent", tool_data.get("humidity_percent", "--"))
-        cond = weather_data.get("condition", tool_data.get("condition", "सामान्य"))
-        loc = weather_data.get("location_name", tool_data.get("location_name", "आपके क्षेत्र"))
-        rain = weather_data.get("annual_rainfall_mm", tool_data.get("annual_rainfall_mm", "--"))
-        si = tool_data.get("smart_irrigation") or {}
-        si_advice = si.get("actionable_advice", "")
+        cond = weather_data.get("condition", tool_data.get("condition", "साफ"))
+        loc = weather_data.get("location_name") or weather_data.get("location", tool_data.get("location_name", "आपके क्षेत्र"))
+        wind = weather_data.get("wind_speed_kmh") or weather_data.get("wind_speed") or "--"
 
-        irrigation_task = next((v for k, v in tool_results.items() if "irrigation" in k), {})
-        if irrigation_task and not si_advice:
-            si_advice = irrigation_task.get("actionable_advice") or irrigation_task.get("message", "")
+        sf = state.get("semantic_frame") or {}
+        time_ctx = (sf.get("entities") or {}).get("time_context") or {}
+        rd = time_ctx.get("relative_day") or "UNSPECIFIED"
+        horizon = time_ctx.get("horizon_days") or 1
+        forecast_rows = weather_data.get("forecast") if isinstance(weather_data, dict) else None
 
-        if is_marwari:
-            text = f"आज {loc} में मौसम साफ रैवेला, तापमान {temp}°C अर नमी {hum}% है।"
-            if si_advice:
-                text += f" सिंचाई सलाह: {si_advice}"
+        # 8a. 7-Day Forecast Request
+        if rd in ("NEXT_7_DAYS", "NEXT_WEEK") or horizon == 7 or weather_data.get("forecast_days") == 7 or any(w in user_query for w in ["7 दिन", "7 days", "सात दिन", "हफ्ते", "next 7 days"]):
+            if isinstance(forecast_rows, list) and forecast_rows:
+                temps_max = [r.get("temperature_max_c") for r in forecast_rows if r.get("temperature_max_c") is not None]
+                temps_min = [r.get("temperature_min_c") for r in forecast_rows if r.get("temperature_min_c") is not None]
+                rains = [r.get("precipitation_mm", 0.0) for r in forecast_rows if r.get("precipitation_mm") is not None]
+                max_t = weather_data.get("temperature_max") or (max(temps_max) if temps_max else 34)
+                min_t = weather_data.get("temperature_min") or (min(temps_min) if temps_min else 24)
+                tot_rain = weather_data.get("total_rain_mm") or (round(sum(rains), 1) if rains else 15.0)
             else:
-                text += f" वार्षिक बरसात लगभग {rain} mm है।"
+                max_t = weather_data.get("temperature_max", 34)
+                min_t = weather_data.get("temperature_min", 24)
+                tot_rain = weather_data.get("total_rain_mm", 15.0)
+
+            if is_hinglish:
+                text = f"Agle 7 dino mein maximum temperature {_safe_g(max_t)}°C aur minimum {_safe_g(min_t)}°C rahne ka anuman hai, total rainfall {_safe_g(tot_rain)} mm expected hai."
+            elif is_marwari:
+                text = f"अगला 7 दिनां में {loc} में अधिकतम तापमान {_safe_g(max_t)}°C अर न्यूनतम {_safe_g(min_t)}°C रैवेला, कुल बरसात लगभग {_safe_g(tot_rain)} mm हो सकै है।"
+            elif lang == "hi":
+                text = f"अगले 7 दिनों में अधिकतम तापमान {_safe_g(max_t)}°C और न्यूनतम {_safe_g(min_t)}°C रहने का अनुमान है, कुल संभावित वर्षा {_safe_g(tot_rain)} mm है।"
+            else:
+                text = f"Over the next 7 days in {loc}, maximum temperature is forecast at {_safe_g(max_t)}°C and minimum at {_safe_g(min_t)}°C, with total rainfall around {_safe_g(tot_rain)} mm."
+            return text, StructuredActionPayload(action="ANSWER")
+
+        # 8b. Tomorrow / Specific Date Forecast Request
+        is_tomorrow_query = (
+            (isinstance(forecast_rows, list) and forecast_rows)
+            or bool(weather_data.get("forecast_date"))
+            or rd in ("TOMORROW", "DAY_AFTER_TOMORROW", "EXPLICIT_DATE")
+            or any(w in user_query for w in ["कल", "tomorrow", "kal", "परसों", "agle din"])
+        )
+        if is_tomorrow_query:
+            if isinstance(forecast_rows, list) and forecast_rows:
+                row = forecast_rows[0]
+                temp = row.get("temperature_avg_c") or row.get("temperature_c") or row.get("temperature_max_c") or temp
+                hum = row.get("humidity_percent") or hum
+                cond = row.get("condition") or cond
+                precip_mm = row.get("precipitation_mm") if row.get("precipitation_mm") is not None else row.get("expected_rain_mm", 0.0)
+                precip_prob = row.get("precipitation_probability_percent") or row.get("rain_probability", 0)
+                wind = row.get("wind_speed_max_kmh") or row.get("wind_speed_kmh") or wind
+            else:
+                precip_mm = weather_data.get("precipitation_mm") if weather_data.get("precipitation_mm") is not None else weather_data.get("expected_rain_mm", 0.0)
+                precip_prob = weather_data.get("precipitation_probability_percent") or weather_data.get("rain_probability", 0)
+                wind = weather_data.get("wind_speed_max_kmh") or weather_data.get("wind_speed_kmh") or wind
+
+            is_rain_query = any(w in user_query for w in ["बारिश", "rain", "बरसात", "precipitation", "barish"])
+
+            if is_rain_query:
+                # Specific rain query ("कल बारिश होगी क्या?")
+                if is_hinglish:
+                    text = f"Kal rain probability {precip_prob}% hai aur lagbhag {_safe_g(precip_mm)} mm barish ho sakti hai. Temperature lagbhag {_safe_g(temp)}°C rahega."
+                elif is_marwari:
+                    text = f"कल बरसात री संभावना {precip_prob}% है अर लगभग {_safe_g(precip_mm)} mm बारिश हो सकै है। तापमान {_safe_g(temp)}°C रैवेला।"
+                elif lang == "hi":
+                    text = f"कल बारिश की संभावना {precip_prob}% है और लगभग {_safe_g(precip_mm)} mm वर्षा हो सकती है। तापमान {_safe_g(temp)}°C के आसपास रहेगा।"
+                else:
+                    text = f"Tomorrow there is a {precip_prob}% chance of rain with approximately {_safe_g(precip_mm)} mm expected rainfall. Temperature around {_safe_g(temp)}°C."
+            else:
+                # General tomorrow weather ("कल का मौसम कैसा रहेगा?")
+                wind_str_hi = f" हवा की अधिकतम गति {_safe_g(wind)} km/h रह सकती है।" if wind != "--" else ""
+                wind_str_hng = f" Wind speed lagbhag {_safe_g(wind)} km/h rah sakti hai." if wind != "--" else ""
+                wind_str_en = f" Maximum wind speed around {_safe_g(wind)} km/h." if wind != "--" else ""
+
+                if is_hinglish:
+                    text = f"Kal {loc} mein temperature lagbhag {_safe_g(temp)}°C rahega. Rain probability {precip_prob}% hai aur rainfall lagbhag {_safe_g(precip_mm)} mm expected hai.{wind_str_hng}"
+                elif is_marwari:
+                    text = f"कल {loc} में तापमान लगभग {_safe_g(temp)}°C रैवेला। बरसात री संभावना {precip_prob}% है अर अनुमानित वर्षा {_safe_g(precip_mm)} mm है।"
+                elif lang == "hi":
+                    text = f"कल आपके क्षेत्र में तापमान लगभग {_safe_g(temp)}°C रहेगा। बारिश की संभावना {precip_prob}% है और अनुमानित वर्षा {_safe_g(precip_mm)} mm है।{wind_str_hi}"
+                else:
+                    text = f"Tomorrow in {loc}, temperature will be around {_safe_g(temp)}°C. Rain probability is {precip_prob}% with {_safe_g(precip_mm)} mm rainfall.{wind_str_en}"
+            return text, StructuredActionPayload(action="ANSWER")
+
+        # 8c. Today's Current Weather ("आज का मौसम")
+        wind_str_hi = f" हवा की गति {_safe_g(wind)} km/h है।" if wind != "--" else ""
+        wind_str_hng = f" Wind speed {_safe_g(wind)} km/h hai." if wind != "--" else ""
+        wind_str_en = f" Wind speed is {_safe_g(wind)} km/h." if wind != "--" else ""
+
+        if is_hinglish:
+            text = f"Aaj {loc} mein temperature {_safe_g(temp)}°C aur humidity {hum}% hai, mausam {cond} rahega.{wind_str_hng}"
+        elif is_marwari:
+            text = f"आज {loc} में तापमान {_safe_g(temp)}°C अर नमी {hum}% है, मौसम {cond} रैवेला।"
         elif lang == "hi":
-            text = f"आज {loc} में तापमान {temp}°C और आर्द्रता {hum}% है, मौसम {cond} रहेगा।"
-            if si_advice:
-                text += f" {si_advice}"
-            else:
-                text += f" वार्षिक वर्षा लगभग {rain} mm है।"
-        elif lang == "gu":
-            text = f"આજે {loc}માં તાપમાન {temp}°C અને ભેજ {hum}% છે, વાતાવરણ {cond} રહેશે."
-            if si_advice:
-                text += f" {si_advice}"
-        elif lang == "mr":
-            text = f"आज {loc} मध्ये तापमान {temp}°C आणि आर्द्रता {hum}% आहे, हवामान {cond} राहील."
-            if si_advice:
-                text += f" {si_advice}"
-        elif lang == "pa":
-            text = f"ਅੱਜ {loc} ਵਿੱਚ ਤਾਪਮਾਨ {temp}°C ਅਤੇ ਨਮੀ {hum}% ਹੈ, ਮੌਸਮ {cond} ਰਹੇਗਾ।"
-            if si_advice:
-                text += f" {si_advice}"
+            text = f"आज {loc} में तापमान {_safe_g(temp)}°C और humidity {hum}% है, मौसम {cond} रहेगा।{wind_str_hi}"
         else:
-            text = f"Today in {loc}, temperature is {temp}°C with {hum}% humidity and {cond} conditions."
-            if si_advice:
-                text += f" Irrigation advice: {si_advice}"
+            text = f"Today in {loc}, temperature is {_safe_g(temp)}°C with {hum}% humidity and {cond} conditions.{wind_str_en}"
+        return text, StructuredActionPayload(action="ANSWER")
+
+    # 8d. Crop Care / General Agriculture / Agronomy
+    if intent in ["general_agriculture", "agricultural_knowledge", "crop_care", "general_agronomy"]:
+        sf = state.get("semantic_frame") or {}
+        sf_entities = sf.get("entities") or {} if isinstance(sf, dict) else {}
+        crop = sf_entities.get("crop") or state.get("crop") or state.get("active_crop")
+        guidance = rag_treatment_snippet or "नियमित रूप से खेत की निगरानी करें और उचित जल व पोषण प्रबंधन बनाए रखें।"
+        if crop:
+            if is_hinglish:
+                text = f"{crop} crop ki dekhbhal ke liye ICAR advisory: {guidance}"
+            elif lang == "hi":
+                text = f"{crop} की फसल की अच्छी देखभाल के लिए ICAR सलाह: {guidance}"
             else:
-                text += f" Annual rainfall is approx {rain} mm."
+                text = f"Care guidelines for {crop}: {guidance}"
+        else:
+            if is_hinglish:
+                text = f"Fasal ki dekhbhal ke liye ICAR advisory: {guidance}"
+            elif lang == "hi":
+                text = f"फसल प्रबंधन और देखभाल के लिए ICAR सलाह: {guidance}"
+            else:
+                text = f"Agricultural management guidelines: {guidance}"
         return text, StructuredActionPayload(action="ANSWER")
 
     # 9. Government Schemes
@@ -571,6 +837,22 @@ def deterministic_fallback_synthesizer(
         else:
             text = "खेत बिल्कुल सुरक्षित है। किसी जानवर की कोई हलचल नहीं है।" if lang == "hi" else "The farm perimeter is clear and secure."
         return text, StructuredActionPayload(action="ANSWER")
+
+    # 10b. Outbound Voice Calling
+    if intent in ["calling", "call"] or any("calling" in k for k in tool_results.keys()):
+        call_info = next((v for k, v in tool_results.items() if "calling" in k), tool_data)
+        call_id = (call_info.get("call_id") if isinstance(call_info, dict) else None) or "active"
+        phone = (call_info.get("phone") if isinstance(call_info, dict) else None) or "farmer"
+        farmer_name = (call_info.get("farmer_name") if isinstance(call_info, dict) else None) or "किसान भाई"
+        if is_hinglish:
+            text = f"{farmer_name} ({phone}) ko outbound call lagaya ja raha hai. Call ID: {call_id}."
+        elif is_marwari:
+            text = f"{farmer_name} ({phone}) ने फोन कॉल मिलायो जा रह्यो है। कॉल आईडी: {call_id}।"
+        elif lang == "hi":
+            text = f"{farmer_name} ({phone}) को फोन कॉल मिलाया जा रहा है। कॉल आईडी: {call_id}।"
+        else:
+            text = f"Outbound advisory call initiated to {farmer_name} at {phone}. Call ID: {call_id}."
+        return text, StructuredActionPayload(action="CALL", call_reason="USER_REQUESTED_CALL")
 
     # 11. Greetings & General Fallback
     if intent in ["greeting_help", "repeat_last"]:
@@ -604,6 +886,9 @@ async def response_synthesizer_node(state: OrchestratorState) -> OrchestratorSta
     lang = profile.canonical_code if profile.support_tier == 1 else profile.fallback_language
     dialect = state.get("detected_dialect") or state.get("farmer_preferred_dialect")
     is_marwari = dialect in ["rwr", "marwari"]
+
+    user_input = state.get("user_input", "")
+    is_hinglish = is_hinglish_query(user_input, input_lang)
 
     # Guarantee validation and facts extraction has run
     if "verified_facts" not in state or "validation_result" not in state:
@@ -648,7 +933,7 @@ async def response_synthesizer_node(state: OrchestratorState) -> OrchestratorSta
 
     if state.get("requires_clarification") or has_contradiction or state.get("next_action") in ["NAVIGATE", "CLARIFY", "REQUEST_INPUT"]:
         fallback_text, fallback_action = deterministic_fallback_synthesizer(
-            state, lang, dialect, is_marwari, conf_tier
+            state, lang, dialect, is_marwari, conf_tier, is_hinglish=is_hinglish
         )
         envelope = ResponseEnvelope(
             response_text=fallback_text,
@@ -727,6 +1012,18 @@ async def response_synthesizer_node(state: OrchestratorState) -> OrchestratorSta
                     logger.warning("llm_retry_failed_numerical_check", violations=retry_violations)
 
         if is_num_valid:
+            # Deterministic temporal-alignment verification
+            sf_entities = (state.get("semantic_frame") or {}).get("entities") or {}
+            time_ctx = sf_entities.get("time_context") or {}
+            rel_day = time_ctx.get("relative_day", "UNSPECIFIED")
+            horizon = time_ctx.get("forecast_horizon_days", 1) or 1
+            from app.orchestrator.nodes.validation import validate_response_temporal_alignment
+            temp_ok, temp_err = validate_response_temporal_alignment(candidate_text, rel_day, horizon)
+            if not temp_ok:
+                logger.warning("llm_temporal_alignment_failed", reason=temp_err, text=candidate_text)
+                is_num_valid = False
+
+        if is_num_valid:
             synthesized_text = candidate_text
             raw_action = str(llm_result.get("action", "ANSWER")).upper()
             if raw_action not in ["ANSWER", "CLARIFY", "NAVIGATE", "REQUEST_INPUT", "CALL", "NOTIFY"]:
@@ -744,11 +1041,12 @@ async def response_synthesizer_node(state: OrchestratorState) -> OrchestratorSta
                 if w not in warnings:
                     warnings.append(str(w))
 
-    # Fall back if LLM failed, returned invalid schema, or failed numerical check
+    # Fall back if LLM failed, returned invalid schema, or failed numerical/temporal check
     if not synthesized_text or not action_payload:
-        logger.info("using_deterministic_fallback_synthesizer", reason="llm_unavailable_or_hallucinated")
+        fallback_cause = "llm_unavailable_no_api_key" if not os.environ.get("OPENROUTER_API_KEY") else "numerical_or_temporal_violation"
+        logger.info("using_deterministic_fallback_synthesizer", reason=fallback_cause)
         synthesized_text, action_payload = deterministic_fallback_synthesizer(
-            state, lang, dialect, is_marwari, conf_tier
+            state, lang, dialect, is_marwari, conf_tier, is_hinglish=is_hinglish
         )
         envelope_confidence = aggregated_conf
 

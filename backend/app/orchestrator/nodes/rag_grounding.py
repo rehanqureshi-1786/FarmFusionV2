@@ -90,8 +90,14 @@ def construct_verified_rag_query(state: OrchestratorState, domain: str) -> Tuple
         user_input = state.get("user_input", "Government schemes for farmers")
         return f"{user_input} eligibility benefits application process", "scheme", None
 
-    # Fallback to user input for general agricultural knowledge
+    # General agricultural knowledge / crop care
     user_input = state.get("user_input", "agricultural best practices")
+    sf = state.get("semantic_frame") or {}
+    sf_entities = sf.get("entities") or {} if isinstance(sf, dict) else {}
+    crop = sf_entities.get("crop") or state.get("active_crop")
+    if crop:
+        crop_clean = str(crop).strip()
+        return f"{crop_clean} {user_input} crop care management package of practices", "crop_guide", crop_clean.lower()
     return user_input, None, None
 
 
