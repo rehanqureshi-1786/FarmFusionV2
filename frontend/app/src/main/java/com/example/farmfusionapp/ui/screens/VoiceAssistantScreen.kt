@@ -48,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -447,7 +448,6 @@ fun VoiceAssistantScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
         ) {
             AnimatedVisibility(
                 visible = chatMessages.isEmpty(),
@@ -644,13 +644,31 @@ fun VoiceAssistantScreen(navController: NavController) {
                             if (assistantState == VoiceAssistantState.SPEAKING) stopAudioPlayback()
                             else if (assistantState == VoiceAssistantState.LISTENING) speechRecognizer?.stopListening()
                             else permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
+                        },
+                        modifier = Modifier.size(44.dp)
                     ) {
-                        Icon(
-                            imageVector = if (assistantState == VoiceAssistantState.LISTENING) Icons.Rounded.GraphicEq else Icons.Rounded.Mic,
-                            contentDescription = "Mic",
-                            tint = if (assistantState == VoiceAssistantState.LISTENING) Color(0xFFD32F2F) else Color(0xFF2E7D32)
-                        )
+                        AnimatedContent(
+                            targetState = assistantState == VoiceAssistantState.LISTENING,
+                            transitionSpec = {
+                                (fadeIn(tween(300, easing = FastOutSlowInEasing)) + scaleIn(initialScale = 0.75f, animationSpec = tween(300, easing = FastOutSlowInEasing)))
+                                    .togetherWith(fadeOut(tween(200)) + scaleOut(targetScale = 0.75f, animationSpec = tween(200)))
+                            },
+                            label = "search_mic_transition"
+                        ) { isListening ->
+                            if (isListening) {
+                                ActiveWaveformIcon(
+                                    modifier = Modifier.size(26.dp),
+                                    color = Color(0xFFDC2626)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.Mic,
+                                    contentDescription = "Mic",
+                                    tint = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+                        }
                     }
 
                     if (query.isNotBlank()) {
@@ -737,18 +755,19 @@ private fun VoiceHero(
                         style = MaterialTheme.typography.headlineLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = Color(0xFF1B1B1B),
-                            fontSize = 26.sp,
-                            lineHeight = 30.sp
+                            fontSize = 32.sp,
+                            lineHeight = 38.sp
                         ),
                         textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = companionSubtitle,
                         style = MaterialTheme.typography.bodyMedium.copy(
                             color = Color(0xFF616161),
-                            fontSize = 13.5.sp,
-                            lineHeight = 17.sp
+                            fontSize = 15.sp,
+                            lineHeight = 20.sp,
+                            fontWeight = FontWeight.Medium
                         ),
                         textAlign = TextAlign.Center
                     )
@@ -756,32 +775,60 @@ private fun VoiceHero(
 
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.size(145.dp)
+                    modifier = Modifier.size(170.dp)
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val stroke = Stroke(width = 2.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f))
-                        drawCircle(color = Color(0xFF2E7D32).copy(alpha = 0.1f), radius = size.minDimension / 2 * radarScale, style = stroke)
-                        drawCircle(color = Color(0xFF2E7D32).copy(alpha = 0.2f), radius = size.minDimension / 3 * radarScale, style = stroke)
+                        drawCircle(color = Color(0xFF2E7D32).copy(alpha = 0.12f), radius = size.minDimension / 2 * radarScale, style = stroke)
+                        drawCircle(color = Color(0xFF2E7D32).copy(alpha = 0.22f), radius = size.minDimension / 3 * radarScale, style = stroke)
 
-                        drawCircle(color = Color(0xFFFFCA28), radius = 5f, center = Offset(size.width * 0.8f, size.height * 0.2f))
-                        drawCircle(color = Color(0xFF29B6F6), radius = 7f, center = Offset(size.width * 0.85f, size.height * 0.8f))
-                        drawCircle(color = Color(0xFF81C784), radius = 5f, center = Offset(size.width * 0.15f, size.height * 0.7f))
+                        drawCircle(color = Color(0xFFFFCA28), radius = 6f, center = Offset(size.width * 0.82f, size.height * 0.22f))
+                        drawCircle(color = Color(0xFF29B6F6), radius = 8f, center = Offset(size.width * 0.86f, size.height * 0.78f))
+                        drawCircle(color = Color(0xFF81C784), radius = 6f, center = Offset(size.width * 0.14f, size.height * 0.72f))
                     }
+
+                    val buttonScale by animateFloatAsState(
+                        targetValue = if (state == VoiceAssistantState.LISTENING) 1.08f else 1.0f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        ),
+                        label = "hero_button_scale"
+                    )
 
                     Surface(
                         onClick = onMicClick,
-                        modifier = Modifier.size(80.dp).shadow(10.dp, CircleShape, spotColor = Color(0xFF2E7D32).copy(alpha = 0.4f)),
+                        modifier = Modifier
+                            .size(94.dp)
+                            .scale(buttonScale)
+                            .shadow(14.dp, CircleShape, spotColor = Color(0xFF2E7D32).copy(alpha = 0.4f)),
                         shape = CircleShape,
                         color = Color.White,
-                        border = BorderStroke(8.dp, Color(0xFFC8E6C9))
+                        border = BorderStroke(9.dp, Color(0xFFC8E6C9))
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = if (state == VoiceAssistantState.LISTENING) Icons.Rounded.GraphicEq else Icons.Rounded.Mic,
-                                contentDescription = null,
-                                tint = if (state == VoiceAssistantState.LISTENING) Color(0xFFD32F2F) else Color(0xFF2E7D32),
-                                modifier = Modifier.size(36.dp)
-                            )
+                            AnimatedContent(
+                                targetState = state == VoiceAssistantState.LISTENING,
+                                transitionSpec = {
+                                    (fadeIn(tween(350, easing = FastOutSlowInEasing)) + scaleIn(initialScale = 0.7f, animationSpec = tween(350, easing = FastOutSlowInEasing)))
+                                        .togetherWith(fadeOut(tween(250)) + scaleOut(targetScale = 0.7f, animationSpec = tween(250)))
+                                },
+                                label = "hero_mic_transition"
+                            ) { isListening ->
+                                if (isListening) {
+                                    ActiveWaveformIcon(
+                                        modifier = Modifier.size(48.dp),
+                                        color = Color(0xFFDC2626)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Mic,
+                                        contentDescription = "Mic",
+                                        tint = Color(0xFF2E7D32),
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -918,6 +965,72 @@ private fun VoiceBubble(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ActiveWaveformIcon(
+    modifier: Modifier = Modifier,
+    color: Color = Color(0xFFDC2626)
+) {
+    val transition = rememberInfiniteTransition(label = "active_waveform")
+    val anim1 by transition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(tween(550, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "w1"
+    )
+    val anim2 by transition.animateFloat(
+        initialValue = 0.95f,
+        targetValue = 0.45f,
+        animationSpec = infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "w2"
+    )
+    val anim3 by transition.animateFloat(
+        initialValue = 0.6f,
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(tween(480, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "w3"
+    )
+    val anim4 by transition.animateFloat(
+        initialValue = 1.0f,
+        targetValue = 0.5f,
+        animationSpec = infiniteRepeatable(tween(650, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "w4"
+    )
+    val anim5 by transition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 0.95f,
+        animationSpec = infiniteRepeatable(tween(520, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "w5"
+    )
+
+    Canvas(modifier = modifier) {
+        val totalWidth = size.width
+        val totalHeight = size.height
+        val barWidth = (totalWidth * 0.10f).coerceAtLeast(3.dp.toPx())
+        val spacing = (totalWidth * 0.11f).coerceAtLeast(3.5.dp.toPx())
+        val numBars = 5
+        val contentWidth = (numBars * barWidth) + ((numBars - 1) * spacing)
+        val startX = (totalWidth - contentWidth) / 2f
+
+        val baseHeights = floatArrayOf(0.42f, 0.72f, 1.0f, 0.72f, 0.42f)
+        val animFactors = floatArrayOf(anim1, anim2, anim3, anim4, anim5)
+
+        for (i in 0 until numBars) {
+            val barHeight = (totalHeight * 0.85f * baseHeights[i] * animFactors[i]).coerceIn(barWidth, totalHeight)
+            val x = startX + i * (barWidth + spacing) + barWidth / 2f
+            val yTop = (totalHeight - barHeight) / 2f
+            val yBottom = yTop + barHeight
+
+            drawLine(
+                color = color,
+                start = Offset(x, yTop),
+                end = Offset(x, yBottom),
+                strokeWidth = barWidth,
+                cap = StrokeCap.Round
+            )
         }
     }
 }

@@ -335,7 +335,7 @@ fun LanguageSelectionScreen(
                             if (navController.previousBackStackEntry != null) {
                                 navController.popBackStack()
                             } else {
-                                navController.navigate(NavRoutes.Dashboard) {
+                                navController.navigate(NavRoutes.Login) {
                                     popUpTo(navController.graph.id) {
                                         inclusive = true
                                     }

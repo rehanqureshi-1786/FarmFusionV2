@@ -1,7 +1,7 @@
 /*
  * FarmFusion - Real-Time Animal Intrusion Detection System
  * Target Hardware: ESP32 Dev Module (6x IR, 2x PIR, 1x Buzzer)
- * 
+ *
  * SENSOR HARDWARE PIN MAPPING:
  * ------------------------------------------------------------------
  * 1. IR Sensors (6x):
@@ -11,93 +11,95 @@
  *    - IR_4: GPIO 33 (Active-LOW: 0 = Obstacle, 1 = Detecting)
  *    - IR_5: GPIO 18 (Active-LOW: 0 = Obstacle, 1 = Detecting)
  *    - IR_6: GPIO 19 (Active-LOW: 0 = Obstacle, 1 = Detecting)
- * 
+ *
  * 2. PIR Motion Sensors (2x):
  *    - PIR_1: GPIO 23 (Active-HIGH: 1 = Motion, 0 = Detecting)
  *    - PIR_2: GPIO 22 (Active-HIGH: 1 = Motion, 0 = Detecting)
- * 
+ *
  * 3. Alarm Output:
  *    - Buzzer: GPIO 25 (Active-HIGH)
  * ------------------------------------------------------------------
  */
 
-#include <WiFi.h>
 #include <HTTPClient.h>
+#include <WiFi.h>
+
 
 // ============================================================================
 // 1. CONFIGURATION
 // ============================================================================
-const char* WIFI_SSID     = "STORM";          // Your Wi-Fi SSID
-const char* WIFI_PASSWORD = "00000000";       // Your Wi-Fi Password
+const char *WIFI_SSID = "STORM";        // Your Wi-Fi SSID
+const char *WIFI_PASSWORD = "00000000"; // Your Wi-Fi Password
 
 // Laptop IPv4 Address on Wi-Fi network
-const char* SERVER_IP     = "10.245.127.24";
-const int   SERVER_PORT   = 8000;
-const char* DEVICE_ID     = "NODE_01";
+const char *SERVER_IP = "10.45.35.226";
+const int SERVER_PORT = 8000;
+const char *DEVICE_ID = "NODE_01";
 
 // ============================================================================
 // 2. HARDWARE PINS & TRIGGER LEVELS
 // ============================================================================
 // 6x IR Sensors
-#define PIN_IR_1    27
-#define PIN_IR_2    26
-#define PIN_IR_3    32
-#define PIN_IR_4    33
-#define PIN_IR_5    18
-#define PIN_IR_6    19
+#define PIN_IR_1 27
+#define PIN_IR_2 26
+#define PIN_IR_3 32
+#define PIN_IR_4 33
+#define PIN_IR_5 18
+#define PIN_IR_6 19
 
 // 2x PIR Motion Sensors
-#define PIN_PIR_1   23
-#define PIN_PIR_2   22
+#define PIN_PIR_1 23
+#define PIN_PIR_2 22
 
 // 1x Buzzer Alarm
-#define PIN_BUZZER  25
+#define PIN_BUZZER 25
 
-#define IR_TRIGGER_LEVEL   LOW   // 0 = obstacle detected
-#define PIR_TRIGGER_LEVEL  HIGH  // 1 = motion detected
+#define IR_TRIGGER_LEVEL LOW   // 0 = obstacle detected
+#define PIR_TRIGGER_LEVEL HIGH // 1 = motion detected
 
 // ============================================================================
 // 3. DEBOUNCE STRUCTURE & TIMING
 // ============================================================================
-const int NUM_SAMPLES = 5;            // 5 consecutive samples required
-const unsigned long SAMPLE_INTERVAL = 30; // Sample every 30ms (150ms debounce window)
-const unsigned long HOLD_TIME       = 150; // 150ms hold duration
-const unsigned long HB_INTERVAL     = 1500; // 1.5s Unified Heartbeat
+const int NUM_SAMPLES = 5; // 5 consecutive samples required
+const unsigned long SAMPLE_INTERVAL =
+    30; // Sample every 30ms (150ms debounce window)
+const unsigned long HOLD_TIME = 150;    // 150ms hold duration
+const unsigned long HB_INTERVAL = 1500; // 1.5s Unified Heartbeat
 
 struct DebouncedSensor {
-  const char* name;
-  const char* type;
+  const char *name;
+  const char *type;
   int pin;
   int triggerLevel;
   int samples[NUM_SAMPLES];
   int sampleIndex;
-  bool isDetected;            // True = detected, False = clear/detecting
+  bool isDetected; // True = detected, False = clear/detecting
   unsigned long lastStateChangeTime;
 };
 
 DebouncedSensor sensors[] = {
-  {"IR_1",  "IR",  PIN_IR_1,  IR_TRIGGER_LEVEL,  {0}, 0, false, 0},
-  {"IR_2",  "IR",  PIN_IR_2,  IR_TRIGGER_LEVEL,  {0}, 0, false, 0},
-  {"IR_3",  "IR",  PIN_IR_3,  IR_TRIGGER_LEVEL,  {0}, 0, false, 0},
-  {"IR_4",  "IR",  PIN_IR_4,  IR_TRIGGER_LEVEL,  {0}, 0, false, 0},
-  {"IR_5",  "IR",  PIN_IR_5,  IR_TRIGGER_LEVEL,  {0}, 0, false, 0},
-  {"IR_6",  "IR",  PIN_IR_6,  IR_TRIGGER_LEVEL,  {0}, 0, false, 0},
-  {"PIR_1", "PIR", PIN_PIR_1, PIR_TRIGGER_LEVEL, {0}, 0, false, 0},
-  {"PIR_2", "PIR", PIN_PIR_2, PIR_TRIGGER_LEVEL, {0}, 0, false, 0}
-};
+    {"IR_1", "IR", PIN_IR_1, IR_TRIGGER_LEVEL, {0}, 0, false, 0},
+    {"IR_2", "IR", PIN_IR_2, IR_TRIGGER_LEVEL, {0}, 0, false, 0},
+    {"IR_3", "IR", PIN_IR_3, IR_TRIGGER_LEVEL, {0}, 0, false, 0},
+    {"IR_4", "IR", PIN_IR_4, IR_TRIGGER_LEVEL, {0}, 0, false, 0},
+    {"IR_5", "IR", PIN_IR_5, IR_TRIGGER_LEVEL, {0}, 0, false, 0},
+    {"IR_6", "IR", PIN_IR_6, IR_TRIGGER_LEVEL, {0}, 0, false, 0},
+    {"PIR_1", "PIR", PIN_PIR_1, PIR_TRIGGER_LEVEL, {0}, 0, false, 0},
+    {"PIR_2", "PIR", PIN_PIR_2, PIR_TRIGGER_LEVEL, {0}, 0, false, 0}};
 
 const int NUM_SENSORS = sizeof(sensors) / sizeof(sensors[0]);
 
 // Timers
-unsigned long lastSampleTime        = 0;
+unsigned long lastSampleTime = 0;
 unsigned long lastNodeHeartbeatTime = 0;
-unsigned long lastDiagTime          = 0;
-const unsigned long DIAG_INTERVAL   = 4000;
+unsigned long lastDiagTime = 0;
+const unsigned long DIAG_INTERVAL = 4000;
 
 bool wasWifiConnected = false;
 
 // Function prototypes
-void sendDetectionEvent(const char* sensorName, const char* sensorType, bool isDetected);
+void sendDetectionEvent(const char *sensorName, const char *sensorType,
+                        bool isDetected);
 void sendUnifiedHeartbeat();
 
 // ============================================================================
@@ -122,7 +124,7 @@ void setup() {
   // Configure 2x PIR Pins (INPUT_PULLDOWN: Idle = LOW, Trigger = HIGH)
   pinMode(PIN_PIR_1, INPUT_PULLDOWN);
   pinMode(PIN_PIR_2, INPUT_PULLDOWN);
-  
+
   // Configure Buzzer Output
   pinMode(PIN_BUZZER, OUTPUT);
   digitalWrite(PIN_BUZZER, LOW);
@@ -182,7 +184,7 @@ void loop() {
 
     for (int i = 0; i < NUM_SENSORS; i++) {
       int rawRead = digitalRead(sensors[i].pin);
-      
+
       // Store sample in circular buffer
       sensors[i].samples[sensors[i].sampleIndex] = rawRead;
       sensors[i].sampleIndex = (sensors[i].sampleIndex + 1) % NUM_SAMPLES;
@@ -208,10 +210,12 @@ void loop() {
 
             Serial.print(candidateState ? "🚨 [DETECTED] " : "🟢 [CLEARED] ");
             Serial.print(sensors[i].name);
-            Serial.println(candidateState ? " -> 🔴 DETECTED" : " -> 🟢 DETECTING");
+            Serial.println(candidateState ? " -> 🔴 DETECTED"
+                                          : " -> 🟢 DETECTING");
 
             if (isConnected) {
-              sendDetectionEvent(sensors[i].name, sensors[i].type, candidateState);
+              sendDetectionEvent(sensors[i].name, sensors[i].type,
+                                 candidateState);
             }
           }
         }
@@ -254,7 +258,8 @@ void loop() {
       Serial.print(" ");
     }
     Serial.print("| IP: ");
-    Serial.println(isConnected ? WiFi.localIP().toString() : String("CONNECTING..."));
+    Serial.println(isConnected ? WiFi.localIP().toString()
+                               : String("CONNECTING..."));
   }
 
   delay(5);
@@ -263,12 +268,14 @@ void loop() {
 // ============================================================================
 // HTTP POST REAL-TIME EVENT TELEMETRY (<10ms)
 // ============================================================================
-void sendDetectionEvent(const char* sensorName, const char* sensorType, bool isDetected) {
+void sendDetectionEvent(const char *sensorName, const char *sensorType,
+                        bool isDetected) {
   WiFiClient wifiClient;
   HTTPClient http;
-  
-  String url = "http://" + String(SERVER_IP) + ":" + String(SERVER_PORT) + "/api/v1/animal-detection";
-  
+
+  String url = "http://" + String(SERVER_IP) + ":" + String(SERVER_PORT) +
+               "/api/v1/animal-detection";
+
   if (http.begin(wifiClient, url)) {
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(400);
@@ -298,9 +305,10 @@ void sendDetectionEvent(const char* sensorName, const char* sensorType, bool isD
 void sendUnifiedHeartbeat() {
   WiFiClient wifiClient;
   HTTPClient http;
-  
-  String url = "http://" + String(SERVER_IP) + ":" + String(SERVER_PORT) + "/api/v1/animal-detection/heartbeat";
-  
+
+  String url = "http://" + String(SERVER_IP) + ":" + String(SERVER_PORT) +
+               "/api/v1/animal-detection/heartbeat";
+
   if (http.begin(wifiClient, url)) {
     http.addHeader("Content-Type", "application/json");
     http.setTimeout(500);
@@ -310,8 +318,10 @@ void sendUnifiedHeartbeat() {
     jsonPayload += "\"sensors\":{";
     for (int i = 0; i < NUM_SENSORS; i++) {
       jsonPayload += "\"" + String(sensors[i].name) + "\":\"";
-      jsonPayload += String(sensors[i].isDetected ? "detected" : "cleared") + "\"";
-      if (i < NUM_SENSORS - 1) jsonPayload += ",";
+      jsonPayload +=
+          String(sensors[i].isDetected ? "detected" : "cleared") + "\"";
+      if (i < NUM_SENSORS - 1)
+        jsonPayload += ",";
     }
     jsonPayload += "}}";
 

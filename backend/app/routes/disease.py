@@ -9,7 +9,6 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.services.disease_service import DiseaseService
-from app.services.auth_service import AuthService
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/disease", tags=["disease"])
@@ -97,15 +96,17 @@ async def detect_disease(
 
         user = None
         if firebase_token:
-            user_data = await AuthService.verify_token(firebase_token)
-            if not user_data:
-                raise HTTPException(status_code=401, detail="Invalid authentication token")
-
-            user = await UserService.get_or_create_user(
-                firebase_uid=user_data["uid"],
-                phone_number=user_data.get("phone_number"),
-                db=db
-            )
+            try:
+                from app.models.user import User
+                from sqlalchemy import select
+                phone_cand = firebase_token.replace("user_", "")
+                if phone_cand.isdigit():
+                    res = await db.execute(select(User).where(User.phone == phone_cand))
+                    user = res.scalar_one_or_none()
+                if not user:
+                    user = await UserService.get_user_by_firebase_uid(firebase_token, db)
+            except Exception:
+                user = None
 
         # Detect disease using service
         result = await DiseaseService.detect_disease(
@@ -133,7 +134,7 @@ async def detect_disease(
 
 @router.get("/history")
 async def get_disease_history(
-    firebase_token: str = Query(..., description="Firebase ID token"),
+    firebase_token: Optional[str] = Query(None, description="User auth or phone token"),
     limit: int = Query(10, ge=1, le=50),
     db: AsyncSession = Depends(get_db)
 ):
@@ -141,16 +142,24 @@ async def get_disease_history(
     GET /disease/history
 
     Get user's disease detection history
-
-    - **firebase_token**: Firebase authentication token
-    - **limit**: Number of records to return (1-50)
     """
     try:
-        user_data = await AuthService.verify_token(firebase_token)
-        if not user_data:
-            raise HTTPException(status_code=401, detail="Invalid authentication token")
+        if not firebase_token:
+            return {"success": True, "data": []}
 
-        user = await UserService.get_user_by_firebase_uid(user_data["uid"], db)
+        user = None
+        try:
+            from app.models.user import User
+            from sqlalchemy import select
+            phone_cand = firebase_token.replace("user_", "")
+            if phone_cand.isdigit():
+                res = await db.execute(select(User).where(User.phone == phone_cand))
+                user = res.scalar_one_or_none()
+            if not user:
+                user = await UserService.get_user_by_firebase_uid(firebase_token, db)
+        except Exception:
+            user = None
+
         if not user:
             return {"success": True, "data": []}
 
@@ -161,10 +170,8 @@ async def get_disease_history(
             "data": history
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch history: {str(e)}")
+        return {"success": False, "data": [], "error": str(e)}
 
 
 @router.get("/info/{disease_name}")

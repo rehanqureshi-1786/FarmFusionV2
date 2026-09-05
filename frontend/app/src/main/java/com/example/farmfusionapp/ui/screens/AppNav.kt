@@ -43,6 +43,7 @@ object NavRoutes {
     const val LanguageSelection = "language_selection"
     const val Splash = "splash"
     const val Login = "login"
+    const val OtpVerification = "otp_verification" // 👈 ADDED NEW ROUTE
     const val Register = "register"
     const val Dashboard = "dashboard"
     const val CropServices = "crop_services"
@@ -167,6 +168,10 @@ fun AppNav() {
                     composable(NavRoutes.LanguageSelection) { LanguageSelectionScreen(navController) }
                     composable(NavRoutes.Splash) { SplashScreen(navController, authViewModel) }
                     composable(NavRoutes.Login) { LoginScreen(navController) }
+
+                    // 👈 ADDED NEW SCREEN TO NAVIGATION GRAPH
+                    composable(NavRoutes.OtpVerification) { OtpVerificationScreen(navController) }
+
                     composable(NavRoutes.Register) { RegisterScreen(navController) }
                     composable(NavRoutes.Dashboard) { DashboardScreen(navController) }
                     composable(NavRoutes.CropServices) { CropServicesScreen(navController) }

@@ -117,7 +117,7 @@ class DiseaseViewModel : ViewModel() {
         }
     }
 
-    fun getHistory(firebaseToken: String, limit: Int = 10) {
+    fun getHistory(firebaseToken: String? = null, limit: Int = 10) {
         viewModelScope.launch {
             _historyState.value = DiseaseHistoryState.Loading
 

@@ -77,7 +77,7 @@ fun DiseaseScreen(navController: NavController) {
         viewModel.detectDisease(
             imageFile = tempFile,
             cropType = null,
-            firebaseToken = token,
+            firebaseToken = null,
             responseLanguage = currentLang
         )
     }

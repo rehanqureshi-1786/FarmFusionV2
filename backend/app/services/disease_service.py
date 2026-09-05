@@ -275,25 +275,39 @@ class DiseaseService:
         )
 
         # Step 5: Save record in database if user is identified
-        if user_id is None and firebase_uid:
-            from app.services.user_service import UserService
-            user = await UserService.get_user_by_firebase_uid(firebase_uid, db)
-            user_id = user.id if user else None
+        try:
+            if user_id is None and firebase_uid and db is not None:
+                from app.services.user_service import UserService
+                user = await UserService.get_user_by_firebase_uid(firebase_uid, db)
+                if not user and firebase_uid.startswith("user_"):
+                    phone_cand = firebase_uid.replace("user_", "")
+                    if phone_cand.isdigit():
+                        from app.models.user import User
+                        res = await db.execute(select(User).where(User.phone == phone_cand))
+                        user = res.scalar_one_or_none()
+                user_id = user.id if user else None
 
-        if user_id is not None:
-            detection_record = DiseaseDetection(
-                user_id=user_id,
-                image_url=image_filename,
-                crop_type=detected_crop,
-                disease_name=detected_disease,
-                confidence=confidence,
-                severity=response_data["severity"],
-                description=description,
-                treatment_suggestions=treatment_suggestions,
-                prevention_tips=prevention_tips,
-            )
-            db.add(detection_record)
-            await db.commit()
+            if user_id is not None and db is not None:
+                detection_record = DiseaseDetection(
+                    user_id=user_id,
+                    image_url=image_filename,
+                    crop_type=detected_crop,
+                    disease_name=detected_disease,
+                    confidence=confidence,
+                    severity=response_data["severity"],
+                    description=description,
+                    treatment_suggestions=treatment_suggestions,
+                    prevention_tips=prevention_tips,
+                )
+                db.add(detection_record)
+                await db.commit()
+        except Exception as dbe:
+            logger.warning("disease_history_db_save_skipped", error=str(dbe))
+            if db:
+                try:
+                    await db.rollback()
+                except Exception:
+                    pass
 
         from app.services.disease_translation import localize_disease_response
         return localize_disease_response(response_data, response_language)

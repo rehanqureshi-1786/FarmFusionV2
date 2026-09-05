@@ -89,7 +89,7 @@ fun CropDiseaseScreen(navController: NavController) {
         diseaseViewModel.detectDisease(
             imageFile = tempFile,
             cropType = null,
-            firebaseToken = token,
+            firebaseToken = null,
             responseLanguage = currentLang
         )
     }

@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavController
+import com.example.farmfusionapp.utils.AuthStore
 import com.example.farmfusionapp.viewmodel.AuthViewModel
 
 /**
@@ -19,9 +20,14 @@ fun SplashScreen(navController: NavController, viewModel: AuthViewModel) {
     val context = LocalContext.current
 
     LaunchedEffect(Unit) {
-        // Authentication disabled for local development — go directly to dashboard
-        navController.navigate(NavRoutes.Dashboard) {
-            popUpTo(NavRoutes.Splash) { inclusive = true }
+        if (AuthStore.isLoggedIn(context)) {
+            navController.navigate(NavRoutes.Dashboard) {
+                popUpTo(NavRoutes.Splash) { inclusive = true }
+            }
+        } else {
+            navController.navigate(NavRoutes.Login) {
+                popUpTo(NavRoutes.Splash) { inclusive = true }
+            }
         }
     }
 

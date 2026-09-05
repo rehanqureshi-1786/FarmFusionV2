@@ -63,7 +63,7 @@ interface FarmFusionApi {
 
     @GET("api/v1/disease/history")
     suspend fun getDiseaseHistory(
-        @Query("firebase_token") token: String,
+        @Query("firebase_token") token: String? = null,
         @Query("limit") limit: Int = 10
     ): Response<DiseaseHistoryResponse>
 
