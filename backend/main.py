@@ -168,13 +168,19 @@ async def health_check():
 
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
+
+    # Reload must be opt-in (local development only). Never enable in production
+    # containers — the reloader process breaks signal handling and wastes memory.
+    reload_flag = os.getenv("RELOAD", "false").lower() in ("true", "1", "yes")
 
     print("Starting FarmFusion Backend...")
     print("API Documentation: http://localhost:8000/docs")
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True,
+        port=int(os.getenv("PORT", "8000")),
+        reload=reload_flag,
     )
