@@ -121,7 +121,7 @@ fun CropHarvestingScreen(navController: NavController) {
                         iconTintColor = Color(0xFF1565C0),
                         illustration = R.drawable.ill_cold_storage,
                         onClick = {
-                            // TODO: Add Crop Storage route when ready
+                            navController.navigate(NavRoutes.CropStorage)
                         }
                     )
                 }

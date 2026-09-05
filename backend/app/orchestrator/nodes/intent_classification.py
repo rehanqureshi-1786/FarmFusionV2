@@ -8,19 +8,67 @@ import structlog
 
 from app.orchestrator.state import OrchestratorState
 from app.voice.languages import normalize_crop_name, normalize_soil_name, detect_dialect, normalize_agricultural_term
+from app.schemas.semantic_frame import (
+    SemanticFrame,
+    CanonicalIntent,
+    CapabilityType,
+    RequiredInput,
+    UserContext,
+    ConversationContext,
+    FarmLocation,
+)
+from app.orchestrator.semantic_extractor import extract_semantic_frame
 
 logger = structlog.get_logger(__name__)
 
 
 async def intent_classification_node(state: OrchestratorState) -> OrchestratorState:
     """
-    Classify intent and extract slots from user input while resolving context from previous turns.
-    If intent confidence < 0.6, enforce safety rule #6: route to clarify question.
+    Classify intent and extract slots from user input using Phase F3 Semantic Extraction Layer.
+    Executes hybrid LLM/Deterministic semantic extraction, populating canonical SemanticFrame
+    while maintaining 100% backward compatibility for downstream LangGraph nodes.
     """
-    query = state.get("user_input", "").lower().strip()
+    raw_query = state.get("user_input", "").strip()
+    query = raw_query.lower()
     farmer_ctx = state.get("farmer_context", {}) or {}
     last_recs = state.get("last_recommendations", []) or []
     filled_slots: Dict[str, Any] = dict(state.get("filled_slots", {}) or {})
+
+    # Build typed context for semantic extractor
+    user_context = UserContext(
+        farm_location=FarmLocation(
+            latitude=farmer_ctx.get("latitude"),
+            longitude=farmer_ctx.get("longitude"),
+            district=farmer_ctx.get("district"),
+            state=farmer_ctx.get("state"),
+        ) if farmer_ctx else None,
+        soil_type=farmer_ctx.get("soil_type"),
+    )
+    active_crop_ctx = (
+        state.get("active_crop")
+        or farmer_ctx.get("active_crop")
+        or (farmer_ctx.get("profile") or {}).get("active_crop")
+        or (last_recs[0].get("crop_name") if last_recs else None)
+    )
+    conversation_context = ConversationContext(
+        active_crop=active_crop_ctx,
+        last_intent=state.get("intent"),
+        accumulated_slots=filled_slots,
+    )
+
+    # 1. Execute Phase F3 Semantic Extractor (LLM with deterministic fallback)
+    semantic_frame = await extract_semantic_frame(
+        raw_text=raw_query,
+        detected_language=state.get("detected_language", "hi"),
+        detected_dialect=state.get("detected_dialect"),
+        user_context=user_context,
+        conversation_context=conversation_context,
+        session_id=state.get("session_id"),
+    )
+    state["semantic_frame"] = semantic_frame.model_dump()
+    state["detected_language"] = semantic_frame.language
+    if semantic_frame.dialect:
+        state["detected_dialect"] = semantic_frame.dialect
 
     # Detect regional dialect & language markers
     dialect_res = detect_dialect(query, detected_language=state.get("detected_language", "hi"))
@@ -91,6 +139,21 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         intent = "unsupported_capability"
         confidence = 0.95
         filled_slots["capability_type"] = "scheme_application"
+
+    # 3b. Outbound Voice Calling Intent (High Priority - before navigation & market)
+    elif any(kw in query for kw in [
+        "कॉल करो", "कॉल कर दो", "फोन करो", "फोन कर दो", "कॉल करें", "फोन करें", "फोन लगाओ", "फोन मिलाओ",
+        "call", "phone karo", "call karo", "call the farmer", "phone kar do", "phone mila do",
+        "call kijiye", "phone milao", "कॉल मिलाओ", "फोन लगाओ", "call lagao", "outbound call",
+        "farmer ko call", "किसान को फोन", "किसान को कॉल", "alert call", "अलर्ट कॉल"
+    ]):
+        intent = "calling"
+        confidence = 0.98
+        phone_match = re.search(r'(\+?91[\-\s]?)?[6789]\d{9}', query)
+        if phone_match:
+            filled_slots["phone"] = phone_match.group(0).strip()
+        elif farmer_ctx.get("phone"):
+            filled_slots["phone"] = farmer_ctx.get("phone")
 
     # 4. In-App Navigation Intent (Strict Priority for "खोलो", "स्क्रीन", "पेज")
     elif any(kw in query for kw in ["स्क्रीन खोलो", "पेज खोलो", "स्क्रीन", "खोलो", "खोल", "चलो", "जाओ", "वापस", "दिखाओ", "होम पर", "navigate", "open screen", "open"]):
@@ -201,7 +264,7 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
 
     # 12. Mandi Intelligence & Price Queries (High-value farmer features)
     # 12a. Price Opportunity Alert Intent: "अगर गेहूं 2600 रुपये से ऊपर जाए तो बताना", "गेहूं के लिए alert लगाओ"
-    elif any(kw in query for kw in ["alert", "अलर्ट"]) or (any(kw in query for kw in ["अगर", "यदि", "बता देना", "बताओ जब", "notify"]) and any(kw in query for kw in ["से ऊपर", "बढ़े", "घटे", "रुपये से", "ऊपर जाए", "above", "below", "reach"])):
+    elif (any(kw in query for kw in ["alert", "अलर्ट"]) and any(kw in query for kw in ["bhav", "price", "rate", "कीमत", "भाव", "रुपये", "rs", "₹", "फसल", "crop", "मंडी", "mandi"])) or (any(kw in query for kw in ["अगर", "यदि", "बता देना", "बताओ जब", "notify"]) and any(kw in query for kw in ["से ऊपर", "बढ़े", "घटे", "रुपये से", "ऊपर जाए", "above", "below", "reach"])):
         intent = "price_alert"
         confidence = 0.95
         num_match = re.search(r'(\d{3,6})', query)
@@ -260,6 +323,7 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
             "कोटा": "Kota", "kota": "Kota",
             "जोधपुर": "Jodhpur", "jodhpur": "Jodhpur",
             "बीकानेर": "Bikaner", "bikaner": "Bikaner",
+            "अलवर": "Alwar", "alwar": "Alwar",
             "इंदौर": "Indore", "indore": "Indore",
             "भोपाल": "Bhopal", "bhopal": "Bhopal",
             "लुधियाना": "Ludhiana", "ludhiana": "Ludhiana",
@@ -282,10 +346,19 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         elif len(cities) == 1:
             filled_slots["market_a"] = cities[0]
 
-        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "onion"]:
+        for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "onion", "gehu", "dhan", "chawal", "sarso", "kapas", "soyabean", "makka", "mungfali"]:
             if c_word in query:
                 filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
                 break
+
+        sf = state.get("semantic_frame") or {}
+        sf_entities = sf.get("entities") or {} if isinstance(sf, dict) else (sf.entities.__dict__ if hasattr(sf, "entities") else {})
+        if "commodity" not in filled_slots and sf_entities.get("crop"):
+            filled_slots["commodity"] = sf_entities.get("crop")
+        if not filled_slots.get("market_b") and sf_entities.get("target_locations") and len(sf_entities.get("target_locations")) >= 2:
+            locs = sf_entities.get("target_locations")
+            filled_slots["market_a"] = locs[0]
+            filled_slots["market_b"] = locs[1]
 
         # Multi-turn slot clarification
         if "commodity" not in filled_slots and not (last_recs and any(w in query for w in ["इसका", "इस फसल"])):
@@ -416,8 +489,9 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
 
     # 15. IoT Animal Intrusion Detection & Farm Security Intent
     elif any(kw in query for kw in [
-        "जानवर", "पशु", "नीलगाय", "सूअर", "खेत सुरक्षित", "सुरक्षा", "घुसपैठ", "सेंसर", "अलर्ट",
-        "animal", "intrusion", "wild animal", "pig", "nilgai", "is farm safe", "security status", "sensor status"
+        "जानवर", "पशु", "नीलगाय", "सूअर", "खेत सुरक्षित", "सुरक्षा", "घुसपैठ", "सेंसर",
+        "animal", "intrusion", "wild animal", "pig", "nilgai", "is farm safe", "security status", "sensor status",
+        "suar", "janwar", "ghus", "boundary", "tarbandi"
     ]):
         intent = "animal_detection"
         confidence = 0.95
@@ -428,6 +502,11 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         intent = "crop_care"
         confidence = 0.90
         filled_slots["crop_name"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
+
+    # Inherit semantic_frame intent if deterministic/LLM extractor identified higher confidence
+    if intent == "unknown" and semantic_frame.intent not in [CanonicalIntent.GENERAL_AGRICULTURE, CanonicalIntent.CLARIFICATION]:
+        intent = semantic_frame.intent.value
+        confidence = max(confidence, semantic_frame.confidence.intent_confidence)
 
     # Enforce Safety Rule #6: Low Confidence Clarification
     if confidence < 0.6:
@@ -441,6 +520,21 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         state["intent_confidence"] = confidence
         if not state.get("requires_clarification"):
             state["requires_clarification"] = False
+
+    # Synchronize entities from semantic frame into filled_slots
+    if semantic_frame.entities.crop and "commodity" not in filled_slots:
+        filled_slots["commodity"] = semantic_frame.entities.crop
+    if semantic_frame.entities.crop and "crop_name" not in filled_slots:
+        filled_slots["crop_name"] = semantic_frame.entities.crop
+    if semantic_frame.entities.market and "location_name" not in filled_slots:
+        filled_slots["location_name"] = semantic_frame.entities.market
+    if len(semantic_frame.entities.markets) >= 2:
+        filled_slots["market_a"] = semantic_frame.entities.markets[0]
+        filled_slots["market_b"] = semantic_frame.entities.markets[1]
+    if semantic_frame.entities.forecast_days and "days" not in filled_slots:
+        filled_slots["days"] = semantic_frame.entities.forecast_days
+    if semantic_frame.entities.timeframe and "timeframe" not in filled_slots:
+        filled_slots["timeframe"] = semantic_frame.entities.timeframe
 
     state["filled_slots"] = filled_slots
     return state

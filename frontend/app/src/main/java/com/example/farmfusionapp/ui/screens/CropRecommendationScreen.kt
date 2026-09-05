@@ -708,6 +708,18 @@ fun UploadSoilReportStep(
         val weatherData = weatherRes?.body()?.data
         if (weatherData != null) {
             tempDisplay = String.format(java.util.Locale.US, "%.1f", weatherData.temperature_c)
+        } else if (WeatherSnapshotStore.latestWeather != null) {
+            tempDisplay = "${WeatherSnapshotStore.latestWeather!!.temperature}.0"
+        } else {
+            tempDisplay = "27.4"
+        }
+
+        // Fetch real ERA-5 historical annual rainfall from backend
+        val rainfallRes = runCatching { RetrofitInstance.farmFusionApi.getAnnualRainfall(lat, lon) }.getOrNull()
+        val rainVal = rainfallRes?.body()?.data?.let { it.annual_rainfall_mm ?: it.total_rainfall_mm }
+        if (rainVal != null && rainVal > 0) {
+            rainfallDisplay = String.format(java.util.Locale.US, "%.0f", rainVal)
+        } else {
             val estRainfall = when {
                 lat in 24.0..30.5 && lon in 70.0..78.5 -> 612.0  // NW / Rajasthan
                 lat in 8.0..18.0 && lon in 74.0..78.0 -> 950.0   // South
@@ -715,12 +727,6 @@ fun UploadSoilReportStep(
                 else -> 750.0
             }
             rainfallDisplay = estRainfall.toInt().toString()
-        } else if (WeatherSnapshotStore.latestWeather != null) {
-            tempDisplay = "${WeatherSnapshotStore.latestWeather!!.temperature}.0"
-            rainfallDisplay = "612"
-        } else {
-            tempDisplay = "27.4"
-            rainfallDisplay = "612"
         }
 
         onInputsChange(

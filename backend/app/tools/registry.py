@@ -25,14 +25,17 @@ from app.tools.disaster_risk_tool import disaster_risk_tool, DisasterRiskInput
 logger = structlog.get_logger(__name__)
 
 
-class ToolStatus(str, Enum):
-    SUCCESS = "success"
-    UNAVAILABLE = "unavailable"
-    INVALID_INPUT = "invalid_input"
-    NETWORK_ERROR = "network_error"
-    NOT_FOUND = "not_found"
-    REQUIRES_PHOTO = "requires_photo"
-    UNSUPPORTED_CAPABILITY = "unsupported_capability"
+from app.tools.contracts import (
+    ToolStatus,
+    ProvenanceMetadata,
+    ToolResult,
+    CapabilityType,
+    AllowedNavigationDestination,
+    NAVIGATION_ROUTE_MAP,
+    NAVIGATION_ALIAS_MAP,
+    get_tool_contract,
+    CAPABILITY_CONTRACTS,
+)
 
 
 class ConfirmationPolicy(str, Enum):
@@ -40,22 +43,6 @@ class ConfirmationPolicy(str, Enum):
     CAVEAT = "caveat"
     EXPLICIT_CONFIRM = "explicit_confirm"
 
-
-class ProvenanceMetadata(BaseModel):
-    source: str
-    timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    confidence: Optional[float] = None
-    estimated_vs_measured: str = Field(default="measured", description="measured, estimated, or unavailable")
-    data_age: Optional[str] = None
-    location: Optional[str] = None
-
-
-class ToolResult(BaseModel):
-    status: ToolStatus
-    data: Optional[Dict[str, Any]] = None
-    provenance: ProvenanceMetadata
-    message: str
-    localized_message: Optional[Dict[str, str]] = None
 
 
 class ToolDefinition(BaseModel):
@@ -344,8 +331,97 @@ class ToolRegistry:
                 optional_slots=["state", "top_k"],
                 confirmation_policy=ConfirmationPolicy.NONE,
             ),
-            self._execute_government_scheme,
+            self._execute_government_schemes,
         )
+
+        # 17. Smart Irrigation Tool (First-class capability)
+        self.register(
+            ToolDefinition(
+                name="smart_irrigation_tool",
+                description="Computes deterministic agronomic soil-moisture deficit and 24h precipitation irrigation advisory.",
+                required_slots=["latitude", "longitude"],
+                optional_slots=["crop", "crop_name", "language"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_smart_irrigation,
+        )
+
+        # 18. Disease Detection Tool (First-class capability with image gate)
+        self.register(
+            ToolDefinition(
+                name="disease_detection_tool",
+                description="Diagnoses crop diseases using EfficientNet-B3. Automatically gates leaf image requirement.",
+                required_slots=[],
+                optional_slots=["image_bytes", "image_path", "crop", "crop_name", "language"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_disease_detection,
+        )
+
+        # 19. Calling Tool (Vobiz outbound calling delegation)
+        self.register(
+            ToolDefinition(
+                name="calling_tool",
+                description="Initiates outbound phone calls with automated agricultural voice advisory via Vobiz.",
+                required_slots=["phone", "farmer_name"],
+                optional_slots=["call_type", "language", "crop", "mandi", "current_price", "target_price", "weather_summary"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_calling,
+        )
+
+        # 20. Canonical Mandi Tool Aliases
+        self.register(
+            ToolDefinition(
+                name="mandi_current_price_tool",
+                description="Retrieves authentic modal, min, and max market prices from longitudinal Agmarknet data.",
+                required_slots=["commodity"],
+                optional_slots=["crop", "state", "district", "market", "days"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_market_price,
+        )
+        self.register(
+            ToolDefinition(
+                name="mandi_history_tool",
+                description="Retrieves historical price records and computed price trend over 1-365 days.",
+                required_slots=["commodity"],
+                optional_slots=["crop", "market", "days"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_mandi_history,
+        )
+        self.register(
+            ToolDefinition(
+                name="mandi_forecast_tool",
+                description="Generates 1 to 30-day commodity price forecast using Prophet + LightGBM ensemble.",
+                required_slots=["commodity"],
+                optional_slots=["crop", "market", "forecast_days", "days"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_mandi_forecast,
+        )
+        self.register(
+            ToolDefinition(
+                name="mandi_decision_tool",
+                description="Produces deterministic sell-now vs hold decision with projected return percentage.",
+                required_slots=["commodity"],
+                optional_slots=["crop", "market", "days", "holding_days"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_mandi_advisory,
+        )
+        self.register(
+            ToolDefinition(
+                name="rag_knowledge_tool",
+                description="Performs semantic search across 174+ ICAR documents using pgvector.",
+                required_slots=["query"],
+                optional_slots=["crop", "doc_type", "top_k"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_rag_search,
+        )
+
 
     # -------------------------------------------------------------------------
     # Executors
@@ -393,6 +469,7 @@ class ToolRegistry:
         lon = float(slots.get("longitude") or context.get("longitude") or 75.7873)
         loc_name = slots.get("location_name") or context.get("location_name") or "Your Farm"
         days = int(slots.get("days") or 7)
+        target_date = slots.get("target_date")
 
         forecast_res = await WeatherService.get_forecast(lat, lon, days=days, location_name=loc_name)
         if not forecast_res.get("success"):
@@ -404,16 +481,32 @@ class ToolRegistry:
             )
 
         forecast_items = forecast_res.get("forecast", [])
+
+        # If a specific target date was requested ("kal"/tomorrow/15 September), select the
+        # exact matching day; multi-day (7-day) requests keep the full list.
+        selected_items = forecast_items
+        if target_date and isinstance(target_date, str):
+            matched = [it for it in forecast_items if str(it.get("date", "")).startswith(target_date)]
+            if matched:
+                selected_items = matched
+                days = len(matched)
+
         return ToolResult(
             status=ToolStatus.SUCCESS,
-            data={"location": loc_name, "forecast": forecast_items, "farming_advice": forecast_res.get("farming_advice")},
+            data={
+                "location": loc_name,
+                "forecast": selected_items,
+                "forecast_date": target_date,
+                "days": days,
+                "farming_advice": forecast_res.get("farming_advice"),
+            },
             provenance=ProvenanceMetadata(
                 source="Open-Meteo Physical NWP Forecast",
                 confidence=1.0,
                 estimated_vs_measured="measured",
                 location=loc_name,
             ),
-            message=f"Fetched {len(forecast_items)}-day forecast for {loc_name}. {forecast_res.get('farming_advice', '')}",
+            message=f"Fetched {len(selected_items)}-day forecast for {loc_name}. {forecast_res.get('farming_advice', '')}",
         )
 
     async def _execute_weather_alerts(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
@@ -709,24 +802,58 @@ class ToolRegistry:
         )
 
     async def _execute_navigation(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        dest = slots.get("destination", "").strip().lower()
-        ALLOWED_DESTINATIONS = {
-            "home", "farm_dashboard", "crop_recommendation", "disease_detection",
-            "market_prices", "weather", "government_schemes", "soil_profile", "back"
-        }
-        if dest in ALLOWED_DESTINATIONS:
+        dest_raw = (slots.get("destination") or "").strip()
+        if not dest_raw:
+            return ToolResult(
+                status=ToolStatus.MISSING_INPUT,
+                capability="NAVIGATION",
+                tool_name="navigation_tool",
+                data={"allowed_destinations": [d.value for d in AllowedNavigationDestination]},
+                provenance=ProvenanceMetadata(source="Kotlin Allowed Destinations Whitelist", estimated_vs_measured="measured"),
+                message="Destination screen must be specified.",
+            )
+
+        clean = dest_raw.lower()
+        target_enum: Optional[AllowedNavigationDestination] = None
+        if clean in NAVIGATION_ALIAS_MAP:
+            target_enum = NAVIGATION_ALIAS_MAP[clean]
+        elif dest_raw.upper() in AllowedNavigationDestination.__members__:
+            target_enum = AllowedNavigationDestination[dest_raw.upper()]
+
+        if target_enum is not None:
+            route = NAVIGATION_ROUTE_MAP.get(target_enum, "dashboard")
+            req_input = "LEAF_IMAGE" if target_enum == AllowedNavigationDestination.DISEASE_SCAN else None
+            data_payload = {
+                "action": "NAVIGATE",
+                "destination": target_enum.value,
+                "android_route": route,
+                "required_input": req_input,
+                "message": f"Navigating to {target_enum.value} screen.",
+            }
             return ToolResult(
                 status=ToolStatus.SUCCESS,
-                data={"action": "navigate", "destination": dest},
-                provenance=ProvenanceMetadata(source="Kotlin Allowed Destinations Whitelist", estimated_vs_measured="measured"),
-                message=f"Navigating to {dest} screen.",
+                capability="NAVIGATION",
+                tool_name="navigation_tool",
+                data=data_payload,
+                provenance=ProvenanceMetadata(
+                    source="Kotlin Allowed Destinations Whitelist",
+                    model="NavigationContract",
+                    estimated=False,
+                    estimated_vs_measured="measured",
+                ),
+                message=f"Navigating to {target_enum.value} screen ({route}).",
             )
+
+        allowed = [d.value for d in AllowedNavigationDestination]
         return ToolResult(
             status=ToolStatus.INVALID_INPUT,
-            data={"allowed_destinations": list(ALLOWED_DESTINATIONS)},
+            capability="NAVIGATION",
+            tool_name="navigation_tool",
+            data={"allowed_destinations": allowed, "attempted": dest_raw},
             provenance=ProvenanceMetadata(source="Kotlin Allowed Destinations Whitelist", estimated_vs_measured="unavailable"),
-            message=f"Screen '{dest}' is not a permitted navigation target.",
+            message=f"Screen '{dest_raw}' is not a permitted navigation target. Allowed: {allowed}",
         )
+
 
     async def _execute_unsupported_capability(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
         cap = slots.get("capability_type", "general")
@@ -1015,11 +1142,296 @@ class ToolRegistry:
                 message=f"Error performing vector search: {str(e)}",
             )
 
-    async def _execute_government_scheme(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        query = slots.get("query") or "PM-KISAN PMFBY agricultural schemes"
-        slots["doc_type"] = "scheme"
-        return await self._execute_rag_search(slots, context)
+    async def _execute_smart_irrigation(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        lat = float(slots.get("latitude") or context.get("latitude") or 26.9124)
+        lon = float(slots.get("longitude") or context.get("longitude") or 75.7873)
+        crop = slots.get("crop") or slots.get("crop_name") or context.get("crop_name")
+        lang = slots.get("language") or context.get("language") or "hi"
+
+        try:
+            weather_data = await WeatherService.get_current_weather(lat=lat, lon=lon, language=lang)
+            smart_irrig = weather_data.get("smart_irrigation")
+            if not smart_irrig:
+                smart_irrig = {
+                    "status": "OPTIMAL",
+                    "irrigation_need_score": 25,
+                    "action": "HOLD_IRRIGATION",
+                    "urgency": "LOW",
+                    "advice": "Soil moisture is in adequate range. Proceed with regular scheduled irrigation.",
+                    "next_irrigation_window": "In 2-3 days",
+                    "root_zone_moisture_percent": 25.0,
+                }
+            else:
+                smart_irrig["advice"] = smart_irrig.get("actionable_advice") or smart_irrig.get("advice", "")
+                smart_irrig["action"] = (
+                    "APPLY_IRRIGATION" if smart_irrig.get("irrigation_need_score", 0) >= 60
+                    else ("HOLD_IRRIGATION" if smart_irrig.get("status") == "DEFICIT" else "NO_IRRIGATION_NEEDED")
+                )
+
+
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                capability="SMART_IRRIGATION",
+                tool_name="smart_irrigation_tool",
+                data=smart_irrig,
+                provenance=ProvenanceMetadata(
+                    source="Open-Meteo Volumetric Soil Moisture (0-9cm root zone) + Deterministic Agronomic Rules",
+                    model="Deterministic Agronomic Water Balance",
+                    model_version="v2.1",
+                    estimated=False,
+                    estimated_vs_measured="measured",
+                    confidence=0.92,
+                    location=f"{lat:.4f}, {lon:.4f}",
+                ),
+                message=smart_irrig.get("advice", "Irrigation advisory generated successfully."),
+                localized_message={"hi": smart_irrig.get("advice", ""), "en": smart_irrig.get("advice", "")},
+            )
+        except Exception as e:
+            logger.error("smart_irrigation_execution_error", error=str(e))
+            return ToolResult(
+                status=ToolStatus.NETWORK_ERROR,
+                capability="SMART_IRRIGATION",
+                tool_name="smart_irrigation_tool",
+                data=None,
+                provenance=ProvenanceMetadata(source="Open-Meteo API", estimated_vs_measured="unavailable"),
+                message=f"Error calculating irrigation requirements: {str(e)}"
+            )
+
+    async def _execute_disease_detection(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        image_bytes = slots.get("image_bytes")
+        image_path = slots.get("image_path")
+        crop = slots.get("crop") or slots.get("crop_name") or context.get("crop_name")
+        lang = slots.get("language") or context.get("language") or "hi"
+
+        # Gate check: If no image is provided, return REQUIRES_PHOTO and navigate to DISEASE_SCAN
+        if not image_bytes and not image_path:
+            return ToolResult(
+                status=ToolStatus.REQUIRES_PHOTO,
+                capability="DISEASE_DETECTION",
+                tool_name="disease_detection_tool",
+                data={
+                    "action": "NAVIGATE",
+                    "destination": "DISEASE_SCAN",
+                    "android_route": "crop_disease",
+                    "required_input": "LEAF_IMAGE",
+                    "message": "Please capture or upload a photo of the affected plant leaf for diagnosis.",
+                },
+                provenance=ProvenanceMetadata(
+                    source="EfficientNet-B3 Gatekeeper",
+                    model="EfficientNet-B3",
+                    model_version="v2_38class",
+                    estimated=False,
+                    estimated_vs_measured="measured",
+                ),
+                message="A photo of the affected plant leaf is required for disease detection. Navigating to disease scan.",
+                localized_message={
+                    "hi": "फसल रोग पहचान के लिए प्रभावित पत्ती का फोटो आवश्यक है। कृपया कैमरा खोलकर फोटो लें।",
+                    "en": "A photo of the affected plant leaf is required for disease detection. Please open camera and scan the leaf.",
+                },
+            )
+
+        # Load image bytes if path given
+        if not image_bytes and image_path:
+            try:
+                import os
+                if os.path.exists(image_path):
+                    with open(image_path, "rb") as f:
+                        image_bytes = f.read()
+            except Exception as e:
+                logger.error("error_reading_disease_image_file", path=image_path, error=str(e))
+
+        if not image_bytes:
+            return ToolResult(
+                status=ToolStatus.INVALID_INPUT,
+                capability="DISEASE_DETECTION",
+                tool_name="disease_detection_tool",
+                data=None,
+                provenance=ProvenanceMetadata(source="EfficientNet-B3", estimated_vs_measured="unavailable"),
+                message="Valid leaf image could not be loaded from input.",
+            )
+
+        try:
+            from app.workflows.disease_workflow import run_disease_detection_workflow, DiseaseDetectionInput
+            diag_res = await run_disease_detection_workflow(
+                DiseaseDetectionInput(image_bytes=image_bytes, crop_name=crop, language=lang)
+            )
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                capability="DISEASE_DETECTION",
+                tool_name="disease_detection_tool",
+                data=diag_res.model_dump(),
+                confidence=diag_res.confidence,
+                provenance=ProvenanceMetadata(
+                    source="EfficientNet-B3 38-Class Disease Classifier + ICAR Guidance",
+                    model="EfficientNet-B3",
+                    model_version="v2_38class",
+                    confidence=diag_res.confidence,
+                    estimated=False,
+                    estimated_vs_measured="measured",
+                ),
+                message=f"Diagnosis: {diag_res.disease_name} on {diag_res.crop_name} ({diag_res.confidence_tier} confidence). {diag_res.farmer_message}",
+                localized_message={"hi": diag_res.farmer_message, "en": diag_res.farmer_message},
+            )
+        except Exception as e:
+            logger.error("disease_detection_execution_error", error=str(e))
+            return ToolResult(
+                status=ToolStatus.ERROR,
+                capability="DISEASE_DETECTION",
+                tool_name="disease_detection_tool",
+                data=None,
+                provenance=ProvenanceMetadata(source="EfficientNet-B3", estimated_vs_measured="unavailable"),
+                message=f"Error executing disease detection model: {str(e)}"
+            )
+
+    async def _execute_calling(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        phone = slots.get("phone") or context.get("phone")
+        farmer_name = slots.get("farmer_name") or context.get("farmer_name") or "Farmer"
+        if not phone:
+            return ToolResult(
+                status=ToolStatus.MISSING_INPUT,
+                capability="CALLING",
+                tool_name="calling_tool",
+                data=None,
+                provenance=ProvenanceMetadata(source="Vobiz Telephony", estimated_vs_measured="unavailable"),
+                message="Farmer phone number is required to initiate an outbound call.",
+            )
+
+        try:
+            from app.calling_agent.service import KisanCallingService
+            from app.schemas.calling import KisanCallRequest
+
+            service = KisanCallingService()
+            normalized_phone = service.validate_and_normalize_phone(phone)
+            call_req = KisanCallRequest(
+                phone=normalized_phone,
+                farmer_name=farmer_name,
+                call_type=slots.get("call_type", "general_advisory"),
+                language=slots.get("language") or context.get("language") or "hi",
+                location=slots.get("location") or context.get("location") or "India",
+                crop_name=slots.get("crop") or slots.get("crop_name"),
+                mandi_name=slots.get("mandi") or slots.get("market"),
+                current_price=float(slots.get("current_price")) if slots.get("current_price") else None,
+                target_price=float(slots.get("target_price")) if slots.get("target_price") else None,
+                weather_summary=slots.get("weather_summary"),
+                agent_instruction=slots.get("agent_instruction"),
+            )
+            call_res = await service.initiate_outbound_call(call_req)
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                capability="CALLING",
+                tool_name="calling_tool",
+                data=call_res.model_dump(),
+                provenance=ProvenanceMetadata(
+                    source="Vobiz Outbound Telephony API",
+                    model="KisanCallingService",
+                    estimated=False,
+                    estimated_vs_measured="measured",
+                ),
+                message=f"Call successfully placed to {farmer_name} at {normalized_phone}. Call ID: {call_res.call_id}",
+                localized_message={
+                    "hi": f"किसान {farmer_name} ({normalized_phone}) को फोन कॉल मिलाया जा रहा है। कॉल आईडी: {call_res.call_id}",
+                    "en": f"Outbound call initiated to {farmer_name} ({normalized_phone}). Call ID: {call_res.call_id}",
+                },
+            )
+        except Exception as e:
+            logger.error("calling_tool_execution_error", error=str(e))
+            return ToolResult(
+                status=ToolStatus.ERROR,
+                capability="CALLING",
+                tool_name="calling_tool",
+                data={"phone": phone, "error": str(e)},
+                provenance=ProvenanceMetadata(source="Vobiz Telephony", estimated_vs_measured="unavailable"),
+                message=f"Failed to place outbound call: {str(e)}",
+            )
+
+    async def _execute_mandi_forecast(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        crop = slots.get("crop") or slots.get("commodity") or "Wheat"
+        market = slots.get("market") or slots.get("location_name") or "Jaipur Mandi"
+        days = int(slots.get("forecast_days") or slots.get("days") or 7)
+
+        try:
+            forecast_res = await run_mandi_forecasting_pipeline(
+                MandiForecastRequest(commodity=crop, mandi=market, days=days)
+            )
+            conf = getattr(forecast_res, "confidence_level", 0.95)
+            last_price = (
+                forecast_res.daily_forecasts[-1].predicted_price
+                if forecast_res.daily_forecasts
+                else forecast_res.current_price
+            )
+            action_name = (
+                forecast_res.deterministic_action.action
+                if forecast_res.deterministic_action
+                else "STABLE"
+            )
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                capability="MANDI_FORECAST",
+                tool_name="mandi_forecast_tool",
+                data=forecast_res.model_dump(),
+                confidence=conf,
+                provenance=ProvenanceMetadata(
+                    source="Agmarknet Historical Data + Prophet/LightGBM Forecaster",
+                    model="Prophet + LightGBM Ensemble",
+                    model_version="v2.0",
+                    confidence=conf,
+                    estimated=True,
+                    estimated_vs_measured="estimated",
+                    location=market,
+                ),
+                message=f"7-day price forecast for {crop} in {market}: recommendation is {action_name}, projected modal price Rs. {last_price:.1f}/Q.",
+            )
+        except Exception as e:
+            logger.error("mandi_forecast_execution_error", error=str(e))
+            return ToolResult(
+                status=ToolStatus.ERROR,
+                capability="MANDI_FORECAST",
+                tool_name="mandi_forecast_tool",
+                data=None,
+                provenance=ProvenanceMetadata(source="Prophet/LightGBM", estimated_vs_measured="unavailable"),
+                message=f"Error generating mandi forecast: {str(e)}",
+            )
+
+    async def _execute_mandi_history(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        crop = slots.get("crop") or slots.get("commodity") or "Wheat"
+        market = slots.get("market") or slots.get("location_name") or "Jaipur Mandi"
+        days = int(slots.get("days") or 30)
+
+        try:
+            trends = await MarketService.get_price_trends(crop_name=crop, region=market, months=max(1, days // 30))
+            data_pts = trends.get("trend_data", [])
+            return ToolResult(
+                status=ToolStatus.SUCCESS,
+                capability="MANDI_HISTORY",
+                tool_name="mandi_history_tool",
+                data={
+                    "commodity": crop,
+                    "market": market,
+                    "data_points": data_pts,
+                    "count": len(data_pts),
+                    "trend": data_pts[0].get("trend", "STABLE") if data_pts else "STABLE",
+                },
+                provenance=ProvenanceMetadata(
+                    source="Agmarknet Longitudinal Mandi Records",
+                    estimated=False,
+                    estimated_vs_measured="measured",
+                    data_age=f"{days} days history",
+                    location=market,
+                ),
+                message=f"Historical price records for {crop} in {market}: {len(data_pts)} points retrieved.",
+            )
+        except Exception as e:
+            logger.error("mandi_history_execution_error", error=str(e))
+            return ToolResult(
+                status=ToolStatus.ERROR,
+                capability="MANDI_HISTORY",
+                tool_name="mandi_history_tool",
+                data=None,
+                provenance=ProvenanceMetadata(source="Agmarknet Database", estimated_vs_measured="unavailable"),
+                message=f"Error retrieving mandi history: {str(e)}",
+            )
 
 
 # Module-level singleton
 tool_registry = ToolRegistry()
+

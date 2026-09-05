@@ -18,6 +18,7 @@ from app.voice.local.model_registry import local_model_registry
 from app.voice.local.config import local_voice_config, RuntimeMode
 from app.voice.local.tts.local_tts import local_tts_engine
 from app.voice.bhashini import BhashiniClient
+from app.core.config import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -62,6 +63,24 @@ class UniversalVoiceProviderRouter:
     ) -> ProviderRoutingDecision:
         """Route ASR request based on verified provider capabilities."""
         cap = get_voice_capability(language if not dialect else dialect)
+
+        # Sarvam is the primary ASR/language-signal provider when configured.
+        if settings.sarvam_api_key and cap.asr_available and mode != RuntimeMode.OFFLINE:
+            return ProviderRoutingDecision(
+                task="asr",
+                requested_language=language,
+                requested_dialect=dialect,
+                actual_tts_language=language,
+                actual_tts_dialect=dialect,
+                selected_provider="sarvam_asr",
+                selected_model="sarvam_saarika_v2",
+                capability_tier=cap.capability_tier,
+                is_local=False,
+                is_native=True,
+                fallback_used=False,
+                offline_supported=False,
+            )
+
         if dialect and dialect in ["rwr", "mew", "bho", "bgc", "awa", "dhu", "hne"]:
             return ProviderRoutingDecision(
                 task="asr",
@@ -146,6 +165,25 @@ class UniversalVoiceProviderRouter:
                 is_native=True,
                 fallback_used=False,
                 offline_supported=True,
+            )
+
+        # -------------------------------------------------------------
+        # Tier 1b: Sarvam AI TTS (primary remote TTS when configured; local still wins)
+        # -------------------------------------------------------------
+        if settings.sarvam_api_key and not dialect and cap.native_tts and mode != RuntimeMode.OFFLINE:
+            return ProviderRoutingDecision(
+                task="tts",
+                requested_language=language,
+                requested_dialect=None,
+                actual_tts_language=language,
+                actual_tts_dialect=None,
+                selected_provider="sarvam_tts",
+                selected_model="sarvam_bulbul_v3",
+                capability_tier=CapabilityTier.NATIVE_VOICE,
+                is_local=False,
+                is_native=True,
+                fallback_used=False,
+                offline_supported=False,
             )
 
         # -------------------------------------------------------------

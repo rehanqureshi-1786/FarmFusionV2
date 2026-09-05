@@ -277,6 +277,20 @@ data class WeatherResponse(
     val data: WeatherData?
 )
 
+data class AnnualRainfallResponse(
+    val success: Boolean,
+    val data: AnnualRainfallData? = null
+)
+
+data class AnnualRainfallData(
+    val total_rainfall_mm: Double? = null,
+    val annual_rainfall_mm: Double? = null,
+    val year: Int? = null,
+    val rainfall_period: String? = null,
+    val source: String? = null,
+    val rainfall_source: String? = null
+)
+
 data class WeatherData(
     val location: String? = null,
     val location_name: String? = null,

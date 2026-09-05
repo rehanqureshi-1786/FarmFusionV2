@@ -24,6 +24,7 @@ from app.models.voice import (
     DetectedIntent
 )
 from app.services.voice_service import voice_service
+from app.core.config import settings
 from typing import List, Dict, Any, Optional
 import logging
 
@@ -257,6 +258,23 @@ async def process_voice_query(request: VoiceQueryRequest) -> VoiceQueryResponse:
             except Exception as e:
                 logger.warning(f"Local TTS synthesis failed: {e}")
 
+        # Sarvam TTS: primary remote provider when configured and local is unavailable/failed.
+        if audio_b64 is None and final_text and settings.sarvam_api_key:
+            try:
+                from app.voice.sarvam import SarvamVoiceClient
+                sarvam = SarvamVoiceClient()
+                sarvam_audio = await sarvam.generate_tts(final_text, language=resp_lang or "hi")
+                if sarvam_audio:
+                    audio_b64 = base64.b64encode(sarvam_audio).decode("utf-8")
+                    tts_provider_name = "sarvam_tts"
+                    tts_model_name = "sarvam_bulbul_v3"
+                    is_native_tts = True
+                    is_local_tts = False
+                    fallback_used = fallback_used or False
+                    fallback_reason = fallback_reason or None
+            except Exception as e:
+                logger.warning(f"Sarvam TTS synthesis failed: {e}")
+
         response = VoiceQueryResponse(
             intent=intent,
             action=action,
@@ -280,8 +298,17 @@ async def process_voice_query(request: VoiceQueryRequest) -> VoiceQueryResponse:
             audio_base64=audio_b64,
             audio_format="audio/wav" if audio_b64 else None,
             follow_up_suggestions=suggestions,
-            timestamp=datetime.now().isoformat()
+            timestamp=datetime.now().isoformat(),
+            envelope=turn_result.get("response_envelope"),
+            action_payload=(turn_result.get("response_envelope") or {}).get("action_payload"),
         )
+
+        # F7 typed action survival (requirement #8): derive the exposed `action` from the
+        # F7 StructuredActionPayload when present so ANSWER/NAVIGATE/REQUEST_INPUT/CALL/
+        # NOTIFY/CLARIFY reach Android verbatim instead of the legacy intent->action map.
+        f7_action = (turn_result.get("response_envelope") or {}).get("action_payload", {}).get("action")
+        if f7_action:
+            response.action = str(f7_action)
 
         logger.info(f"Query processed successfully. Intent: {response.intent}, Dialect: {response.detected_dialect}, Native TTS: {response.native_tts}, Has Audio: {bool(response.audio_base64)}")
         return response

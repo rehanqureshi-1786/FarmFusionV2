@@ -236,6 +236,24 @@ async def get_farming_weather(
         raise HTTPException(status_code=500, detail=f"Failed to get farming weather: {str(e)}")
 
 
+@router.get("/annual-rainfall")
+async def get_annual_rainfall(
+    lat: float = Query(..., description="Latitude coordinate"),
+    lon: float = Query(..., description="Longitude coordinate"),
+    year: Optional[int] = Query(None, description="Calendar year for historical reanalysis (defaults to previous complete year)"),
+):
+    """
+    Get verified historical annual rainfall (mm) from Open-Meteo ERA5-Land Reanalysis archive.
+    """
+    res = await WeatherService.get_annual_rainfall(lat=lat, lon=lon, year=year)
+    if not res.get("success"):
+        raise HTTPException(status_code=503, detail=res.get("error", "ERA5-Land rainfall reanalysis unavailable"))
+    return {
+        "success": True,
+        "data": res
+    }
+
+
 @router.get("/test")
 async def test_weather_api():
     """Test endpoint for weather API."""

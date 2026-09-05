@@ -40,6 +40,7 @@ from app.api.v1.labour import router as labour_router
 from app.api.v1.lifecycle import router as lifecycle_router
 from app.api.v1.knowledge import router as knowledge_router
 from app.api.v1.calling import router as calling_router
+from app.api.v1.cold_storage import router as cold_storage_router
 
 
 logging.basicConfig(
@@ -111,6 +112,7 @@ app.include_router(labour_router, prefix="/api/v1")
 app.include_router(lifecycle_router, prefix="/api/v1")
 app.include_router(knowledge_router, prefix="/api/v1")
 app.include_router(calling_router, prefix="/api/v1")
+app.include_router(cold_storage_router, prefix="/api/v1")
 
 # IoT Animal Detection
 from app.animal_detection import animal_detection_router, ws_router

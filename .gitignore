@@ -28,6 +28,7 @@ ai-venv/
 # External / Raw Datasets
 external/
 data/raw/
+backend/data/
 backend/app/ml_models/crop/v2_previous_4800_32class/
 
 # Tools

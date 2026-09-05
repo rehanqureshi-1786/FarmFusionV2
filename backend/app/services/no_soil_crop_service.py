@@ -78,9 +78,21 @@ class NoSoilCropService:
         hum_val = current_weather.get("humidity_percent") if current_weather.get("success") else None
         weather_cond = current_weather.get("weather") if current_weather.get("success") else None
 
-        annual_rain_val = annual_rainfall_res.get("annual_rainfall_mm") if annual_rainfall_res.get("success") else None
-        rainfall_period = annual_rainfall_res.get("rainfall_period", "2025")
-        rainfall_source = annual_rainfall_res.get("rainfall_source", "Open-Meteo ERA5-Land")
+        annual_rain_val = (
+            annual_rainfall_res.get("annual_rainfall_mm")
+            or annual_rainfall_res.get("total_rainfall_mm")
+            or annual_rainfall_res.get("total_precipitation_mm")
+        ) if annual_rainfall_res.get("success") else None
+        rainfall_period = str(
+            annual_rainfall_res.get("rainfall_period")
+            or annual_rainfall_res.get("year")
+            or "2025"
+        )
+        rainfall_source = (
+            annual_rainfall_res.get("rainfall_source")
+            or annual_rainfall_res.get("source")
+            or "Open-Meteo ERA5-Land"
+        )
 
         if annual_rain_val is not None:
             warnings.append(f"Annual Rainfall: {annual_rain_val:.1f} mm from {rainfall_source} (Period: {rainfall_period}).")

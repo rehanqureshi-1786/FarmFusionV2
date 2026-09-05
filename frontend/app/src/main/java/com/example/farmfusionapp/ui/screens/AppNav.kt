@@ -52,6 +52,7 @@ object NavRoutes {
     const val CropMonitoring = "crop_monitoring"
     const val CropDisease = "crop_disease"
     const val CropHarvesting = "crop_harvesting"
+    const val CropStorage = "crop_storage"
     const val CropSelling = "crop_selling"
     const val AnimalDetection = "animal_detection"
     const val LabourServices = "labour_services"
@@ -180,6 +181,7 @@ fun AppNav() {
                     composable(NavRoutes.CropMonitoring) { CropMonitoringScreen(navController) }
                     composable(NavRoutes.CropDisease) { CropDiseaseScreen(navController) }
                     composable(NavRoutes.CropHarvesting) { CropHarvestingScreen(navController) }
+                    composable(NavRoutes.CropStorage) { CropStorageScreen(navController) }
                     composable(NavRoutes.CropSelling) { CropSellingScreen(navController) }
                     composable(NavRoutes.AnimalDetection) { AnimalDetectionScreen(navController) }
                     composable(NavRoutes.LabourServices) { LabourServicesScreen(navController) }

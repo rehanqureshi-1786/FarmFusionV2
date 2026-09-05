@@ -35,11 +35,14 @@ class DeterministicTradingAction(BaseModel):
 
 
 class MandiForecastResult(BaseModel):
+    status: str = Field(default="SUCCESS", description="SUCCESS or INSUFFICIENT_HISTORY")
     commodity: str
     mandi: str
     current_price: float
+    observations_count: Optional[int] = Field(default=None)
+    required_observations: Optional[int] = Field(default=None)
     forecast_horizon_days: int
-    daily_forecasts: List[DailyPriceForecast]
+    daily_forecasts: List[DailyPriceForecast] = Field(default_factory=list)
     confidence_level: float = Field(default=0.95)
     model_ensemble: str
     ensemble_weights: Dict[str, float] = Field(default_factory=lambda: {"prophet": 0.60, "lightgbm": 0.40})
@@ -69,7 +72,7 @@ async def run_mandi_forecasting_pipeline(request: MandiForecastRequest) -> Mandi
             upper_bound_95=item["upper_bound_95"],
             trend=item["trend"],
         )
-        for item in ml_output["daily_forecasts"]
+        for item in ml_output.get("daily_forecasts", [])
     ]
 
     action_obj = None
@@ -83,9 +86,12 @@ async def run_mandi_forecasting_pipeline(request: MandiForecastRequest) -> Mandi
         )
 
     return MandiForecastResult(
+        status=ml_output.get("status", "SUCCESS"),
         commodity=ml_output["commodity"],
         mandi=ml_output["mandi"],
         current_price=ml_output["current_price"],
+        observations_count=ml_output.get("observations_count"),
+        required_observations=ml_output.get("required_observations"),
         forecast_horizon_days=ml_output["forecast_horizon_days"],
         daily_forecasts=daily_forecasts,
         confidence_level=ml_output.get("confidence_level", 0.95),
