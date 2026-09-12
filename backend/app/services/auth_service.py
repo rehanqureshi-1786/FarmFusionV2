@@ -3,8 +3,14 @@ Authentication Service - Firebase Auth integration
 Verifies Firebase tokens from Android app
 """
 from typing import Optional, Dict, Any
-import firebase_admin
-from firebase_admin import auth, credentials
+try:
+    import firebase_admin
+    from firebase_admin import auth, credentials
+except ImportError:
+    firebase_admin = None
+    auth = None
+    credentials = None
+
 from app.core.config import get_settings
 
 

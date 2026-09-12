@@ -5,7 +5,11 @@ import json
 import re
 from typing import Any, AsyncIterator, Dict, List, Optional, Type, TypeVar
 import structlog
-from groq import AsyncGroq
+try:
+    from groq import AsyncGroq
+except ImportError:
+    AsyncGroq = None
+
 from pydantic import BaseModel, ValidationError
 
 from app.core.config import get_settings
@@ -24,9 +28,12 @@ class GroqLLMProvider(LLMProvider):
         settings = get_settings()
         self.api_key = api_key or settings.groq_api_key
         self.default_model = model or settings.groq_model or "llama-3.3-70b-versatile"
-        self._client: Optional[AsyncGroq] = None
-        if self.api_key:
-            self._client = AsyncGroq(api_key=self.api_key)
+        self._client: Optional[Any] = None
+        if self.api_key and AsyncGroq is not None:
+            try:
+                self._client = AsyncGroq(api_key=self.api_key)
+            except Exception as e:
+                logger.warning("groq_client_init_failed", error=str(e))
 
     def is_available(self) -> bool:
         return self._client is not None

@@ -5,7 +5,11 @@ Free tier: 1M tokens/day, 20 requests/minute
 """
 import base64
 from typing import Optional, Dict, Any
-from groq import AsyncGroq
+try:
+    from groq import AsyncGroq
+except ImportError:
+    AsyncGroq = None
+
 from app.core.config import get_settings
 
 
@@ -18,8 +22,11 @@ class GroqClient:
     def __init__(self):
         self.settings = get_settings()
         self.client = None
-        if self.settings.groq_api_key:
-            self.client = AsyncGroq(api_key=self.settings.groq_api_key)
+        if self.settings.groq_api_key and AsyncGroq is not None:
+            try:
+                self.client = AsyncGroq(api_key=self.settings.groq_api_key)
+            except Exception:
+                self.client = None
 
     def is_available(self) -> bool:
         """Check if Groq API is configured and available"""
