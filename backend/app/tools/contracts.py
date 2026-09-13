@@ -281,6 +281,49 @@ class GovernmentSchemeOutput(BaseModel):
 
 
 # =============================================================================
+# 7b. Cold Storage & Warehousing Schemas
+# =============================================================================
+
+class ColdStorageInput(BaseModel):
+    latitude: Optional[float] = Field(default=None, ge=-90.0, le=90.0)
+    longitude: Optional[float] = Field(default=None, ge=-180.0, le=180.0)
+    location_name: Optional[str] = Field(default=None, description="Village, town, district, or PIN code to search near")
+    crop: Optional[str] = Field(default=None, description="Specific crop to store (e.g. Potato, Apple, Onion, Garlic)")
+    radius_km: float = Field(default=100.0, description="Search radius in kilometers (10, 25, 50, 100)")
+
+
+class ColdStorageOutput(BaseModel):
+    facilities: List[Dict[str, Any]]
+    total_found: int
+    search_location: str
+    message: str
+
+
+# =============================================================================
+# 7c. Crop Care & Agronomic Guidance Schemas
+# =============================================================================
+
+class CropCareInput(BaseModel):
+    crop_name: str = Field(..., min_length=2, description="Crop name in English or Hindi (e.g. Wheat, Gehu, Cotton, Dhan)")
+    stage: Optional[str] = Field(default=None, description="Crop growth stage: Sowing, Vegetative, Flowering, Maturity")
+    season: Optional[str] = Field(default=None, description="Rabi, Kharif, Zaid")
+    query: Optional[str] = Field(default=None, description="Specific inquiry: fertilizer, npk, urea, dap, irrigation, spacing, pest")
+
+
+class CropCareOutput(BaseModel):
+    crop_name: str
+    hindi_name: Optional[str] = None
+    npk_ratio: Optional[str] = None
+    fertilizer_schedule: str
+    water_requirement: str
+    irrigation_schedule: Optional[str] = None
+    sowing_window: Optional[str] = None
+    seed_rate: Optional[str] = None
+    soil_notes: Optional[str] = None
+    message: str
+
+
+# =============================================================================
 # 8. Animal Intrusion IoT Schemas
 # =============================================================================
 
@@ -306,16 +349,20 @@ class AllowedNavigationDestination(str, Enum):
     CROP_RECOMMENDATION = "CROP_RECOMMENDATION"
     FINANCIAL_SERVICES = "FINANCIAL_SERVICES"
     DASHBOARD = "DASHBOARD"
+    COLD_STORAGE = "COLD_STORAGE"
+    ANIMAL_DETECTION = "ANIMAL_DETECTION"
 
 
 # Destination to Kotlin Android navigation route mapping
 NAVIGATION_ROUTE_MAP = {
     AllowedNavigationDestination.DISEASE_SCAN: "crop_disease",
-    AllowedNavigationDestination.MANDI: "mandi_rates",
-    AllowedNavigationDestination.WEATHER: "weather_detail",
+    AllowedNavigationDestination.MANDI: "mandi_prices",
+    AllowedNavigationDestination.WEATHER: "weather",
     AllowedNavigationDestination.CROP_RECOMMENDATION: "crop_recommendation",
-    AllowedNavigationDestination.FINANCIAL_SERVICES: "financial_schemes",
+    AllowedNavigationDestination.FINANCIAL_SERVICES: "financial_services",
     AllowedNavigationDestination.DASHBOARD: "dashboard",
+    AllowedNavigationDestination.COLD_STORAGE: "crop_storage",
+    AllowedNavigationDestination.ANIMAL_DETECTION: "animal_detection",
 }
 
 # Alias resolution mapping for legacy or alternative strings
@@ -323,8 +370,10 @@ NAVIGATION_ALIAS_MAP = {
     "disease_scan": AllowedNavigationDestination.DISEASE_SCAN,
     "crop_disease": AllowedNavigationDestination.DISEASE_SCAN,
     "disease_detection": AllowedNavigationDestination.DISEASE_SCAN,
+    "disease": AllowedNavigationDestination.DISEASE_SCAN,
     "mandi": AllowedNavigationDestination.MANDI,
     "mandi_rates": AllowedNavigationDestination.MANDI,
+    "mandi_prices": AllowedNavigationDestination.MANDI,
     "market_prices": AllowedNavigationDestination.MANDI,
     "market": AllowedNavigationDestination.MANDI,
     "weather": AllowedNavigationDestination.WEATHER,
@@ -338,6 +387,16 @@ NAVIGATION_ALIAS_MAP = {
     "dashboard": AllowedNavigationDestination.DASHBOARD,
     "farm_dashboard": AllowedNavigationDestination.DASHBOARD,
     "home": AllowedNavigationDestination.DASHBOARD,
+    "cold_storage": AllowedNavigationDestination.COLD_STORAGE,
+    "crop_storage": AllowedNavigationDestination.COLD_STORAGE,
+    "storage": AllowedNavigationDestination.COLD_STORAGE,
+    "warehouse": AllowedNavigationDestination.COLD_STORAGE,
+    "godam": AllowedNavigationDestination.COLD_STORAGE,
+    "गोदाम": AllowedNavigationDestination.COLD_STORAGE,
+    "भंडारण": AllowedNavigationDestination.COLD_STORAGE,
+    "animal_alert": AllowedNavigationDestination.ANIMAL_DETECTION,
+    "animal_detection": AllowedNavigationDestination.ANIMAL_DETECTION,
+    "animal": AllowedNavigationDestination.ANIMAL_DETECTION,
 }
 
 
@@ -551,6 +610,28 @@ CAPABILITY_CONTRACTS: Dict[CapabilityType, ToolContract] = {
         optional_fields=["state", "crop_name"],
         provenance_source="Government Scheme Registry & Official Guidelines",
         default_timeout_seconds=6.0,
+    ),
+    CapabilityType.COLD_STORAGE: ToolContract(
+        capability=CapabilityType.COLD_STORAGE,
+        tool_name="cold_storage_tool",
+        description="Finds verified Indian cold storage facilities, warehouses, and road distance from user farm.",
+        input_schema=ColdStorageInput,
+        output_schema=ColdStorageOutput,
+        required_fields=[],
+        optional_fields=["latitude", "longitude", "location_name", "crop", "radius_km"],
+        provenance_source="National Cold Chain Development & Verified Indian Cold Storage Directory",
+        default_timeout_seconds=5.0,
+    ),
+    CapabilityType.CROP_CARE: ToolContract(
+        capability=CapabilityType.CROP_CARE,
+        tool_name="crop_care_tool",
+        description="Provides authentic ICAR agronomic management tips: NPK fertilizer dosage, sowing window, irrigation scheduling, and crop protection.",
+        input_schema=CropCareInput,
+        output_schema=CropCareOutput,
+        required_fields=["crop_name"],
+        optional_fields=["stage", "season", "query"],
+        provenance_source="ICAR Handbook of Agriculture / CRIDA Contingency Plans",
+        default_timeout_seconds=4.0,
     ),
     CapabilityType.ANIMAL_ALERT: ToolContract(
         capability=CapabilityType.ANIMAL_ALERT,

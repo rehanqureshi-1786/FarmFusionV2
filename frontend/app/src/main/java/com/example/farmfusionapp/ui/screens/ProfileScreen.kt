@@ -1,6 +1,7 @@
 package com.example.farmfusionapp.ui.screens
 
 import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -20,10 +21,13 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.core.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -77,13 +81,41 @@ fun ProfileScreen(navController: NavController) {
     val darkGreen = Color(0xFF1E5631)
     val lightGreenBg = Color(0xFFF7FAF7)
 
+    val onNavigateBackToHome = {
+        if (!navController.popBackStack(NavRoutes.Dashboard, inclusive = false)) {
+            navController.navigate(NavRoutes.Dashboard) {
+                popUpTo(NavRoutes.Dashboard) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    BackHandler {
+        onNavigateBackToHome()
+    }
+
     // Root Box to handle the background color and floating twig illustration
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(lightGreenBg)
     ) {
-        // Top Right Twig Illustration
+        // Wind Sway Animation for Top-Right Leaf Illustration
+        // End buds at the edge remain static while the front part sways up and right along a curved arc
+        val leafInfiniteTransition = rememberInfiniteTransition(label = "LeafWindSway")
+
+        // Rotational sway: front part swings up and right along a curved path from the fixed end buds
+        val leafSwayAngle by leafInfiniteTransition.animateFloat(
+            initialValue = 0.5f,
+            targetValue = -9.0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1350, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "leafSwayAngle"
+        )
+
+        // Top Right Leaf Illustration: end buds static at the screen edge, front sways along a curved path
         Image(
             painter = painterResource(id = R.drawable.ill_profile_twig),
             contentDescription = null,
@@ -93,6 +125,11 @@ fun ProfileScreen(navController: NavController) {
                 .align(Alignment.TopEnd)
                 .size(240.dp)
                 .offset(x = 40.dp, y = (20).dp)
+                .graphicsLayer {
+                    // Fixed anchor point at the end buds on the screen edge (stays completely static)
+                    transformOrigin = TransformOrigin(0.85f, 0.20f)
+                    rotationZ = leafSwayAngle
+                }
         )
 
         Scaffold(
@@ -111,7 +148,7 @@ fun ProfileScreen(navController: NavController) {
                     },
                     navigationIcon = {
                         Surface(
-                            onClick = { navController.popBackStack() },
+                            onClick = { onNavigateBackToHome() },
                             shape = CircleShape,
                             color = Color.White,
                             shadowElevation = 2.dp,
@@ -233,24 +270,29 @@ fun ProfileScreen(navController: NavController) {
                 }
 
                 // Settings Rows
-                SettingPremiumRow(
-                    icon = Icons.Rounded.Translate,
-                    title = AppLocalizer.localizeProfilePhrase("app language", currentLang),
-                    subtitle = langLabel,
-                    onClick = { navController.navigate(NavRoutes.LanguageSelection) }
-                )
-                SettingPremiumRow(
-                    icon = Icons.Rounded.Notifications,
-                    title = AppLocalizer.localizeProfilePhrase("notifications", currentLang),
-                    subtitle = AppLocalizer.localizeProfilePhrase("notifications sub", currentLang),
-                    onClick = { }
-                )
-                SettingPremiumRow(
-                    icon = Icons.Rounded.Mic,
-                    title = AppLocalizer.localizeProfilePhrase("voice assistant", currentLang),
-                    subtitle = AppLocalizer.localizeProfilePhrase("voice assistant sub", currentLang),
-                    onClick = { navController.navigate(NavRoutes.VoiceAssistant) }
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SettingPremiumRow(
+                        icon = Icons.Rounded.Translate,
+                        title = AppLocalizer.localizeProfilePhrase("app language", currentLang),
+                        subtitle = langLabel,
+                        onClick = { navController.navigate(NavRoutes.LanguageSelection) }
+                    )
+                    SettingPremiumRow(
+                        icon = Icons.Rounded.Notifications,
+                        title = AppLocalizer.localizeProfilePhrase("notifications", currentLang),
+                        subtitle = AppLocalizer.localizeProfilePhrase("notifications sub", currentLang),
+                        onClick = { }
+                    )
+                    SettingPremiumRow(
+                        icon = Icons.Rounded.Mic,
+                        title = AppLocalizer.localizeProfilePhrase("voice assistant", currentLang),
+                        subtitle = AppLocalizer.localizeProfilePhrase("voice assistant sub", currentLang),
+                        onClick = { navController.navigate(NavRoutes.VoiceAssistant) }
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -299,14 +341,14 @@ fun SettingPremiumRow(
     Surface(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(18.dp),
         color = Color.White,
-        shadowElevation = 2.dp,
-        border = BorderStroke(1.dp, Color(0xFFF0F5F0))
+        shadowElevation = 0.dp,
+        border = BorderStroke(0.5.dp, Color(0xFFE5EDE5).copy(alpha = 0.45f))
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -350,4 +392,4 @@ fun SettingPremiumRow(
         }
     }
 }
-
+

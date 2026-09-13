@@ -2,6 +2,7 @@ package com.example.farmfusionapp.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,8 +43,23 @@ fun StoreRecommendationsScreen(navController: NavController, storeViewModel: Sto
     val storeState by storeViewModel.storeState
     val token = remember { AuthStore.getAuthToken(context) }
 
+    val onNavigateBackToHome = {
+        if (!navController.popBackStack(NavRoutes.Dashboard, inclusive = false)) {
+            navController.navigate(NavRoutes.Dashboard) {
+                popUpTo(NavRoutes.Dashboard) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    BackHandler {
+        onNavigateBackToHome()
+    }
+
     LaunchedEffect(Unit) {
-        storeViewModel.getRecommendations(token)
+        if (storeViewModel.storeState.value !is StoreViewModel.StoreState.Success) {
+            storeViewModel.getRecommendations(token)
+        }
     }
 
     Scaffold(
@@ -51,7 +67,7 @@ fun StoreRecommendationsScreen(navController: NavController, storeViewModel: Sto
             CenterAlignedTopAppBar(
                 title = { Text("Farm Store", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { onNavigateBackToHome() }) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                     }
                 }

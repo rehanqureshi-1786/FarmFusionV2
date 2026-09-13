@@ -1576,7 +1576,17 @@ fun HomeBottomBar(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null
-                        ) { if (!selected) navController.navigate(item.route) },
+                        ) {
+                            if (!selected) {
+                                navController.navigate(item.route) {
+                                    popUpTo(NavRoutes.Dashboard) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
+                        },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {

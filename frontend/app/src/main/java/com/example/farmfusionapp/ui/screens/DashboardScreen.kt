@@ -384,7 +384,15 @@ fun DashboardScreen(navController: NavController) {
                         HeroPagerSection(
                             weatherData = weatherData,
                             suggestions = suggestions,
-                            onWeatherClick = { navController.navigate(NavRoutes.Weather) }
+                            onWeatherClick = {
+                                navController.navigate(NavRoutes.Weather) {
+                                    popUpTo(NavRoutes.Dashboard) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            }
                         )
                     }
 
@@ -392,7 +400,15 @@ fun DashboardScreen(navController: NavController) {
                         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                             FrequentlyUsedServicesSection(
                                 actions = groupedActions.take(4),
-                                onActionClick = { navController.navigate(it.route) }
+                                onActionClick = { action ->
+                                    navController.navigate(action.route) {
+                                        popUpTo(NavRoutes.Dashboard) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
                             )
                         }
                     }
@@ -401,8 +417,14 @@ fun DashboardScreen(navController: NavController) {
                         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
                             ActionGroup(
                                 actions = groupedActions,
-                                onActionClick = {
-                                    navController.navigate(it.route)
+                                onActionClick = { action ->
+                                    navController.navigate(action.route) {
+                                        popUpTo(NavRoutes.Dashboard) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
                                 }
                             )
                         }

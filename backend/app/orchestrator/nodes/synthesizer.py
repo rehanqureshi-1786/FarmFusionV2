@@ -380,25 +380,41 @@ def deterministic_fallback_synthesizer(
 
     # 3. Navigation
     if intent in ["navigation", "navigation_request"] or state.get("next_action") == "NAVIGATE":
-        dest = tool_data.get("destination") or state.get("last_navigation_destination") or "home"
-        route = tool_data.get("android_route") or f"nav_{dest}"
-        req_in = tool_data.get("required_input") or ("LEAF_IMAGE" if dest in ["disease_detection", "DISEASE_SCAN"] else None)
+        dest = tool_data.get("destination") or state.get("last_navigation_destination") or (state.get("filled_slots") or {}).get("destination") or "dashboard"
+        route = tool_data.get("android_route") or (
+            "mandi_prices" if str(dest).lower() in ["mandi", "mandi_prices", "market_prices", "market"] else (
+                "crop_storage" if str(dest).lower() in ["cold_storage", "crop_storage", "storage", "godam"] else (
+                    "crop_disease" if str(dest).lower() in ["disease", "disease_detection", "crop_disease", "disease_scan"] else (
+                        "weather" if str(dest).lower() == "weather" else (
+                            "financial_services" if str(dest).lower() in ["financial_services", "government_schemes", "schemes"] else (
+                                "animal_detection" if str(dest).lower() in ["animal_detection", "animal"] else (
+                                    "crop_recommendation" if str(dest).lower() in ["crop_recommendation", "crops"] else "dashboard"
+                                )
+                            )
+                        )
+                    )
+                )
+            )
+        )
+        req_in = tool_data.get("required_input") or ("LEAF_IMAGE" if str(dest).lower() in ["disease_detection", "disease_scan", "crop_disease"] else None)
         dest_hi = {
-            "home": "होम स्क्रीन", "market_prices": "मंडी भाव स्क्रीन",
-            "weather": "मौसम स्क्रीन", "crop_recommendation": "फसल सलाह स्क्रीन",
-            "disease_detection": "बीमारी जांच स्क्रीन", "DISEASE_SCAN": "रोग पहचान (कैमरा)", "government_schemes": "सरकारी योजना स्क्रीन",
+            "dashboard": "होम डैशबोर्ड", "home": "होम स्क्रीन", "mandi_prices": "मंडी भाव स्क्रीन", "market_prices": "मंडी भाव स्क्रीन", "MANDI": "मंडी भाव स्क्रीन",
+            "weather": "मौसम स्क्रीन", "WEATHER": "मौसम स्क्रीन", "crop_recommendation": "फसल सलाह स्क्रीन", "CROP_RECOMMENDATION": "फसल सलाह स्क्रीन",
+            "crop_disease": "रोग पहचान (कैमरा)", "disease_detection": "बीमारी जांच स्क्रीन", "disease_scan": "रोग पहचान (कैमरा)", "DISEASE_SCAN": "रोग पहचान (कैमरा)",
+            "cold_storage": "कोल्ड स्टोरेज स्क्रीन", "COLD_STORAGE": "कोल्ड स्टोरेज स्क्रीन", "crop_storage": "कोल्ड स्टोरेज स्क्रीन",
+            "financial_services": "सरकारी योजना स्क्रीन", "government_schemes": "सरकारी योजना स्क्रीन",
         }.get(dest, dest)
-        if dest in ["DISEASE_SCAN", "disease_detection"] or req_in == "LEAF_IMAGE":
+        if str(dest).lower() in ["disease_scan", "disease_detection", "crop_disease"] or req_in == "LEAF_IMAGE":
             if is_marwari:
-                text = "फसल में बीमारी री सही पहचान खातर, किरपा कर'र पत्ती री साफ फोटो खींचो।"
+                text = "अठे पौधे री कोई फोटो कोनी आई है, ईं खातर बीमारी री पहचान नी हो सके। किरपा कर'र प्रभावित पत्ती री साफ फोटो खींचो।"
             elif lang == "hi":
-                text = "फसल की बीमारी की सही पहचान के लिए, कृपया प्रभावित पत्ती की साफ फोटो लें ताकि सटीक पहचान की जा सके।"
+                text = "यहाँ पौधे की कोई तस्वीर उपलब्ध नहीं है, इसलिए रोग की पहचान संभव नहीं है। कृपया प्रभावित पौधे की पत्ती की साफ फोटो लें ताकि AI सटीक पहचान कर सही उपचार बता सके।"
             else:
-                text = "To accurately identify the crop disease, please capture a clear photo of the affected leaf."
+                text = "No plant image was provided, so disease diagnosis is not possible. Please take or upload a clear photo of the affected leaf."
             return text, StructuredActionPayload(
                 action="NAVIGATE",
                 destination="DISEASE_SCAN",
-                android_route="disease_scan",
+                android_route="crop_disease",
                 required_input="LEAF_IMAGE",
             )
         else:
@@ -419,15 +435,15 @@ def deterministic_fallback_synthesizer(
     if intent in ["disease", "disease_detection"]:
         if tool_status == "requires_photo" or state.get("next_action") == "NAVIGATE":
             if is_marwari:
-                text = "फसल में बीमारी री सही पहचान खातर, किरपा कर'र पत्ती री साफ फोटो खींचो।"
+                text = "अठे पौधे या पत्ती री कोई फोटो कोनी आई है, ईं खातर बीमारी री पहचान नी हो सके। किरपा कर'र प्रभावित पत्ती री साफ फोटो खींचो।"
             elif lang == "hi":
-                text = "फसल की बीमारी की सही पहचान के लिए, कृपया प्रभावित पत्ती की साफ फोटो लें ताकि सटीक पहचान की जा सके।"
+                text = "यहाँ पौधे की कोई तस्वीर उपलब्ध नहीं है, इसलिए रोग की पहचान संभव नहीं है। कृपया प्रभावित पौधे की पत्ती की साफ फोटो लें ताकि AI सटीक पहचान कर सही उपचार बता सके।"
             else:
-                text = "To accurately diagnose the crop disease, please capture a clear leaf photo using the camera."
+                text = "No plant image was provided, so disease diagnosis is not possible. Please take or upload a clear photo of the affected leaf."
             return text, StructuredActionPayload(
                 action="NAVIGATE",
                 destination="DISEASE_SCAN",
-                android_route="disease_scan",
+                android_route="crop_disease",
                 required_input="LEAF_IMAGE",
             )
 
@@ -538,23 +554,91 @@ def deterministic_fallback_synthesizer(
     # 6. Mandi Prices, Forecast & Compound Decision (CRITICAL FIX 3)
     if intent in ["mandi", "mandi_price", "mandi_forecast", "mandi_decision", "compare_mandi", "best_nearby_mandi", "best_practical_mandi", "sell_wait_advisory", "explain_forecast", "price_alert"]:
         price_data = next((v for k, v in tool_results.items() if "price" in k or "mandi_current" in k), tool_data.get("current_price") or tool_data)
+        if not isinstance(price_data, dict):
+            price_data = {}
+        current_sub = price_data.get("current_price") if isinstance(price_data.get("current_price"), dict) else {}
         forecast_data = next((v for k, v in tool_results.items() if "forecast" in k), {})
+        if not isinstance(forecast_data, dict):
+            forecast_data = {}
         decision_data = next((v for k, v in tool_results.items() if "decision" in k or "sell" in k), tool_data.get("deterministic_action") or tool_data.get("advisory") or {})
+        if not isinstance(decision_data, dict):
+            decision_data = {}
 
-        comm = (
-            (price_data.get("hindi_name") or tool_data.get("hindi_name"))
-            if lang in ["hi", "rwr"] and not is_hinglish
-            else None
-        ) or price_data.get("commodity") or tool_data.get("commodity", "सोयाबीन")
-        mandi = price_data.get("market") or tool_data.get("market")
+        # Resolve commodity from price_data, sub-dict, filled_slots, or query
+        detected_comm = (
+            price_data.get("commodity")
+            or current_sub.get("commodity")
+            or tool_data.get("commodity")
+            or state.get("filled_slots", {}).get("commodity")
+            or state.get("filled_slots", {}).get("crop")
+            or (semantic_frame.entities.crop if semantic_frame and semantic_frame.entities else None)
+        )
+        if not detected_comm and state.get("task_plan"):
+            plan_obj = state["task_plan"]
+            t_list = getattr(plan_obj, "tasks", None) or (plan_obj.get("tasks") if isinstance(plan_obj, dict) else [])
+            for t in t_list:
+                inp = getattr(t, "static_inputs", None) or (t.get("static_inputs") if isinstance(t, dict) else {}) or {}
+                if inp.get("commodity") or inp.get("crop"):
+                    detected_comm = inp.get("commodity") or inp.get("crop")
+                    break
+
+        if not detected_comm:
+            from app.orchestrator.normalization import normalize_crop_name
+            detected_comm = normalize_crop_name(state.get("user_input", "")) or "Wheat"
+
+        crop_hindi_map = {
+            "wheat": "गेहूं", "mustard": "सरसों", "cotton": "कपास", "soybean": "सोयाबीन",
+            "paddy": "धान (चावल)", "rice": "चावल", "maize": "मक्का", "groundnut": "मूंगफली",
+            "bajra": "बाजरा", "gram": "चना", "chana": "चना", "potato": "आलू",
+            "onion": "प्याज", "tomato": "टमाटर", "garlic": "लहसुन", "sugarcane": "गन्ना",
+            "barley": "जौ", "moong": "मूंग", "urad": "उड़द", "tur": "अरहर", "arhar": "अरहर"
+        }
+
+        crop_hinglish_map = {
+            "wheat": "Gehu", "mustard": "Sarson", "cotton": "Kapas", "soybean": "Soyabean",
+            "paddy": "Dhan", "rice": "Chawal", "maize": "Makka", "groundnut": "Mungfali",
+            "bajra": "Bajra", "gram": "Chana", "chana": "Chana", "potato": "Aloo",
+            "onion": "Pyaz", "tomato": "Tamatar", "garlic": "Lahsun", "sugarcane": "Ganna",
+            "barley": "Jau", "moong": "Moong", "urad": "Urad", "tur": "Arhar", "arhar": "Arhar"
+        }
+
+        hindi_name = (
+            price_data.get("hindi_name")
+            or current_sub.get("hindi_name")
+            or tool_data.get("hindi_name")
+            or crop_hindi_map.get(str(detected_comm).lower(), detected_comm)
+        )
+
+        if lang in ["hi", "rwr"] and not is_hinglish:
+            comm = hindi_name
+        elif is_hinglish:
+            comm = crop_hinglish_map.get(str(detected_comm).lower(), detected_comm)
+        else:
+            comm = detected_comm
+        mandi = price_data.get("market") or current_sub.get("market") or tool_data.get("market")
         price = (
             price_data.get("modal_price")
+            or current_sub.get("modal_price")
+            or price_data.get("price")
+            or current_sub.get("price")
             or price_data.get("observed", {}).get("modal_price")
+            or current_sub.get("observed", {}).get("modal_price")
             or tool_data.get("modal_price")
             or tool_data.get("observed", {}).get("modal_price")
             or next((f.get("value") for f in state.get("verified_facts", []) if isinstance(f, dict) and f.get("key") == "mandi_current_price"), None)
-            or "--"
         )
+
+        if not price or price == "--":
+            if is_hinglish:
+                text = f"Maaf kijiye, abhi {comm} ka live mandi bhav uplabdh nahi hai. Kripya thodi der baad try karein."
+            elif is_marwari:
+                text = f"माफ करजो, हाल {comm} रो मंडी भाव उपलब्ध कोनी है। थोड़ी देर बाद फेर पूछजो।"
+            elif lang == "hi":
+                text = f"क्षमा करें, वर्तमान में {comm} का ताजा मंडी भाव उपलब्ध नहीं है। कृपया कुछ समय बाद पुनः प्रयास करें।"
+            else:
+                text = f"Sorry, current market price for {comm} is currently unavailable. Please try again later."
+            return text, StructuredActionPayload(action="ANSWER")
+
         if isinstance(price, (int, float)):
             price_fmt = f"{price:,.0f}" if price == int(price) else f"{price:,.2f}"
         else:
@@ -686,7 +770,7 @@ def deterministic_fallback_synthesizer(
         return text, StructuredActionPayload(action="ANSWER")
 
     # 8. Weather (Today, Tomorrow, 7-Day Forecast)
-    if intent in ["weather", "crop_care"] or any("weather" in k for k in tool_results.keys()):
+    if intent in ["weather"] or any("weather" in k for k in tool_results.keys()):
         weather_data = next((v for k, v in tool_results.items() if "weather" in k), tool_data)
         temp = weather_data.get("temperature_c", tool_data.get("temperature_c", "--"))
         hum = weather_data.get("humidity_percent", tool_data.get("humidity_percent", "--"))
@@ -788,27 +872,97 @@ def deterministic_fallback_synthesizer(
             text = f"Today in {loc}, temperature is {_safe_g(temp)}°C with {hum}% humidity and {cond} conditions.{wind_str_en}"
         return text, StructuredActionPayload(action="ANSWER")
 
-    # 8d. Crop Care / General Agriculture / Agronomy
-    if intent in ["general_agriculture", "agricultural_knowledge", "crop_care", "general_agronomy"]:
+    # 8d. Crop Care / Nutrition / Fertilizer / Sowing / Agronomy
+    if intent in ["general_agriculture", "agricultural_knowledge", "crop_care", "pest_treatment", "general_agronomy"] or any("crop_care" in k for k in tool_results.keys()):
+        cc_data = next((v for k, v in tool_results.items() if "crop_care" in k), tool_data)
         sf = state.get("semantic_frame") or {}
         sf_entities = sf.get("entities") or {} if isinstance(sf, dict) else {}
-        crop = sf_entities.get("crop") or state.get("crop") or state.get("active_crop")
-        guidance = rag_treatment_snippet or "नियमित रूप से खेत की निगरानी करें और उचित जल व पोषण प्रबंधन बनाए रखें।"
-        if crop:
+        crop = sf_entities.get("crop") or state.get("crop") or state.get("active_crop") or (cc_data.get("crop_name") if isinstance(cc_data, dict) else "फसल")
+        h_name = cc_data.get("hindi_name", crop) if isinstance(cc_data, dict) else crop
+        npk = cc_data.get("npk_ratio") if isinstance(cc_data, dict) else None
+        fert_sched = cc_data.get("fertilizer_schedule") if isinstance(cc_data, dict) else None
+        water_req = cc_data.get("water_requirement") if isinstance(cc_data, dict) else None
+        sow_win = cc_data.get("sowing_window") if isinstance(cc_data, dict) else None
+        guidance = rag_treatment_snippet or cc_data.get("soil_notes") or "नियमित रूप से खेत की निगरानी करें और उचित जल व पोषण प्रबंधन बनाए रखें।"
+
+        user_q = (state.get("user_input") or "").lower()
+        if any(w in user_q for w in ["खाद", "यूरिया", "डीएपी", "fertilizer", "urea", "dap", "npk"]):
+            if fert_sched:
+                if is_hinglish:
+                    text = f"{h_name} ke liye anushansit NPK ratio {npk or 'santulit'} hai. {fert_sched}"
+                elif is_marwari:
+                    text = f"{h_name} खातर एनपीके अनुपात {npk or 'संतुलित'} है। {fert_sched}"
+                elif lang == "hi":
+                    text = f"{h_name} के लिए अनुशंसित NPK अनुपात {npk or 'संतुलित'} है। {fert_sched}"
+                else:
+                    text = f"Recommended NPK for {crop} is {npk or 'balanced'}. Schedule: {fert_sched}"
+                return text, StructuredActionPayload(action="ANSWER")
+
+        if any(w in user_q for w in ["पानी", "सिंचाई", "water", "irrigation"]):
+            irri = cc_data.get("irrigation_schedule") if isinstance(cc_data, dict) else None
+            if water_req:
+                if is_hinglish:
+                    text = f"{h_name} ki kul jal avashyakta: {water_req}. {irri or ''}"
+                elif lang == "hi":
+                    text = f"{h_name} की कुल जल आवश्यकता: {water_req}। {irri or ''}"
+                else:
+                    text = f"{crop} water requirement: {water_req}. {irri or ''}"
+                return text, StructuredActionPayload(action="ANSWER")
+
+        # General crop care overview
+        if fert_sched and npk:
             if is_hinglish:
-                text = f"{crop} crop ki dekhbhal ke liye ICAR advisory: {guidance}"
+                text = f"{h_name} dekhbhal: NPK khad {npk} dalein. {fert_sched} Jal avashyakta: {water_req or 'Nami banaye rakhein'}."
+            elif is_marwari:
+                text = f"{h_name} री सार-संभाल: एनपीके खाद {npk} देवो। {fert_sched} पानी री जरूरत: {water_req or 'खेत में नमी राखो'}।"
             elif lang == "hi":
-                text = f"{crop} की फसल की अच्छी देखभाल के लिए ICAR सलाह: {guidance}"
+                text = f"{h_name} की उन्नत देखभाल: एनपीके खाद {npk} का प्रयोग करें। {fert_sched} जल आवश्यकता: {water_req or 'खेत में पर्याप्त नमी बनाए रखें'}।"
             else:
-                text = f"Care guidelines for {crop}: {guidance}"
+                text = f"{crop} agronomic care: Apply NPK {npk}. {fert_sched} Water: {water_req or 'Maintain adequate moisture'}."
         else:
             if is_hinglish:
-                text = f"Fasal ki dekhbhal ke liye ICAR advisory: {guidance}"
+                text = f"{h_name} crop ki dekhbhal ke liye ICAR advisory: {guidance}"
             elif lang == "hi":
-                text = f"फसल प्रबंधन और देखभाल के लिए ICAR सलाह: {guidance}"
+                text = f"{h_name} की फसल की अच्छी देखभाल के लिए ICAR सलाह: {guidance}"
             else:
-                text = f"Agricultural management guidelines: {guidance}"
+                text = f"Care guidelines for {crop}: {guidance}"
         return text, StructuredActionPayload(action="ANSWER")
+
+    # 8e. Cold Storage & Warehousing
+    if intent in ["cold_storage"] or any("cold_storage" in k for k in tool_results.keys()):
+        cs_data = next((v for k, v in tool_results.items() if "cold_storage" in k), tool_data)
+        facilities = cs_data.get("facilities", []) if isinstance(cs_data, dict) else []
+        loc = cs_data.get("search_location", "आपके क्षेत्र") if isinstance(cs_data, dict) else "आपके क्षेत्र"
+        if facilities:
+            top = facilities[0]
+            f_name = top.get("name")
+            f_dist = top.get("distance_km")
+            f_time = top.get("drive_time_text", "")
+            f_crops = top.get("suitable_crops", "")
+            f_cap = top.get("storage_capacity", "")
+            f_distr = top.get("district", "")
+            time_str = f" (ड्राइव समय: {f_time})" if f_time else ""
+
+            if is_hinglish:
+                text = f"{loc} ke paas sabse nazdeek cold storage '{f_name}' ({f_distr}) hai, jo lagbhag {f_dist} km door hai{time_str}. Capacity: {f_cap}. Suitable crops: {f_crops}."
+            elif is_marwari:
+                text = f"{loc} रे कनै सबसूं नजीक कोल्ड स्टोरेज '{f_name}' ({f_distr}) है, जको लगभग {f_dist} km दूर है। क्षमता: {f_cap}। उपयुक्त फसल: {f_crops}।"
+            elif lang == "hi":
+                text = f"{loc} के पास सबसे नजदीकी कोल्ड स्टोरेज '{f_name}' ({f_distr}) है, जो लगभग {f_dist} km दूरी पर है{time_str}। क्षमता: {f_cap}। उपयुक्त फसलें: {f_crops}।"
+            else:
+                text = f"The nearest cold storage to {loc} is '{f_name}' in {f_distr}, approximately {f_dist} km away{time_str}. Capacity: {f_cap}."
+            return text, StructuredActionPayload(
+                action="NAVIGATE",
+                destination="COLD_STORAGE",
+                android_route="crop_storage",
+            )
+        else:
+            text = f"{loc} के 100 किमी के दायरे में कोई कोल्ड स्टोरेज नहीं मिला। अधिक जानकारी के लिए क्रॉप स्टोरेज स्क्रीन देखें।" if lang == "hi" else f"No cold storage facilities found within 100 km of {loc}."
+            return text, StructuredActionPayload(
+                action="NAVIGATE",
+                destination="COLD_STORAGE",
+                android_route="crop_storage",
+            )
 
     # 9. Government Schemes
     if intent == "scheme":

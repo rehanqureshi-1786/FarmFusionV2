@@ -6,9 +6,11 @@ import com.example.farmfusionapp.data.model.NoSoilReportRequest
 import com.example.farmfusionapp.data.model.NoSoilReportResponse
 import com.example.farmfusionapp.network.RetrofitInstance
 import com.example.farmfusionapp.utils.Resource
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -88,7 +90,7 @@ class CropRecommendationRepository {
         } catch (e: Exception) {
             emit(Resource.Error("Error: ${e.message ?: "Unknown error"}"))
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     /**
      * Get crop recommendations by uploading a Soil Health Card (Image or PDF).
@@ -153,7 +155,7 @@ class CropRecommendationRepository {
         } catch (e: Exception) {
             emit(Resource.Error("Error: ${e.message ?: "Unknown error"}"))
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     /**
      * Get crop recommendations when the farmer has NO soil report.
@@ -213,7 +215,7 @@ class CropRecommendationRepository {
         } catch (e: Exception) {
             emit(Resource.Error("Error: ${e.message ?: "Unknown error"}"))
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     /**
      * Test if backend connection is working

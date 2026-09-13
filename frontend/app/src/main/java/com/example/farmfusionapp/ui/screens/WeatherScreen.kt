@@ -1,5 +1,6 @@
 package com.example.farmfusionapp.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -117,6 +118,19 @@ fun WeatherScreen(navController: NavController) {
     var errorMessage by remember { mutableStateOf<String?>(WeatherSnapshotStore.latestError) }
     var isLoading by remember { mutableStateOf(weatherData == null) }
 
+    val onNavigateBackToHome = {
+        if (!navController.popBackStack(NavRoutes.Dashboard, inclusive = false)) {
+            navController.navigate(NavRoutes.Dashboard) {
+                popUpTo(NavRoutes.Dashboard) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    BackHandler {
+        onNavigateBackToHome()
+    }
+
     LocationPermissionEffect(
         context = context,
         onPermissionGranted = {
@@ -158,7 +172,7 @@ fun WeatherScreen(navController: NavController) {
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { onNavigateBackToHome() }) {
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = "Back",
@@ -306,7 +320,7 @@ fun WeatherScreen(navController: NavController) {
                                 contentPadding = PaddingValues(horizontal = 24.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(weatherData!!.forecast) { forecast ->
+                                items(weatherData!!.forecast, key = { it.day }) { forecast ->
                                     OutlookCard(forecast, modifier = Modifier.width(85.dp))
                                 }
                             }
@@ -1787,13 +1801,16 @@ private fun WeatherErrorState(message: String, onRetry: () -> Unit) {
 suspend fun fetchWeatherFromLocation(
     context: android.content.Context,
     onResult: (DisplayWeatherData?, String?) -> Unit
-) {
+) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
     try {
         val location = getDeviceLocation(context)
         if (location == null) {
-            WeatherSnapshotStore.latestError = "Could not get device location. Please enable GPS and try again."
-            onResult(null, "Could not get device location. Please enable GPS and try again.")
-            return
+            val err = "Could not get device location. Please enable GPS and try again."
+            WeatherSnapshotStore.latestError = err
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                onResult(null, err)
+            }
+            return@withContext
         }
 
         val appLanguage = LanguagePreferences.getSelectedLanguage(context) ?: "en"
@@ -1909,14 +1926,19 @@ suspend fun fetchWeatherFromLocation(
                     disasterRisk = disasterRiskObj,
                     smartIrrigation = backendData.smart_irrigation
                 )
-                WeatherSnapshotStore.latestWeather = data
-                WeatherSnapshotStore.latestLanguage = appLanguage
-                WeatherSnapshotStore.latestError = null
-                WeatherSnapshotStore.lastUpdatedAt = System.currentTimeMillis()
-                onResult(data, null)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    WeatherSnapshotStore.latestWeather = data
+                    WeatherSnapshotStore.latestLanguage = appLanguage
+                    WeatherSnapshotStore.latestError = null
+                    WeatherSnapshotStore.lastUpdatedAt = System.currentTimeMillis()
+                    onResult(data, null)
+                }
             } else {
-                WeatherSnapshotStore.latestError = "Failed to get weather data."
-                onResult(null, "Failed to get weather data.")
+                val err = "Failed to get weather data."
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    WeatherSnapshotStore.latestError = err
+                    onResult(null, err)
+                }
             }
         } else {
             val message = if (response.code() == 503) {
@@ -1924,11 +1946,16 @@ suspend fun fetchWeatherFromLocation(
             } else {
                 "Backend unreachable. Error: ${response.code()}"
             }
-            WeatherSnapshotStore.latestError = message
-            onResult(null, message)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                WeatherSnapshotStore.latestError = message
+                onResult(null, message)
+            }
         }
     } catch (e: Exception) {
-        WeatherSnapshotStore.latestError = "Network Error: ${e.message}"
-        onResult(null, "Network Error: ${e.message}")
+        val err = "Network Error: ${e.message}"
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            WeatherSnapshotStore.latestError = err
+            onResult(null, err)
+        }
     }
 }

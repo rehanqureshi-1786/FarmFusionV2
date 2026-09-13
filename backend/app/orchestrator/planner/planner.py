@@ -92,14 +92,22 @@ def generate_task_plan(
     ):
         if not has_image:
             # Strictly DO NOT call disease model or invent diagnosis
+            lang = semantic_frame.language or "hi"
+            if lang == "en":
+                no_photo_msg = "No plant image was provided, so disease diagnosis is not possible. Please capture or upload a clear photo of the affected plant leaf."
+            elif s_state.get("detected_dialect") in ["mewari", "marwari", "rwr"]:
+                no_photo_msg = "अठे पौधे री कोई फोटो कोनी आई है, ईं खातर बीमारी री पहचान नी हो सके। किरपा कर'र प्रभावित पत्ती री साफ फोटो खींचो।"
+            else:
+                no_photo_msg = "यहाँ पौधे की कोई तस्वीर उपलब्ध नहीं है, इसलिए रोग की पहचान संभव नहीं है। कृपया प्रभावित पौधे की पत्ती की साफ फोटो लें ताकि AI रोग पहचान कर सही उपचार बता सके।"
+
             return TaskPlan(
                 session_id=semantic_frame.session_id,
-                objective="Farmer requests disease diagnosis without image. Directing to leaf scan screen.",
+                objective="Farmer requests disease diagnosis without image. Informs no plant image present so diagnosis not possible, directing to leaf scan screen.",
                 action_type=ActionType.NAVIGATE,
                 navigation_destination="DISEASE_SCAN",
                 navigation_route=NAVIGATION_ROUTE_MAP[AllowedNavigationDestination.DISEASE_SCAN],
                 required_input=RequiredInput.LEAF_IMAGE,
-                clarification_message="फसल रोग पहचान के लिए प्रभावित पत्ती का फोटो आवश्यक है। कृपया कैमरा खोलें।",
+                clarification_message=no_photo_msg,
                 status=PlanStatus.READY,
             )
 
@@ -334,6 +342,7 @@ def generate_task_plan(
                 depends_on=[],
                 static_inputs={
                     "crop": crop or "Wheat",
+                    "commodity": crop or "Wheat",
                     "market": market,
                     "district": district_name,
                     "state": state_name,
@@ -355,6 +364,7 @@ def generate_task_plan(
                 depends_on=[],
                 static_inputs={
                     "crop": crop or "Wheat",
+                    "commodity": crop or "Wheat",
                     "market_a": m_a,
                     "market_b": m_b,
                 },
@@ -374,6 +384,7 @@ def generate_task_plan(
                 depends_on=[],
                 static_inputs={
                     "crop": crop or "Wheat",
+                    "commodity": crop or "Wheat",
                     "market": f_market,
                     "forecast_days": entities.forecast_days or 7,
                 },
@@ -396,6 +407,7 @@ def generate_task_plan(
                 depends_on=mandi_deps,
                 static_inputs={
                     "crop": crop or "Wheat",
+                    "commodity": crop or "Wheat",
                     "market": market or "Jaipur Mandi",
                     "holding_days": entities.forecast_days or 7,
                 },
@@ -483,6 +495,44 @@ def generate_task_plan(
                     "language": semantic_frame.language or "hi",
                     "crop_name": crop,
                     "mandi_name": market,
+                },
+                is_blocking=True,
+            )
+        )
+
+    # 6.14 Cold Storage Tool Task
+    if CapabilityType.COLD_STORAGE in caps or semantic_frame.intent == CanonicalIntent.COLD_STORAGE:
+        tasks.append(
+            PlannedTask(
+                task_id="cold_storage_1",
+                capability=CapabilityType.COLD_STORAGE,
+                tool_name="cold_storage_tool",
+                description="Find nearest verified cold storage facilities, warehouses, and road distance.",
+                depends_on=[],
+                static_inputs={
+                    "latitude": float(lat) if lat is not None else 24.5854,
+                    "longitude": float(lon) if lon is not None else 73.7125,
+                    "location_name": district_name or state_name,
+                    "crop": crop,
+                    "radius_km": 100.0,
+                },
+                is_blocking=True,
+            )
+        )
+
+    # 6.15 Crop Care & Agronomic Guidance Task
+    if CapabilityType.CROP_CARE in caps or semantic_frame.intent in [CanonicalIntent.CROP_CARE, CanonicalIntent.PEST_TREATMENT]:
+        tasks.append(
+            PlannedTask(
+                task_id="crop_care_1",
+                capability=CapabilityType.CROP_CARE,
+                tool_name="crop_care_tool",
+                description="Retrieve authentic ICAR agronomic guidelines: NPK fertilizer, sowing, and irrigation schedule.",
+                depends_on=[],
+                static_inputs={
+                    "crop_name": crop or "Wheat",
+                    "query": semantic_frame.raw_text,
+                    "season": entities.season,
                 },
                 is_blocking=True,
             )

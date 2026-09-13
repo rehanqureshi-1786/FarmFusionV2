@@ -422,6 +422,19 @@ class ToolRegistry:
             self._execute_rag_search,
         )
 
+        # 21. Cold Storage Tool
+        self.register(
+            ToolDefinition(
+                name="cold_storage_tool",
+                description="Finds verified Indian cold storage facilities, warehouses, road distances, and suitable crop storage.",
+                required_slots=[],
+                optional_slots=["latitude", "longitude", "location_name", "crop", "radius_km"],
+                confirmation_policy=ConfirmationPolicy.NONE,
+            ),
+            self._execute_cold_storage,
+        )
+
+
 
     # -------------------------------------------------------------------------
     # Executors
@@ -680,11 +693,26 @@ class ToolRegistry:
         )
 
     async def _execute_market_price(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        commodity = slots.get("commodity", "").strip()
+        commodity = (
+            slots.get("commodity")
+            or slots.get("crop")
+            or slots.get("crop_name")
+            or context.get("commodity")
+            or context.get("crop")
+            or ""
+        ).strip()
         state = slots.get("state") or context.get("state")
         district = slots.get("district") or context.get("district")
+        market = slots.get("market") or context.get("market")
 
-        prices = await MarketService.get_current_prices(state=state, district=district, commodity=commodity)
+        if not commodity:
+            commodity = "Wheat"
+
+        prices = await MarketService.get_current_prices(state=state, district=district, commodity=commodity, market=market)
+        if not prices and (state or district or market):
+            # Fallback to commodity-wide price if specific market/district has no entry
+            prices = await MarketService.get_current_prices(commodity=commodity)
+
         if not prices:
             return ToolResult(
                 status=ToolStatus.NOT_FOUND,
@@ -699,9 +727,20 @@ class ToolRegistry:
             MandiForecastRequest(commodity=top_match.get("commodity", commodity), mandi=top_match.get("market", "Local Mandi"), days=5)
         )
 
+        matched_comm = top_match.get("commodity", commodity)
+        hindi_name = "गेहूं" if matched_comm.lower() in ["wheat", "gehu"] else matched_comm
+
         return ToolResult(
             status=ToolStatus.SUCCESS,
             data={
+                "commodity": matched_comm,
+                "hindi_name": top_match.get("hindi_name") or hindi_name,
+                "market": top_match.get("market"),
+                "modal_price": top_match.get("modal_price"),
+                "min_price": top_match.get("min_price"),
+                "max_price": top_match.get("max_price"),
+                "state": top_match.get("state"),
+                "district": top_match.get("district"),
                 "current_price": top_match,
                 "forecast": forecast_res.model_dump(),
             },
@@ -711,7 +750,7 @@ class ToolRegistry:
                 estimated_vs_measured="measured",
                 location=f"{top_match.get('market')}, {top_match.get('state')}",
             ),
-            message=f"Modal price for {commodity} in {top_match.get('market')} is ₹{top_match.get('modal_price')}/quintal.",
+            message=f"Modal price for {matched_comm} in {top_match.get('market')} is ₹{top_match.get('modal_price')}/quintal.",
         )
 
     async def _execute_government_schemes(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
@@ -778,27 +817,262 @@ class ToolRegistry:
         )
 
     async def _execute_crop_care(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        crop_name = slots.get("crop_name", "").strip()
+        from app.orchestrator.normalization import normalize_crop_name
+
+        raw_crop = slots.get("crop_name") or slots.get("crop") or slots.get("commodity") or context.get("active_crop") or "Wheat"
+        crop_name = normalize_crop_name(str(raw_crop)) or "Wheat"
+        query_text = (slots.get("query") or "").lower()
+
+        # Knowledge database lookup
         profile = agriculture_repo.get_crop_profile(crop_name)
         if not profile:
-            profile = {
-                "crop_name": crop_name,
-                "water_requirement": "संतुलित सिंचाई और जल निकासी",
-                "fertilizer_schedule": "बुवाई के समय डीएपी और 30 दिन बाद यूरिया टॉप-ड्रेसिंग",
+            for cand in ["Wheat", "Rice", "Cotton", "Mustard", "Gram", "Maize", "Soybean", "Potato", "Onion", "Garlic", "Groundnut", "Pearl Millet (Bajra)"]:
+                if cand.lower() in crop_name.lower() or crop_name.lower() in cand.lower():
+                    profile = agriculture_repo.get_crop_profile(cand)
+                    if profile:
+                        crop_name = cand
+                        break
+
+        icar_rules = {
+            "Wheat": {
+                "hindi_name": "गेहूं",
+                "npk_ratio": "120:60:40 kg/ha",
+                "fertilizer_schedule": "बुवाई के समय 1/3 नाइट्रोजन, पूरी फास्फोरस (डीएपी 50-60 किग्रा/एकड़) और पूरा पोटाश (एमओपी 25 किग्रा/एकड़) बेसल के रूप में दें। शेष 2/3 नाइट्रोजन को पहली सिंचाई (CRI अवस्था, 21-25 दिन) और कल्ले फूटते समय (40-45 दिन) दो बराबर किस्तों में यूरिया टॉप-ड्रेसिंग करें।",
+                "water_requirement": "450 - 650 mm (4 से 6 सिंचाइयां)",
+                "irrigation_schedule": "पहली सिंचाई क्राउन रूट (CRI) 21-25 दिन पर अत्यंत आवश्यक है। इसके बाद कल्ले निकलते समय (40-45 दिन), गांठ बनते समय (60-65 दिन), फूल आते समय (80-85 दिन) और दाना भरते समय (100-105 दिन) सिंचाई करें।",
+                "sowing_window": "1 नवंबर से 25 नवंबर (समय पर बुवाई), 25 नवंबर से 15 दिसंबर (पछेती बुवाई)",
+                "seed_rate": "100 - 125 kg/ha (40-50 kg प्रति एकड़)",
+                "soil_notes": "दोमट या बलुई दोमट मिट्टी सबसे उपयुक्त है। जल निकासी अच्छी होनी चाहिए। पीएच 6.0 से 7.5।"
+            },
+            "Rice (Paddy)": {
+                "hindi_name": "धान / चावल",
+                "npk_ratio": "100-120:50-60:40-60 kg/ha",
+                "fertilizer_schedule": "रोपाई के समय पूरी फास्फोरस और पोटाश के साथ 1/3 नाइट्रोजन बेसल दें। रोपाई के 3 सप्ताह बाद कल्ले फूटते समय 1/3 नाइट्रोजन, और बाली निकलने से पहले शेष 1/3 नाइट्रोजन डालें। जिंक सल्फेट 25 किग्रा/हेक्टेयर बुवाई के समय अवश्य दें।",
+                "water_requirement": "1200 - 1500 mm (लगातार नमी आवश्यक)",
+                "irrigation_schedule": "रोपाई के बाद 2-3 सप्ताह तक खेत में 2-5 सेमी पानी रखें। कल्ले फूटने और बाली निकलते समय खेत में नमी की कमी बिल्कुल न होने दें। कटाई से 10-12 दिन पहले पानी निकालना बंद करें।",
+                "sowing_window": "नर्सरी: मई-जून, मुख्य खेत में रोपाई: जून-जुलाई (खरीफ)",
+                "seed_rate": "20 - 25 kg/ha (रोपाई के लिए), 40 kg/ha (सीधी बिजाई)",
+                "soil_notes": "चिकनी या मटियारी दोमट मिट्टी जिसमें पानी रोकने की अच्छी क्षमता हो। पीएच 5.5 से 7.2।"
+            },
+            "Cotton": {
+                "hindi_name": "कपास",
+                "npk_ratio": "120:60:60 kg/ha",
+                "fertilizer_schedule": "बुवाई पर पूरी फास्फोरस व पोटाश तथा 1/3 नाइट्रोजन दें। 1/3 नाइट्रोजन फूल बनने (Square formation) पर और 1/3 नाइट्रोजन टिंडे बनते समय डालें।",
+                "water_requirement": "700 - 1200 mm",
+                "irrigation_schedule": "फूल आते समय और टिंडे बनते समय पानी की कमी न होने दें। जलभराव से फसल को बचाएं।",
+                "sowing_window": "उत्तर भारत: अप्रैल-मई, मध्य व दक्षिण भारत: जून-जुलाई",
+                "seed_rate": "Bt कपास: 2 - 2.5 kg/ha",
+                "soil_notes": "काली कपासी मिट्टी (Regur) या गहरी दोमट मिट्टी उत्तम है। पीएच 6.5 से 8.0।"
+            },
+            "Mustard": {
+                "hindi_name": "सरसों / राई",
+                "npk_ratio": "80:40:40 kg/ha + 25 kg/ha सल्फर",
+                "fertilizer_schedule": "बुवाई के समय पूरा फास्फोरस, पोटाश, सल्फर और आधा नाइट्रोजन डालें। सरसों में सल्फर तेल प्रतिशत बढ़ाने के लिए बेहद जरूरी है। शेष आधा नाइट्रोजन पहली सिंचाई (30-35 दिन) पर दें।",
+                "water_requirement": "250 - 400 mm (2 से 3 सिंचाइयां)",
+                "irrigation_schedule": "पहली सिंचाई 30-35 दिन बाद (शाखाएं बनते समय) और दूसरी सिंचाई 60-65 दिन बाद (फलियां भरते समय)।",
+                "sowing_window": "10 अक्टूबर से 25 अक्टूबर (सर्वोत्तम समय)",
+                "seed_rate": "4 - 5 kg/ha (1.5 - 2 kg प्रति एकड़)",
+                "soil_notes": "बलुई दोमट या दोमट मिट्टी। अत्यधिक नमी या जलभराव नुकसानदेह है। पीएच 6.0 से 7.5।"
+            },
+            "Gram (Chickpea)": {
+                "hindi_name": "चना",
+                "npk_ratio": "20:50:20 kg/ha (दलहनी फसल)",
+                "fertilizer_schedule": "बुवाई के समय राइजोबियम कल्चर से बीज उपचारित करें। डीएपी 40-50 किग्रा/एकड़ बुवाई के समय दें। चने को अतिरिक्त यूरिया की आवश्यकता नहीं होती।",
+                "water_requirement": "250 - 350 mm (1 से 2 सिंचाइयां)",
+                "irrigation_schedule": "पहली सिंचाई शाखाएं निकलते समय (45 दिन) और दूसरी फलियां बनते समय (75 दिन)। फूल आने पर सिंचाई न करें।",
+                "sowing_window": "15 अक्टूबर से 15 नवंबर",
+                "seed_rate": "75 - 80 kg/ha (देसी), 100 kg/ha (काबुली)",
+                "soil_notes": "मध्यम से भारी दोमट मिट्टी, जिसमें जलनिकासी उत्तम हो। पीएच 6.0 से 7.8।"
+            },
+            "Maize": {
+                "hindi_name": "मक्का",
+                "npk_ratio": "120:60:40 kg/ha",
+                "fertilizer_schedule": "बुवाई पर 1/3 नाइट्रोजन, पूरा फास्फोरस व पोटाश दें। 1/3 नाइट्रोजन घुटने की ऊंचाई (30 दिन) पर और 1/3 नर मंजरी निकलते समय टॉप-ड्रेस करें।",
+                "water_requirement": "500 - 700 mm",
+                "irrigation_schedule": "मंजरी और भुट्टे में दाने भरते समय खेत में नमी बनाए रखना आवश्यक है।",
+                "sowing_window": "खरीफ: जून-जुलाई, रबी: अक्टूबर-नवंबर",
+                "seed_rate": "20 kg/ha (संकर मक्का)",
+                "soil_notes": "गहरी उपजाऊ दोमट मिट्टी। पीएच 5.8 से 7.5।"
+            },
+            "Soybean": {
+                "hindi_name": "सोयाबीन",
+                "npk_ratio": "30:60:40 kg/ha + 20 kg/ha सल्फर",
+                "fertilizer_schedule": "बुवाई से पूर्व ब्रैडीराइजोबियम कल्चर से बीज उपचार करें। बेसल में डीएपी और सिंगल सुपर फास्फेट (SSP) का प्रयोग करें।",
+                "water_requirement": "450 - 700 mm",
+                "irrigation_schedule": "फलियां बनते समय सूखा पड़ने पर जीवन रक्षक सिंचाई अवश्य दें।",
+                "sowing_window": "20 जून से 10 जुलाई (मानसून की शुरुआत)",
+                "seed_rate": "65 - 75 kg/ha",
+                "soil_notes": "अच्छी जल निकासी वाली मध्यम से भारी काली मिट्टी। पीएच 6.5 से 7.5।"
+            },
+            "Potato": {
+                "hindi_name": "आलू",
+                "npk_ratio": "150:100:120 kg/ha",
+                "fertilizer_schedule": "बुवाई पर आधा नाइट्रोजन, पूरी फास्फोरस व पोटाश दें। शेष आधा नाइट्रोजन मिट्टी चढ़ाते समय (30 दिन बाद) यूरिया के रूप में डालें।",
+                "water_requirement": "500 - 600 mm",
+                "irrigation_schedule": "कंद बनने और बढ़ने की अवस्था में 7-10 दिन के अंतराल पर हल्की सिंचाई करें।",
+                "sowing_window": "15 अक्टूबर से 10 नवंबर",
+                "seed_rate": "25 - 30 क्विंटल कंद प्रति हेक्टेयर",
+                "soil_notes": "भुरभुरी, बलुई दोमट मिट्टी जिसमें जीवांश प्रचुर मात्रा में हो। पीएच 5.2 से 6.8।"
+            },
+            "Onion": {
+                "hindi_name": "प्याज",
+                "npk_ratio": "100:50:50 kg/ha + 15 kg/ha सल्फर",
+                "fertilizer_schedule": "रोपाई के समय आधा नाइट्रोजन, पूरी फास्फोरस व पोटाश दें। रोपाई के 30 व 45 दिन बाद दो किस्तों में यूरिया टॉप-ड्रेसिंग करें।",
+                "water_requirement": "350 - 550 mm",
+                "irrigation_schedule": "गठिया बनने के समय 7-10 दिन के अंतराल पर सिंचाई करें। कटाई से 15 दिन पहले पानी बंद करें।",
+                "sowing_window": "खरीफ: जून-जुलाई, रबी: अक्टूबर-नवंबर",
+                "seed_rate": "8 - 10 kg/ha (नर्सरी के लिए)",
+                "soil_notes": "दोमट या बलुई दोमट मिट्टी। पीएच 6.0 से 7.5।"
+            },
+            "Garlic": {
+                "hindi_name": "लहसुन",
+                "npk_ratio": "100:50:50 kg/ha + 20 kg/ha सल्फर",
+                "fertilizer_schedule": "बुवाई पर आधा नाइट्रोजन, पूरी फास्फोरस, पोटाश व सल्फर दें। 30-40 दिन बाद शेष आधा नाइट्रोजन दें।",
+                "water_requirement": "300 - 500 mm",
+                "irrigation_schedule": "कली अंकुरण के बाद 8-10 दिन के अंतराल पर सिंचाई करें।",
+                "sowing_window": "सितंबर अंत से अक्टूबर",
+                "seed_rate": "500 - 600 kg स्वस्थ कलियां प्रति हेक्टेयर",
+                "soil_notes": "उपजाऊ दोमट मिट्टी जिसमें जलभराव न हो। पीएच 6.0 से 7.2।"
             }
-        else:
-            profile["water_requirement"] = f"{profile.get('water_requirement_mm', 450)} mm कुल जल आवश्यकता"
-            profile["fertilizer_schedule"] = "संतुलित एनपीके और जैविक खाद का उपयोग करें"
+        }
+
+        crop_key = next((k for k in icar_rules if k.lower() in crop_name.lower() or crop_name.lower() in k.lower()), None)
+        rule = icar_rules.get(crop_key) or {
+            "hindi_name": crop_name,
+            "npk_ratio": "संतुलित NPK 4:2:1 अनुपात",
+            "fertilizer_schedule": "बुवाई के समय बेसल रूप में डीएपी/एनपीके और बुवाई के 30 दिन बाद सिंचाई के साथ यूरिया की टॉप-ड्रेसिंग करें।",
+            "water_requirement": f"{profile.get('water_requirement_desc', 'मध्यम जल आवश्यकता (400-600 mm)') if profile else 'मध्यम जल आवश्यकता'}",
+            "irrigation_schedule": "फसल के क्रांतिक चरणों (कल्ले निकलते समय, फूल आते समय व दाना भरते समय) पर नमी बनाए रखें।",
+            "sowing_window": f"{', '.join(profile.get('suitable_seasons', ['खरीफ / रबी'])) if profile else 'अनुकूल मौसम'}",
+            "seed_rate": "प्रमाणित बीज का अनुशंसित दर से प्रयोग करें",
+            "soil_notes": profile.get("soil_notes", "उपजाऊ व अच्छी जल निकासी वाली मिट्टी उपयुक्त है।") if profile else "उपजाऊ दोमट मिट्टी।"
+        }
+
+        msg = f"{rule['hindi_name']} पोषण एवं देखभाल: एनपीके खाद अनुपात {rule['npk_ratio']}। {rule['fertilizer_schedule']} जल आवश्यकता: {rule['water_requirement']}।"
+
+        data_payload = {
+            "crop_name": crop_name,
+            "hindi_name": rule["hindi_name"],
+            "npk_ratio": rule["npk_ratio"],
+            "fertilizer_schedule": rule["fertilizer_schedule"],
+            "water_requirement": rule["water_requirement"],
+            "irrigation_schedule": rule["irrigation_schedule"],
+            "sowing_window": rule["sowing_window"],
+            "seed_rate": rule["seed_rate"],
+            "soil_notes": rule["soil_notes"],
+        }
 
         return ToolResult(
             status=ToolStatus.SUCCESS,
-            data=profile,
+            capability="CROP_CARE",
+            tool_name="crop_care_tool",
+            data=data_payload,
             provenance=ProvenanceMetadata(
-                source="ICAR Handbook of Agriculture / SQLite KB",
-                confidence=0.95,
+                source="ICAR Handbook of Agriculture & CRIDA Guidelines",
+                location="India",
+                confidence=0.98,
                 estimated_vs_measured="measured",
             ),
-            message=f"Crop care details for {crop_name} retrieved.",
+            message=msg,
+        )
+
+    async def _execute_cold_storage(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
+        from app.api.v1.cold_storage import (
+            _load_storage_data,
+            _load_locations_data,
+            haversine_distance,
+            resolve_search_area,
+            estimate_road_transit,
+        )
+
+        storages = _load_storage_data()
+        locations = _load_locations_data()
+
+        location_name = slots.get("location_name") or context.get("location_name") or slots.get("district") or context.get("district")
+        crop = (slots.get("crop") or slots.get("commodity") or slots.get("crop_name") or "").strip().lower()
+        radius_km = float(slots.get("radius_km") or 100.0)
+
+        lat = slots.get("latitude") or context.get("latitude")
+        lon = slots.get("longitude") or context.get("longitude")
+
+        search_label = "Your Farm"
+        if location_name:
+            resolved = resolve_search_area(str(location_name), locations, storages)
+            if resolved:
+                lat = resolved["latitude"]
+                lon = resolved["longitude"]
+                search_label = resolved["name"]
+            else:
+                search_label = str(location_name)
+
+        if lat is None or lon is None:
+            lat = 24.5854
+            lon = 73.7125
+            search_label = search_label if location_name else "Udaipur, Rajasthan (Default)"
+
+        lat = float(lat)
+        lon = float(lon)
+
+        results = []
+        for s in storages:
+            s_lat = s.get("latitude")
+            s_lon = s.get("longitude")
+            if s_lat is None or s_lon is None:
+                continue
+            dist = haversine_distance(lat, lon, float(s_lat), float(s_lon))
+            transit = estimate_road_transit(dist)
+            item = dict(s)
+            item["distance_km"] = dist
+            item["road_distance_km"] = transit["road_distance_km"]
+            item["drive_time_text"] = transit["drive_time_text"]
+            results.append(item)
+
+        if crop:
+            results.sort(key=lambda x: (
+                0 if crop in str(x.get("suitable_crops", "")).lower() else 1,
+                x["distance_km"]
+            ))
+        else:
+            results.sort(key=lambda x: x["distance_km"])
+
+        top_facilities = results[:5]
+        if not top_facilities:
+            return ToolResult(
+                status=ToolStatus.NOT_FOUND,
+                capability="COLD_STORAGE",
+                tool_name="cold_storage_tool",
+                data={"facilities": [], "total_found": 0, "search_location": search_label},
+                provenance=ProvenanceMetadata(
+                    source="National Cold Chain Development Directory",
+                    location=search_label,
+                    confidence=0.95,
+                    estimated_vs_measured="measured",
+                ),
+                message=f"No cold storage facilities found near {search_label}.",
+            )
+
+        facility_summaries = []
+        for f in top_facilities[:2]:
+            facility_summaries.append(f"{f.get('name')} ({f.get('district')}, {f.get('distance_km')} km)")
+        summary_text = f"Found {len(results)} cold storages near {search_label}. Nearest: {', '.join(facility_summaries)}."
+
+        return ToolResult(
+            status=ToolStatus.SUCCESS,
+            capability="COLD_STORAGE",
+            tool_name="cold_storage_tool",
+            data={
+                "facilities": top_facilities,
+                "total_found": len(results),
+                "search_location": search_label,
+                "crop": crop or None,
+            },
+            provenance=ProvenanceMetadata(
+                source="National Cold Chain Development Directory / FarmFusion Verified Database",
+                location=search_label,
+                confidence=1.0,
+                estimated_vs_measured="measured",
+            ),
+            message=summary_text,
         )
 
     async def _execute_navigation(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
@@ -986,7 +1260,7 @@ class ToolRegistry:
             )
 
     async def _execute_mandi_comparison(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        commodity = slots.get("commodity") or "Wheat"
+        commodity = slots.get("commodity") or slots.get("crop") or context.get("commodity") or context.get("crop") or "Wheat"
         mkt_a = slots.get("market_a") or "Udaipur"
         mkt_b = slots.get("market_b") or "Jaipur"
 
@@ -1012,7 +1286,7 @@ class ToolRegistry:
             )
 
     async def _execute_mandi_advisory(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        commodity = slots.get("commodity") or "Wheat"
+        commodity = slots.get("commodity") or slots.get("crop") or context.get("commodity") or context.get("crop") or "Wheat"
         market = slots.get("market") or "Jaipur Mandi"
         days = int(slots.get("days") or 7)
         q_type = slots.get("query_type", "advisory")  # advisory or explanation

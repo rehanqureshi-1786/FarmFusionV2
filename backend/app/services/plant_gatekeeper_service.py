@@ -32,7 +32,7 @@ class PlantGatekeeperService:
     # 738: Potted plant / pot
     BOTANICAL_SYNSET_INDICES = set(range(936, 959)) | set(range(984, 999)) | {738}
 
-    # ImageNet human apparel, accessories, personal devices, and human subjects
+    # ImageNet human apparel, accessories, personal devices, human subjects & indoor furniture
     PERSON_APPAREL_INDICES = {
         487,  # cellular telephone
         610,  # jersey, t-shirt
@@ -62,6 +62,32 @@ class PlantGatekeeperService:
         551,  # face powder
         629,  # lipstick
         635,  # lotion
+        505,  # coat
+        866,  # trench coat
+        567,  # fur coat
+        501,  # cloak
+        578,  # gown
+        611,  # kimono
+        697,  # pajama
+        832,  # stole
+        735,  # poncho
+        884,  # vestment
+        806,  # sock
+        770,  # running shoe
+        771,  # sandal
+        772,  # oxford
+        773,  # loafer
+        774,  # clog
+        516,  # cowboy boot
+        452,  # bonnet
+        440,  # beret
+        423,  # barbershop chair
+        559,  # folding chair
+        765,  # rocking chair
+        831,  # studio couch
+        526,  # desk
+        851,  # dining table
+        916,  # web site
     }
 
     @classmethod
@@ -255,13 +281,29 @@ class PlantGatekeeperService:
         # Decision Rules: Strict Zero False-Positive on Non-Plant items
         # -------------------------------------------------------------
 
-        # Rule 1: Foreground Person / Apparel / Device Subject
-        # Rejects portraits, selfies, or people in foreground even if background has incidental foliage
+        # Rule 0: Human Skin / Face Detection
+        # If significant human skin chromaticity is present and the image is not an unambiguous whole-field leaf
         if (
-            (center_skin_ratio > 0.20 or person_apparel_prob > 0.08 or c_apparel_prob > 0.08)
-            and manmade_prob > 0.40
-            and botanical_prob < 0.20
-            and not (has_strong_botanical and center_skin_ratio < 0.15)
+            (center_skin_ratio > 0.12 or skin_ratio > 0.15)
+            and botanical_prob < 0.25
+            and not (botanical_ratio > 0.45 and exg_ratio > 0.20 and center_skin_ratio < 0.08)
+        ):
+            logger.info("plant_gatekeeper_rejected_human_skin", object="Person", **metrics)
+            return {
+                "is_plant": False,
+                "confidence": 0.0,
+                "reason": f"Person or human face/skin detected ({round(max(center_skin_ratio, skin_ratio)*100, 1)}% skin)",
+                "detected_object": "Person",
+                "metrics": metrics,
+            }
+
+        # Rule 1: Foreground Person / Apparel / Device Subject
+        # Rejects portraits, selfies, clothing, or people in foreground even if background has incidental foliage
+        if (
+            (center_skin_ratio > 0.10 or person_apparel_prob > 0.05 or c_apparel_prob > 0.05)
+            and (manmade_prob > 0.35 or c_man_prob > 0.35)
+            and botanical_prob < 0.25
+            and not (has_strong_botanical and center_skin_ratio < 0.08)
         ):
             logger.info("plant_gatekeeper_rejected_person_foreground", object=top_cat, **metrics)
             return {
@@ -275,10 +317,11 @@ class PlantGatekeeperService:
         # Rule 2: Dominant Man-Made Object (computer mouse, electronic device, car, furniture, etc.)
         # MobileNet identifies a specific manmade item, or manmade probability dominates non-vegetation images
         if (
-            (top_prob > 0.40 and top_is_manmade and not has_strong_botanical)
-            or (manmade_prob > 0.65 and botanical_ratio < 0.25 and exg_ratio < 0.15)
-            or (top_prob > 0.20 and top_is_manmade and botanical_ratio < 0.20 and botanical_prob < 0.10)
-        ) and botanical_prob < 0.15:
+            (top_prob > 0.35 and top_is_manmade and not has_strong_botanical)
+            or (manmade_prob > 0.60 and botanical_ratio < 0.30 and exg_ratio < 0.15)
+            or (top_prob > 0.20 and top_is_manmade and botanical_ratio < 0.25 and botanical_prob < 0.10)
+            or (c_man_prob > 0.65 and metrics["center_botanical_ratio"] < 0.25)
+        ) and botanical_prob < 0.20:
             logger.info("plant_gatekeeper_rejected_manmade_dominant", object=top_cat, **metrics)
             return {
                 "is_plant": False,

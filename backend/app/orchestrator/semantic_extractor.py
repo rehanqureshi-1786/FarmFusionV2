@@ -122,10 +122,18 @@ def extract_semantic_frame_deterministic(
     sub_intent: Optional[str] = None
 
     # Keyword bundles
-    is_nav_kw = any(w in lower_text for w in [
-        "स्क्रीन खोलो", "पेज खोलो", "स्क्रीन", "खोलो", "चलो", "दिखाओ", "open screen",
-        "navigate", "open crop", "वापस", "camera", "कैमरा खोलो"
-    ])
+    is_nav_kw = (
+        any(w in lower_text for w in [
+            "स्क्रीन खोलो", "पेज खोलो", "स्क्रीन", "खोलो", "चलो", "दिखाओ", "open screen",
+            "navigate", "open crop", "वापस", "camera", "कैमरा खोलो",
+            "screen", "dikhao", "kholo", "chalo", "open page", "open screen", "le chalo",
+            "show screen", "rates screen"
+        ])
+        and any(w in lower_text for w in [
+            "स्क्रीन", "screen", "पेज", "page", "खोलो", "kholo", "navigate", "open",
+            "dikhao", "दिखाओ", "चलो", "chalo", "वापस", "back", "camera", "कैमरा"
+        ])
+    )
     is_repeat_kw = any(w in lower_text for w in [
         "फिर से बताओ", "दोबारा बोलो", "repeat", "say again", "once more", "फिर बताओ", "दोबारा"
     ])
@@ -153,9 +161,10 @@ def extract_semantic_frame_deterministic(
         "paani kab du", "kab paani", "paani lagayein", "pani kab", "pani dena"
     ])
     is_mandi_kw = any(w in lower_text for w in [
-        "मंडी", "mandi", "भाव", "bhav", "रेट", "rate", "कीमत", "दाम", "price",
+        "मंडी", "mandi", "भाव", "bhav", "bhaav", "baav", "रेट", "rate", "कीमत", "दाम", "price",
         "मार्केट", "market", "બજાર", "ભાવ", "ਕੀਮਤ", "ਧਰ", "விலை", "modal price",
-        "ਭਾਅ", "ਮੰਡੀ"
+        "ਭਾਅ", "ਮੰਡੀ", "daam", "daav", "kya bhav", "kya bhaav", "kya baav", "kya rate", "bhav kya",
+        "bhaav kya", "ke kya bhaav", "ke kya bhav", "ke kya baav"
     ])
     is_disease_kw = any(w in lower_text for w in [
         "बीमारी", "disease", "रोग", "कीड़े", "कीड़ा", "कीड़ा", "कीट", "pest", "पत्ता खराब", "धब्बे", "ડાઘ", "પાંદડા",
@@ -180,6 +189,19 @@ def extract_semantic_frame_deterministic(
         "जानवर", "animal", "नीलगाय", "nilgai", "सूअर", "pig", "घुसपैठ", "intrusion",
         "खेत सुरक्षित", "sensor", "farm security", "सुरक्षा अलार्म", "perimeter",
         "suar", "janwar", "ghus", "boundary", "tarbandi"
+    ])
+    is_cold_storage_kw = any(w in lower_text for w in [
+        "कोल्ड स्टोरेज", "cold storage", "स्टोरेज", "गोदाम", "वेयरहाउस", "warehouse",
+        "माल रखने", "भंडारण", "storage", "fasal rakhne", "aloo rakhne", "godam", "cold store"
+    ])
+    is_fertilizer_kw = any(w in lower_text for w in [
+        "खाद", "यूरिया", "डीएपी", "पोटाश", "एनपीके", "उर्वरक", "पोषण", "fertilizer", "urea", "dap", "npk",
+        "potash", "manure", "khad", "khad kab dale", "khad kitni", "khad ki matra", "khad kab dalna",
+        "बुवाई", "बीज दर", "उन्नत किस्में", "sowing", "seed rate", "variety", "dekhbhal", "देखभाल", "care"
+    ])
+    is_pest_consult_kw = any(w in lower_text for w in [
+        "सफेद मक्खी", "whitefly", "माहू", "aphid", "इल्ली", "bollworm", "कीट नियंत्रण", "pest control",
+        "दवा बताओ", "स्प्रे बताओ", "कीटनाशक बताओ", "इलाज क्या", "रोकथाम कैसे", "treatment"
     ])
     is_decision_kw = any(w in lower_text for w in [
         "बेचूं या", "रुकूं", "sell now or wait", "should i sell", "कब बेचूं", "निर्णय", "बेचना ठीक", "hold", "sell right now",
@@ -219,6 +241,12 @@ def extract_semantic_frame_deterministic(
         required_capabilities = [CapabilityType.CALLING]
         intent_confidence = 0.98
 
+    # 2c. Cold Storage / Warehouse Lookup (Priority Check)
+    elif is_cold_storage_kw:
+        intent = CanonicalIntent.COLD_STORAGE
+        required_capabilities = [CapabilityType.COLD_STORAGE]
+        intent_confidence = 0.96
+
     # 3. Government Schemes & Subsidies (Priority Check)
     elif is_scheme_kw:
         intent = CanonicalIntent.GOVERNMENT_SCHEME
@@ -226,7 +254,6 @@ def extract_semantic_frame_deterministic(
         intent_confidence = 0.95
 
     # 4. Compound: Irrigation Advisory (Weather + Soil Moisture)
-
     elif is_irrigation_kw and is_weather_kw:
         intent = CanonicalIntent.IRRIGATION_ADVISORY
         required_capabilities = [CapabilityType.WEATHER, CapabilityType.SMART_IRRIGATION]
@@ -258,6 +285,18 @@ def extract_semantic_frame_deterministic(
     elif is_mandi_kw:
         intent = CanonicalIntent.MANDI_PRICE
         required_capabilities = [CapabilityType.CURRENT_PRICE]
+        intent_confidence = 0.94
+
+    # 5b. Crop Care, Nutrition, Sowing & Fertilizer Schedule
+    elif is_fertilizer_kw or (crop and any(w in lower_text for w in ["खाद", "उर्वरक", "यूरिया", "बुवाई", "care", "dekhbhal", "देखभाल", "how to grow"])):
+        intent = CanonicalIntent.CROP_CARE
+        required_capabilities = [CapabilityType.CROP_CARE]
+        intent_confidence = 0.95
+
+    # 5c. Pest / Insect Consultation Advisory
+    elif is_pest_consult_kw:
+        intent = CanonicalIntent.PEST_TREATMENT
+        required_capabilities = [CapabilityType.CROP_CARE, CapabilityType.RAG_KNOWLEDGE]
         intent_confidence = 0.94
 
     # 6. Disease Detection (Gated by Leaf Image requirement)
@@ -336,8 +375,9 @@ def extract_semantic_frame_deterministic(
             required_capabilities = [CapabilityType.RAG_KNOWLEDGE]
             intent_confidence = 0.92
         else:
+            intent = CanonicalIntent.AGRICULTURAL_KNOWLEDGE
             required_capabilities = [CapabilityType.RAG_KNOWLEDGE]
-            intent_confidence = 0.70
+            intent_confidence = 0.88
 
     # Entity Confidence calculation
     if crop:
@@ -356,6 +396,24 @@ def extract_semantic_frame_deterministic(
     add_entities = {}
     if phone_match:
         add_entities["phone"] = phone_match.group(0).replace(" ", "").replace("-", "")
+
+    if is_nav_kw:
+        dest_val = "dashboard"
+        if any(w in lower_text for w in ["मंडी", "mandi", "भाव", "bhav", "rate", "rates", "market", "price"]):
+            dest_val = "mandi_prices"
+        elif any(w in lower_text for w in ["कोल्ड स्टोरेज", "cold storage", "स्टोरेज", "गोदाम", "warehouse", "storage", "godam"]):
+            dest_val = "cold_storage"
+        elif any(w in lower_text for w in ["मौसम", "weather", "बारिश", "rain"]):
+            dest_val = "weather"
+        elif any(w in lower_text for w in ["फसल", "crop", "सलाह", "recommendation"]):
+            dest_val = "crop_recommendation"
+        elif any(w in lower_text for w in ["बीमारी", "रोग", "disease", "scan", "camera", "कैमरा"]):
+            dest_val = "crop_disease"
+        elif any(w in lower_text for w in ["योजना", "scheme", "finance", "kcc"]):
+            dest_val = "financial_services"
+        elif any(w in lower_text for w in ["जानवर", "animal"]):
+            dest_val = "animal_detection"
+        add_entities["destination"] = dest_val
 
     entities = EntitySet(
         crop=crop,

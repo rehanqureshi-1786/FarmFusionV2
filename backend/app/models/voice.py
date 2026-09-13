@@ -13,6 +13,7 @@ class IntentType(str, Enum):
     GET_MANDI_PRICE = "mandi"
     CROP_PREDICTION = "crop_recommendation"
     DISEASE_DETECTION = "disease"
+    COLD_STORAGE = "cold_storage"
     SCHEME = "scheme"
     NAVIGATION = "navigation"
     GENERAL_QUERY = "general_query"

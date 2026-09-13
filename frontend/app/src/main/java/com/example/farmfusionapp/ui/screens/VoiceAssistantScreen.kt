@@ -72,6 +72,7 @@ import com.example.farmfusionapp.utils.AuthStore
 import com.example.farmfusionapp.utils.LocationSnapshotStore
 import com.example.farmfusionapp.viewmodel.VoiceViewModel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Locale
@@ -83,7 +84,8 @@ private data class ChatMessage(
     val languageCode: String? = null,
     val ttsBadge: String? = null,
     val isNativeTts: Boolean? = null,
-    val fallbackUsed: Boolean? = null
+    val fallbackUsed: Boolean? = null,
+    val id: String = java.util.UUID.randomUUID().toString()
 )
 
 private data class VoiceLanguage(
@@ -185,6 +187,8 @@ fun VoiceAssistantScreen(navController: NavController) {
         TextToSpeech(context) { status -> ttsReady = status == TextToSpeech.SUCCESS }
     }
 
+    val coroutineScope = rememberCoroutineScope()
+
     fun stopAudioPlayback() {
         try {
             activeMediaPlayer?.let {
@@ -202,38 +206,44 @@ fun VoiceAssistantScreen(navController: NavController) {
 
     fun playAudioFromBase64(base64Data: String, onFinished: () -> Unit) {
         stopAudioPlayback()
-        try {
-            val audioBytes = Base64.decode(base64Data, Base64.DEFAULT)
-            val tempFile = File(context.cacheDir, "farmfusion_audio_response.wav")
-            FileOutputStream(tempFile).use { it.write(audioBytes) }
+        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val audioBytes = Base64.decode(base64Data, Base64.DEFAULT)
+                val tempFile = File(context.cacheDir, "farmfusion_audio_response.wav")
+                FileOutputStream(tempFile).use { it.write(audioBytes) }
 
-            val player = MediaPlayer().apply {
-                setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
-                        .build()
-                )
-                setDataSource(tempFile.absolutePath)
-                setOnPreparedListener {
-                    assistantState = VoiceAssistantState.SPEAKING
-                    start()
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    val player = MediaPlayer().apply {
+                        setAudioAttributes(
+                            AudioAttributes.Builder()
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                                .setUsage(AudioAttributes.USAGE_ASSISTANCE_NAVIGATION_GUIDANCE)
+                                .build()
+                        )
+                        setDataSource(tempFile.absolutePath)
+                        setOnPreparedListener {
+                            assistantState = VoiceAssistantState.SPEAKING
+                            start()
+                        }
+                        setOnCompletionListener {
+                            stopAudioPlayback()
+                            onFinished()
+                        }
+                        setOnErrorListener { _, _, _ ->
+                            stopAudioPlayback()
+                            onFinished()
+                            true
+                        }
+                        prepareAsync()
+                    }
+                    activeMediaPlayer = player
                 }
-                setOnCompletionListener {
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                     stopAudioPlayback()
                     onFinished()
                 }
-                setOnErrorListener { _, _, _ ->
-                    stopAudioPlayback()
-                    onFinished()
-                    true
-                }
-                prepareAsync()
             }
-            activeMediaPlayer = player
-        } catch (e: Exception) {
-            stopAudioPlayback()
-            onFinished()
         }
     }
 
@@ -505,7 +515,7 @@ fun VoiceAssistantScreen(navController: NavController) {
                     ),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    items(chatMessages) { message ->
+                    items(chatMessages, key = { it.id }) { message ->
                         VoiceBubble(
                             message = message,
                             onReplayClick = {

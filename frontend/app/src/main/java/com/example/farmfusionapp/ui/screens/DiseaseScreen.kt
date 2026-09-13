@@ -69,48 +69,77 @@ fun DiseaseScreen(navController: NavController) {
     
     val currentLang = remember { AuthStore.getLanguage(context) ?: "en" }
     val token = remember { AuthStore.getAuthToken(context) }
-    val tempFile = remember { File(context.cacheDir, "disease_scan_temp.jpg") }
-    val fileProviderUri = remember { FileProvider.getUriForFile(context, "com.example.farmfusionapp.provider", tempFile) }
+    var currentScanFile by remember { mutableStateOf<File?>(null) }
+    var currentScanUri by remember { mutableStateOf<Uri?>(null) }
 
-    val startAnalysis = {
-        currentState = ScanState.SCANNING
-        viewModel.detectDisease(
-            imageFile = tempFile,
-            cropType = null,
-            firebaseToken = null,
-            responseLanguage = currentLang
-        )
+    val createFreshScanTarget = {
+        currentScanFile?.let { oldFile ->
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try { if (oldFile.exists()) oldFile.delete() } catch (_: Exception) {}
+            }
+        }
+        val newFile = File(context.cacheDir, "disease_scan_${System.currentTimeMillis()}.jpg")
+        val newUri = FileProvider.getUriForFile(context, "com.example.farmfusionapp.provider", newFile)
+        currentScanFile = newFile
+        currentScanUri = newUri
+        Pair(newFile, newUri)
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) {
-            if (!tempFile.exists() || tempFile.length() == 0L) {
-                android.util.Log.e("DiseaseScreen", "Camera capture failed: photo file not found or empty")
-                return@rememberLauncherForActivityResult
-            }
-            capturedImageUri = fileProviderUri
+        val file = currentScanFile
+        val uri = currentScanUri
+        if (success && file != null && uri != null && file.exists() && file.length() > 0L) {
+            capturedImageUri = uri
+            currentState = ScanState.SCANNING
             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                optimizeImageFile(tempFile)
+                optimizeImageFile(file)
                 kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    startAnalysis()
+                    viewModel.detectDisease(
+                        imageFile = file,
+                        cropType = null,
+                        firebaseToken = null,
+                        responseLanguage = currentLang
+                    )
                 }
             }
         } else {
-            android.util.Log.d("DiseaseScreen", "Camera capture cancelled by user")
+            android.util.Log.d("DiseaseScreen", "Camera capture cancelled or failed")
+            if (currentState == ScanState.SCANNING) {
+                currentState = ScanState.IDLE
+            }
         }
+    }
+
+    val launchCamera = {
+        val (_, newUri) = createFreshScanTarget()
+        capturedImageUri = null
+        viewModel.resetDetectState()
+        cameraLauncher.launch(newUri)
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { selectedUri ->
         if (selectedUri != null) {
+            val (newFile, _) = createFreshScanTarget()
+            capturedImageUri = selectedUri
+            currentState = ScanState.SCANNING
+            viewModel.resetDetectState()
             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                val ok = prepareImageFromUri(context, selectedUri, tempFile)
-                if (ok && tempFile.exists() && tempFile.length() > 0L) {
+                val ok = prepareImageFromUri(context, selectedUri, newFile)
+                if (ok && newFile.exists() && newFile.length() > 0L) {
                     kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                        capturedImageUri = selectedUri
-                        startAnalysis()
+                        viewModel.detectDisease(
+                            imageFile = newFile,
+                            cropType = null,
+                            firebaseToken = null,
+                            responseLanguage = currentLang
+                        )
                     }
                 } else {
                     android.util.Log.e("DiseaseScreen", "Gallery file copy/optimize failed")
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        currentState = ScanState.IDLE
+                        capturedImageUri = null
+                    }
                 }
             }
         }
@@ -118,7 +147,7 @@ fun DiseaseScreen(navController: NavController) {
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
-            cameraLauncher.launch(fileProviderUri)
+            launchCamera()
         }
     }
 
@@ -190,8 +219,22 @@ fun DiseaseScreen(navController: NavController) {
             ) { state ->
                 when (state) {
                     ScanState.IDLE -> CameraCaptureStep(
-                        onCameraClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-                        onGalleryClick = { galleryLauncher.launch("image/*") }
+                        onCameraClick = {
+                            val hasPerm = androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            if (hasPerm) {
+                                launchCamera()
+                            } else {
+                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        onGalleryClick = {
+                            capturedImageUri = null
+                            viewModel.resetDetectState()
+                            galleryLauncher.launch("image/*")
+                        }
                     )
                     ScanState.SCANNING -> ScanningStep()
                     ScanState.RESULT -> {

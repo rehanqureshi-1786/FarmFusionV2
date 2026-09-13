@@ -1,5 +1,6 @@
 package com.example.farmfusionapp.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -66,6 +67,13 @@ fun MandiPricesScreen(
     var searchQuery by remember { mutableStateOf("") }
 
     val pricesState by viewModel.pricesState
+    val filteredPrices = remember(pricesState, searchQuery, selectedCategory) {
+        val success = pricesState as? MarketViewModel.MarketPricesState.Success
+        success?.response?.data?.filter {
+            (searchQuery.isEmpty() || it.commodity.contains(searchQuery, true) || it.market.contains(searchQuery, true) || it.district.contains(searchQuery, true)) &&
+                    (selectedCategory == "ALL CROPS" || isCropInCategory(it.commodity, selectedCategory))
+        } ?: emptyList()
+    }
     val categories = listOf("ALL CROPS", "GRAINS", "VEGETABLES", "PULSES", "FRUITS", "SPICES")
 
     // Comprehensive default crop list (covers 30+ high-volume Agmarknet crops)
@@ -126,12 +134,31 @@ fun MandiPricesScreen(
         label = "dialog_blur"
     )
 
+    val onNavigateBackToHome = {
+        if (!navController.popBackStack(NavRoutes.Dashboard, inclusive = false)) {
+            navController.navigate(NavRoutes.Dashboard) {
+                popUpTo(NavRoutes.Dashboard) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    BackHandler {
+        onNavigateBackToHome()
+    }
+
     LaunchedEffect(Unit) {
-        viewModel.getMarketPrices()
-        productViewModel.loadProducts(null)
-        coroutineScope.launch {
+        if (viewModel.pricesState.value !is MarketViewModel.MarketPricesState.Success) {
+            viewModel.getMarketPrices()
+        }
+        if (productViewModel.bestTreatment.value.isNullOrEmpty()) {
+            productViewModel.loadProducts(null)
+        }
+        if (allAvailableCrops.size <= defaultCrops.size) {
             try {
-                val commRes = RetrofitInstance.api.getCommodities()
+                val commRes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    RetrofitInstance.api.getCommodities()
+                }
                 if (commRes.isSuccessful && commRes.body() != null && commRes.body()!!.isNotEmpty()) {
                     allAvailableCrops = commRes.body()!!
                 }
@@ -157,7 +184,7 @@ fun MandiPricesScreen(
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { navController.popBackStack() }) {
+                        IconButton(onClick = { onNavigateBackToHome() }) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color(0xFF1A1A1A))
                         }
                     }
@@ -318,12 +345,7 @@ fun MandiPricesScreen(
                         item { Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFF1B4332)) } }
                     }
                     is MarketViewModel.MarketPricesState.Success -> {
-                        val filtered = state.response.data.filter {
-                            (searchQuery.isEmpty() || it.commodity.contains(searchQuery, true) || it.market.contains(searchQuery, true) || it.district.contains(searchQuery, true)) &&
-                                    (selectedCategory == "ALL CROPS" || isCropInCategory(it.commodity, selectedCategory))
-                        }
-
-                        if (filtered.isEmpty()) {
+                        if (filteredPrices.isEmpty()) {
                             item {
                                 Box(
                                     modifier = Modifier
@@ -343,7 +365,10 @@ fun MandiPricesScreen(
                                 }
                             }
                         } else {
-                            items(filtered.take(30)) { item ->
+                            items(
+                                items = filteredPrices.take(30),
+                                key = { "${it.market}_${it.commodity}_${it.district}_${it.arrival_date}_${it.modal_price}" }
+                            ) { item ->
                                 PriceCard(
                                     item = item,
                                     modifier = Modifier.padding(horizontal = 20.dp)
@@ -410,12 +435,14 @@ fun MandiPricesScreen(
                     )
 
                     // Matching Crop Suggestions & Popular Chips
-                    val matchingNearbyCrops = allAvailableCrops.filter {
-                        nearbyCropInput.isBlank() || it.contains(nearbyCropInput, ignoreCase = true)
-                    }.take(10)
+                    val matchingNearbyCrops = remember(allAvailableCrops, nearbyCropInput) {
+                        allAvailableCrops.filter {
+                            nearbyCropInput.isBlank() || it.contains(nearbyCropInput, ignoreCase = true)
+                        }.take(10)
+                    }
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingNearbyCrops) { crop ->
+                        items(matchingNearbyCrops, key = { it }) { crop ->
                             val isSel = crop.equals(nearbySelectedCrop, ignoreCase = true)
                             FilterChip(
                                 selected = isSel,
@@ -611,12 +638,14 @@ fun MandiPricesScreen(
                     )
 
                     // Quick Crop Chips
-                    val matchingCompareCrops = allAvailableCrops.filter {
-                        compareCrop.isBlank() || it.contains(compareCrop, ignoreCase = true)
-                    }.take(8)
+                    val matchingCompareCrops = remember(allAvailableCrops, compareCrop) {
+                        allAvailableCrops.filter {
+                            compareCrop.isBlank() || it.contains(compareCrop, ignoreCase = true)
+                        }.take(8)
+                    }
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingCompareCrops) { crop ->
+                        items(matchingCompareCrops, key = { it }) { crop ->
                             FilterChip(
                                 selected = crop.equals(compareCrop, ignoreCase = true),
                                 onClick = { compareCrop = crop; compareResult = null },
@@ -745,12 +774,14 @@ fun MandiPricesScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    val matchingAdvisoryCrops = allAvailableCrops.filter {
-                        advisoryCrop.isBlank() || it.contains(advisoryCrop, ignoreCase = true)
-                    }.take(8)
+                    val matchingAdvisoryCrops = remember(allAvailableCrops, advisoryCrop) {
+                        allAvailableCrops.filter {
+                            advisoryCrop.isBlank() || it.contains(advisoryCrop, ignoreCase = true)
+                        }.take(8)
+                    }
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingAdvisoryCrops) { crop ->
+                        items(matchingAdvisoryCrops, key = { it }) { crop ->
                             FilterChip(
                                 selected = crop.equals(advisoryCrop, ignoreCase = true),
                                 onClick = { advisoryCrop = crop; advisoryResult = null },
@@ -866,12 +897,14 @@ fun MandiPricesScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    val matchingAlertCrops = allAvailableCrops.filter {
-                        alertCrop.isBlank() || it.contains(alertCrop, ignoreCase = true)
-                    }.take(8)
+                    val matchingAlertCrops = remember(allAvailableCrops, alertCrop) {
+                        allAvailableCrops.filter {
+                            alertCrop.isBlank() || it.contains(alertCrop, ignoreCase = true)
+                        }.take(8)
+                    }
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingAlertCrops) { crop ->
+                        items(matchingAlertCrops, key = { it }) { crop ->
                             FilterChip(
                                 selected = crop.equals(alertCrop, ignoreCase = true),
                                 onClick = { alertCrop = crop; alertSuccessMsg = null },

@@ -10,8 +10,9 @@ Features:
 - Firebase Authentication
 - User Management & Farms
 
-Start: python main.py
-API Docs: http://localhost:8000/docs
+# Start: python main.py
+# API Docs: http://localhost:8000/docs
+
 """
 import logging
 

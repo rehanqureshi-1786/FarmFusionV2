@@ -28,11 +28,11 @@
 // ============================================================================
 // 1. CONFIGURATION
 // ============================================================================
-const char *WIFI_SSID = "moto edge 60 pro_3156"; // Your Wi-Fi SSID
-const char *WIFI_PASSWORD = "Khush9884";         // Your Wi-Fi Password
+const char *WIFI_SSID = "Janardan's Nothing 3a"; // Your Wi-Fi SSID
+const char *WIFI_PASSWORD = "gohil2005";         // Your Wi-Fi Password
 
 // Laptop IPv4 Address on Wi-Fi network
-const char *SERVER_IP = "10.63.73.222";
+const char *SERVER_IP = "10.44.57.226";
 const int SERVER_PORT = 8000;
 const char *DEVICE_ID = "NODE_01";
 

@@ -35,6 +35,9 @@ class CanonicalIntent(str, Enum):
     AGRICULTURAL_KNOWLEDGE = "agricultural_knowledge"
     ANIMAL_ALERT = "animal_alert"
     GENERAL_AGRICULTURE = "general_agriculture"
+    COLD_STORAGE = "cold_storage"
+    CROP_CARE = "crop_care"
+    PEST_TREATMENT = "pest_treatment"
     NAVIGATION_REQUEST = "navigation_request"
     CALLING = "calling"
     REPEAT_LAST = "repeat_last"
@@ -57,6 +60,8 @@ class CapabilityType(str, Enum):
     MANDI_DECISION = "MANDI_DECISION"
     RAG_KNOWLEDGE = "RAG_KNOWLEDGE"
     GOVERNMENT_SCHEME = "GOVERNMENT_SCHEME"
+    COLD_STORAGE = "COLD_STORAGE"
+    CROP_CARE = "CROP_CARE"
     ANIMAL_ALERT = "ANIMAL_ALERT"
     ANIMAL_DETECTION = "ANIMAL_DETECTION"
     CALLING = "CALLING"
@@ -95,6 +100,7 @@ class NavigationDestination(str, Enum):
     CROP_RECOMMENDATION = "CROP_RECOMMENDATION"
     FINANCIAL_SERVICES = "FINANCIAL_SERVICES"
     DASHBOARD = "DASHBOARD"
+    COLD_STORAGE = "COLD_STORAGE"
     ANIMAL_DETECTION = "ANIMAL_DETECTION"
     LANGUAGE_SELECTION = "LANGUAGE_SELECTION"
     BACK = "BACK"
@@ -108,6 +114,7 @@ ANDROID_ROUTE_MAP: Dict[NavigationDestination, str] = {
     NavigationDestination.CROP_RECOMMENDATION: "crop_recommendation",
     NavigationDestination.FINANCIAL_SERVICES: "financial_services",
     NavigationDestination.DASHBOARD: "dashboard",
+    NavigationDestination.COLD_STORAGE: "crop_storage",
     NavigationDestination.ANIMAL_DETECTION: "animal_detection",
     NavigationDestination.LANGUAGE_SELECTION: "language_selection",
     NavigationDestination.BACK: "back",

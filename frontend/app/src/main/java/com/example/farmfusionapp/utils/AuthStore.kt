@@ -44,7 +44,7 @@ object AuthStore {
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(KEY_LANGUAGE, languageCode)
-            .commit()
+            .apply()
     }
 
     fun saveLanguageAndDialect(context: Context, languageCode: String, dialectCode: String?) {
@@ -53,7 +53,7 @@ object AuthStore {
             .edit()
             .putString(KEY_LANGUAGE, languageCode)
             .putString(KEY_DIALECT, dialectCode)
-            .commit()
+            .apply()
     }
 
     /**

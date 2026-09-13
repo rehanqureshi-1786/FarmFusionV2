@@ -86,15 +86,21 @@ Rules:
         query_lower = query.lower()
 
         # Keyword mapping for multiple languages
-        mandi_keywords = ["rate", "price", "bhav", "daam", "रेट", "भाव", "कीमत", "दर", "ભાવ", "ਕੀਮਤ", "ధర"]
+        mandi_keywords = [
+            "rate", "price", "bhav", "bhaav", "baav", "daam", "daav", "रेट", "भाव", "कीमत", "दर",
+            "ભાવ", "ਕੀਮਤ", "ਧਰ", "kya bhav", "kya bhaav", "kya baav", "kya rate", "bhav kya"
+        ]
         weather_keywords = ["mausam", "weather", "baarish", "rain", "मौसम", "पाऊस", "વરસાદ", "ਮੀਂਹ", "వర్షం"]
         crop_keywords = ["fasal", "crop", "beej", "बीज", "फसल", "ਪੀਕ", "పంట", "વાવેતર"]
         disease_keywords = ["bimari", "disease", "rog", "kida", "रोग", "बीमारी", "रोग", "ਰੋਗ", "వ్యాధి"]
+        cold_storage_keywords = ["cold storage", "storage", "warehouse", "godam", "कोल्ड स्टोरेज", "गोदाम", "भंडारण", "वेयरहाउस"]
 
         if any(word in query_lower for word in mandi_keywords):
             intent = IntentType.GET_MANDI_PRICE
         elif any(word in query_lower for word in weather_keywords):
             intent = IntentType.GET_WEATHER
+        elif any(word in query_lower for word in cold_storage_keywords):
+            intent = IntentType.COLD_STORAGE
         elif any(word in query_lower for word in crop_keywords):
             intent = IntentType.CROP_PREDICTION
         elif any(word in query_lower for word in disease_keywords):
@@ -102,13 +108,16 @@ Rules:
         else:
             intent = IntentType.GENERAL_QUERY
 
+        from app.orchestrator.normalization import normalize_crop_name
+        extracted_crop = normalize_crop_name(query)
+
         lang = self._normalize_language(language_hint) if language_hint else self._detect_language_fallback(query)
         return DetectedIntent(
             intent=intent,
-            crop=None,
+            crop=extracted_crop,
             location="auto",
             language=lang,
-            confidence=0.5,
+            confidence=0.88 if extracted_crop and intent == IntentType.GET_MANDI_PRICE else 0.5,
             extracted_entities={"timeframe": self._extract_timeframe(query_lower)}
         )
 
@@ -139,6 +148,7 @@ Rules:
             IntentType.GET_MANDI_PRICE: self._handle_mandi_price,
             IntentType.CROP_PREDICTION: self._handle_crop_prediction,
             IntentType.DISEASE_DETECTION: self._handle_disease_detection,
+            IntentType.COLD_STORAGE: self._handle_cold_storage,
             IntentType.GENERAL_QUERY: self._handle_general_query,
             IntentType.UNKNOWN: self._handle_unknown,
         }
@@ -203,16 +213,25 @@ Rules:
         request: VoiceQueryRequest
     ) -> Dict[str, Any]:
         from app.tools.registry import tool_registry
-        crop = intent.crop or "Wheat"
+        from app.orchestrator.normalization import normalize_crop_name
+        crop = intent.crop or normalize_crop_name(query) or "Wheat"
         tool_res = await tool_registry.execute(
-            "market_price_tool",
-            {"commodity": crop, "state": request.location or "Rajasthan"}
+            "mandi_current_price_tool",
+            {"commodity": crop, "crop": crop, "state": request.location or "Rajasthan"}
         )
         if tool_res.data:
+            current_sub = tool_res.data.get("current_price") if isinstance(tool_res.data.get("current_price"), dict) else tool_res.data
+            modal_price = (
+                tool_res.data.get("modal_price")
+                or current_sub.get("modal_price")
+                or tool_res.data.get("price_per_quintal")
+                or current_sub.get("price")
+                or 2520
+            )
             price_data = {
-                "crop": crop,
-                "market_name": tool_res.data.get("current_price", {}).get("market", "Local Mandi"),
-                "price_per_quintal": tool_res.data.get("current_price", {}).get("modal_price", 2400),
+                "crop": tool_res.data.get("commodity") or current_sub.get("commodity") or crop,
+                "market_name": tool_res.data.get("market") or current_sub.get("market", "Local Mandi"),
+                "price_per_quintal": modal_price,
                 "price_trend": "stable",
                 "last_updated": datetime.now().isoformat(),
                 "forecast": tool_res.data.get("forecast")
@@ -268,7 +287,54 @@ Rules:
         return {
             "action": ActionType.OPEN_CAMERA,
             "response": response_text,
-            "data": {"action": "open_camera", "message": response_text}
+            "data": {"action": "open_camera", "message": response_text, "destination": "crop_disease"}
+        }
+
+    async def _handle_cold_storage(
+        self,
+        intent: DetectedIntent,
+        query: str,
+        request: VoiceQueryRequest
+    ) -> Dict[str, Any]:
+        from app.tools.registry import tool_registry
+        lat = request.latitude or 24.5854
+        lon = request.longitude or 73.7125
+        loc_name = request.location or "Udaipur"
+        crop = intent.crop or ""
+        tool_res = await tool_registry.execute(
+            "cold_storage_tool",
+            {"latitude": lat, "longitude": lon, "location_name": loc_name, "crop": crop, "radius_km": 100.0}
+        )
+        data_payload = tool_res.data or {}
+        facilities = data_payload.get("facilities", [])
+        if facilities:
+            top = facilities[0]
+            f_name = top.get("name")
+            f_dist = top.get("distance_km")
+            f_cap = top.get("storage_capacity", "")
+            f_crops = top.get("suitable_crops", "")
+            f_distr = top.get("district", "")
+            f_time = top.get("drive_time_text", "")
+            time_str = f" (ड्राइव समय: {f_time})" if f_time else ""
+
+            lang = intent.language
+            if lang == LanguageType.HINGLISH:
+                resp = f"{loc_name} ke paas sabse nazdeek cold storage '{f_name}' ({f_distr}) hai, jo lagbhag {f_dist} km door hai{time_str}. Capacity: {f_cap}. Suitable crops: {f_crops}."
+            elif lang == LanguageType.HINDI:
+                resp = f"{loc_name} के पास सबसे नजदीकी कोल्ड स्टोरेज '{f_name}' ({f_distr}) है, जो लगभग {f_dist} km दूरी पर है{time_str}। क्षमता: {f_cap}। उपयुक्त फसलें: {f_crops}।"
+            else:
+                resp = f"The nearest cold storage to {loc_name} is '{f_name}' in {f_distr}, approximately {f_dist} km away{time_str}. Capacity: {f_cap}."
+        else:
+            resp = tool_res.message
+
+        return {
+            "action": ActionType.NAVIGATE,
+            "response": resp,
+            "data": {
+                "destination": "crop_storage",
+                "facilities": facilities,
+                "total_found": len(facilities)
+            }
         }
 
     async def _handle_general_query(
@@ -500,14 +566,26 @@ Do not invent data beyond the provided weather JSON."""
         return "Real weather data is unavailable right now. Please try again in a moment."
 
     def _generate_price_response(self, lang: LanguageType, data: Dict[str, Any]) -> str:
-        crop = data["crop"].capitalize()
+        crop_raw = str(data["crop"])
+        crop = crop_raw.capitalize()
+        crop_hindi = {
+            "wheat": "गेहूं", "mustard": "सरसों", "cotton": "कपास", "soybean": "सोयाबीन",
+            "paddy": "धान", "rice": "चावल", "maize": "मक्का", "groundnut": "मूंगफली",
+            "bajra": "बाजरा", "gram": "चना", "chana": "चना", "potato": "आलू",
+            "onion": "प्याज", "tomato": "टमाटर", "garlic": "लहसुन", "sugarcane": "गन्ना"
+        }.get(crop_raw.lower(), crop)
+
         price = data["price_per_quintal"]
+        mkt = data.get("market_name")
+        mkt_hi = f" ({mkt} मंडी)" if mkt else ""
+        mkt_en = f" at {mkt} mandi" if mkt else ""
+
         response_language = self._response_language(lang)
         if response_language == LanguageType.HINGLISH:
-            return f"{crop} ka current rate lagbhag {price} rupaye per quintal hai."
+            return f"{crop} ka current rate lagbhag ₹{price} per quintal hai{mkt_en}."
         if response_language == LanguageType.HINDI:
-            return f"{crop} का वर्तमान भाव करीब {price} रुपये प्रति क्विंटल है।"
-        return f"Current {crop} price is Rs {price} per quintal in the nearby mandi."
+            return f"{crop_hindi} का वर्तमान भाव करीब ₹{price} प्रति क्विंटल है{mkt_hi}।"
+        return f"Current {crop} price is ₹{price} per quintal in {mkt or 'the nearby mandi'}."
 
     def _generate_crop_prediction_response(self, lang: LanguageType, data: Dict[str, Any]) -> str:
         crops = ", ".join(data["recommended_crops"][:3])
@@ -521,10 +599,10 @@ Do not invent data beyond the provided weather JSON."""
     def _generate_disease_response(self, lang: LanguageType) -> str:
         response_language = self._response_language(lang)
         if response_language == LanguageType.HINGLISH:
-            return "Please affected plant ki ek clear photo lijiye. Camera open ho raha hai."
+            return "Yahan paudhe ki koi photo upload nahi hai, isliye rog ki pehchan sambhav nahi hai. Kripya prabhavit patti ki saaf photo scan karein. Camera khola ja raha hai."
         if response_language == LanguageType.HINDI:
-            return "कृपया प्रभावित पौधे की साफ फोटो लें। कैमरा खोला जा रहा है।"
-        return "Please take a clear photo of the affected plant. Opening camera."
+            return "यहाँ पौधे की कोई तस्वीर उपलब्ध नहीं है, इसलिए रोग की पहचान संभव नहीं है। कृपया प्रभावित पौधे की पत्ती की साफ फोटो लें ताकि सटीक पहचान हो सके। कैमरा खोला जा रहा है।"
+        return "No plant image was provided, so disease diagnosis is not possible. Please take or upload a clear photo of the affected plant leaf. Opening camera."
 
     def _get_fallback_response(self, lang: LanguageType) -> str:
         response_language = self._response_language(lang)
@@ -561,7 +639,7 @@ Do not invent data beyond the provided weather JSON."""
 
     def _get_mock_price(self, crop: str) -> float:
         prices = {
-            "wheat": 2150,
+            "wheat": 2520,
             "rice": 1880,
             "corn": 1850,
             "cotton": 6050,
@@ -569,9 +647,9 @@ Do not invent data beyond the provided weather JSON."""
             "potato": 1250,
             "onion": 2800,
             "tomato": 1500,
-            "soybean": 3900,
+            "soybean": 4600,
         }
-        return prices.get(crop.lower(), 2000)
+        return prices.get(crop.lower(), 2400)
 
     def _create_error_response(self, request: VoiceQueryRequest) -> VoiceQueryResponse:
         language = self._normalize_language(request.language_hint or "hi-en")

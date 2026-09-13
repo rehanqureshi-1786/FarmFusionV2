@@ -24,15 +24,14 @@
 #include <HTTPClient.h>
 #include <WiFi.h>
 
-
 // ============================================================================
 // 1. CONFIGURATION
 // ============================================================================
-const char *WIFI_SSID = "STORM";        // Your Wi-Fi SSID
-const char *WIFI_PASSWORD = "00000000"; // Your Wi-Fi Password
+const char *WIFI_SSID = "Janardan's Nothing 3a"; // Your Wi-Fi SSID
+const char *WIFI_PASSWORD = "gohil2005";         // Your Wi-Fi Password
 
 // Laptop IPv4 Address on Wi-Fi network
-const char *SERVER_IP = "10.45.35.226";
+const char *SERVER_IP = "10.44.57.226";
 const int SERVER_PORT = 8000;
 const char *DEVICE_ID = "NODE_01";
 
