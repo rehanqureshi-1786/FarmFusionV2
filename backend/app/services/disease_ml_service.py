@@ -126,6 +126,11 @@ class DiseaseMLService:
         import torch
         import torchvision.transforms as transforms
 
+        try:
+            torch.set_num_threads(1)
+        except Exception:
+            pass
+
         cls._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
         # 1. Attempt V2 Primary Model (38-class)
