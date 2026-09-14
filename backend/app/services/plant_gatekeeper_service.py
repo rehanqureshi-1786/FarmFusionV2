@@ -96,6 +96,10 @@ class PlantGatekeeperService:
             return True
 
         try:
+            try:
+                torch.set_num_threads(1)
+            except Exception:
+                pass
             cls._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             weights = MobileNet_V3_Small_Weights.DEFAULT
             cls._mobilenet = models.mobilenet_v3_small(weights=weights).eval().to(cls._device)

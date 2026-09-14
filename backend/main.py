@@ -82,16 +82,32 @@ async def language_context_middleware(request, call_next):
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup."""
+    """Initialize database and pre-warm vision ML models on startup."""
+    try:
+        import torch
+        torch.set_num_threads(1)
+    except Exception:
+        pass
+
     try:
         await init_db()
     except Exception as e:
         logging.warning("Database initialization deferred (PostgreSQL offline or unreachable): %s", e)
+
+    # Pre-warm vision ML models so first mobile request responds instantly
+    try:
+        from app.services.plant_gatekeeper_service import PlantGatekeeperService
+        from app.services.disease_ml_service import DiseaseMLService
+        PlantGatekeeperService.initialize()
+        DiseaseMLService.initialize()
+    except Exception as e:
+        logger.warning(f"ml_prewarm_failed: {e}")
+
     print("FarmFusion Backend Started")
     print("API Documentation: http://localhost:8000/docs")
     print(f"Debug Mode: {settings.debug}")
     print("AI Provider: Groq API (fallback to rule-based)")
-    print("Disease AI: Gemini Vision API when configured")
+    print("Disease AI: EfficientNet-B3 + Gemini Vision")
     print("Voice Assistant: /api/v1/voice")
 
 

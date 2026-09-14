@@ -40,6 +40,15 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Pre-warm vision ML models and limit threads to prevent CPU throttling
+    try:
+        import torch
+        torch.set_num_threads(1)
+        from app.services.plant_gatekeeper_service import PlantGatekeeperService
+        PlantGatekeeperService.initialize()
+    except Exception:
+        pass
+
     # Initialize Disease Detection ML Model singleton at startup
     DiseaseMLService.initialize()
     yield
