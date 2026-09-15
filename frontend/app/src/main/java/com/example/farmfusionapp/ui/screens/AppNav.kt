@@ -1,9 +1,7 @@
 package com.example.farmfusionapp.ui.screens
 
 import androidx.compose.animation.*
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -45,6 +43,7 @@ object NavRoutes {
     const val LanguageSelection = "language_selection"
     const val Splash = "splash"
     const val Login = "login"
+    const val OtpVerification = "otp_verification" // 👈 ADDED NEW ROUTE
     const val Register = "register"
     const val Dashboard = "dashboard"
     const val CropServices = "crop_services"
@@ -53,6 +52,7 @@ object NavRoutes {
     const val CropMonitoring = "crop_monitoring"
     const val CropDisease = "crop_disease"
     const val CropHarvesting = "crop_harvesting"
+    const val CropStorage = "crop_storage"
     const val CropSelling = "crop_selling"
     const val AnimalDetection = "animal_detection"
     const val LabourServices = "labour_services"
@@ -119,7 +119,7 @@ fun AppNav() {
                 containerColor = Color(0xFFF4F9F4),
                 modifier = Modifier
                     .fillMaxSize()
-                    .blur(radius = globalBlurRadius),
+                    .then(if (globalBlurRadius > 0.dp) Modifier.blur(radius = globalBlurRadius) else Modifier),
                 bottomBar = {
                     if (showBottomBar) {
                         Box(
@@ -140,11 +140,39 @@ fun AppNav() {
                 NavHost(
                     navController = navController,
                     startDestination = startDestination,
-                    modifier = Modifier.fillMaxSize().haze(state = hazeState)
+                    modifier = Modifier.fillMaxSize(),
+                    enterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> fullWidth },
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        )
+                    },
+                    exitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> -fullWidth },
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        )
+                    },
+                    popEnterTransition = {
+                        slideInHorizontally(
+                            initialOffsetX = { fullWidth -> -fullWidth },
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        )
+                    },
+                    popExitTransition = {
+                        slideOutHorizontally(
+                            targetOffsetX = { fullWidth -> fullWidth },
+                            animationSpec = tween(240, easing = FastOutSlowInEasing)
+                        )
+                    }
                 ) {
                     composable(NavRoutes.LanguageSelection) { LanguageSelectionScreen(navController) }
                     composable(NavRoutes.Splash) { SplashScreen(navController, authViewModel) }
                     composable(NavRoutes.Login) { LoginScreen(navController) }
+
+                    // 👈 ADDED NEW SCREEN TO NAVIGATION GRAPH
+                    composable(NavRoutes.OtpVerification) { OtpVerificationScreen(navController) }
+
                     composable(NavRoutes.Register) { RegisterScreen(navController) }
                     composable(NavRoutes.Dashboard) { DashboardScreen(navController) }
                     composable(NavRoutes.CropServices) { CropServicesScreen(navController) }
@@ -153,6 +181,7 @@ fun AppNav() {
                     composable(NavRoutes.CropMonitoring) { CropMonitoringScreen(navController) }
                     composable(NavRoutes.CropDisease) { CropDiseaseScreen(navController) }
                     composable(NavRoutes.CropHarvesting) { CropHarvestingScreen(navController) }
+                    composable(NavRoutes.CropStorage) { CropStorageScreen(navController) }
                     composable(NavRoutes.CropSelling) { CropSellingScreen(navController) }
                     composable(NavRoutes.AnimalDetection) { AnimalDetectionScreen(navController) }
                     composable(NavRoutes.LabourServices) { LabourServicesScreen(navController) }

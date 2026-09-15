@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -46,6 +47,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
+import coil.request.CachePolicy
+import coil.request.ImageRequest
 import kotlinx.coroutines.launch
 import com.example.farmfusionapp.R
 import com.example.farmfusionapp.data.model.DiseaseResult
@@ -81,52 +84,119 @@ fun CropDiseaseScreen(navController: NavController) {
     val strings = LocalStrings.current
     val token = remember { AuthStore.getAuthToken(context) }
 
-    val tempFile = remember { File(context.cacheDir, "disease_scan_temp.jpg") }
-    val fileProviderUri = remember { FileProvider.getUriForFile(context, "com.example.farmfusionapp.provider", tempFile) }
+    var currentScanFile by remember { mutableStateOf<File?>(null) }
+    var currentScanUri by remember { mutableStateOf<Uri?>(null) }
 
-    val startAnalysis = {
-        state = DiseaseScreenState.SCANNING
-        diseaseViewModel.detectDisease(
-            imageFile = tempFile,
-            cropType = null,
-            firebaseToken = token,
-            responseLanguage = currentLang
-        )
+    val createFreshScanTarget = {
+        currentScanFile?.let { oldFile ->
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try { if (oldFile.exists()) oldFile.delete() } catch (_: Exception) {}
+            }
+        }
+        val newFile = File(context.cacheDir, "disease_scan_${System.currentTimeMillis()}.jpg")
+        val newUri = FileProvider.getUriForFile(context, "com.example.farmfusionapp.provider", newFile)
+        currentScanFile = newFile
+        currentScanUri = newUri
+        Pair(newFile, newUri)
+    }
+
+    val resetToIdle = {
+        state = DiseaseScreenState.IDLE
+        capturedImageUri = null
+        currentScanFile?.let { oldFile ->
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try { if (oldFile.exists()) oldFile.delete() } catch (_: Exception) {}
+            }
+        }
+        currentScanFile = null
+        currentScanUri = null
+        diseaseViewModel.resetDetectState()
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) {
-            capturedImageUri = fileProviderUri
-            startAnalysis()
+        val file = currentScanFile
+        val uri = currentScanUri
+        if (success && file != null && uri != null && file.exists() && file.length() > 0L) {
+            capturedImageUri = uri
+            state = DiseaseScreenState.SCANNING
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                optimizeImageFile(file)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    diseaseViewModel.detectDisease(
+                        imageFile = file,
+                        cropType = null,
+                        firebaseToken = null,
+                        responseLanguage = currentLang
+                    )
+                }
+            }
+        } else {
+            if (state == DiseaseScreenState.SCANNING) {
+                resetToIdle()
+            }
+        }
+    }
+
+    val launchCamera = {
+        val (_, newUri) = createFreshScanTarget()
+        capturedImageUri = null
+        diseaseViewModel.resetDetectState()
+        cameraLauncher.launch(newUri)
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) {
+            launchCamera()
         }
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { selectedUri ->
         if (selectedUri != null) {
+            val (newFile, _) = createFreshScanTarget()
+            capturedImageUri = selectedUri
+            state = DiseaseScreenState.SCANNING
+            diseaseViewModel.resetDetectState()
             scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                try {
-                    val success = copyUriToTempFile(context, selectedUri, tempFile)
-                    if (success) {
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            capturedImageUri = selectedUri
-                            startAnalysis()
-                        }
+                val success = prepareImageFromUri(context, selectedUri, newFile)
+                if (success && newFile.exists() && newFile.length() > 0L) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        diseaseViewModel.detectDisease(
+                            imageFile = newFile,
+                            cropType = null,
+                            firebaseToken = null,
+                            responseLanguage = currentLang
+                        )
                     }
-                } catch (e: Exception) {
-                    android.util.Log.e("CropDisease", "Error copying file: ${e.message}")
+                } else {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        resetToIdle()
+                    }
                 }
             }
         }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) cameraLauncher.launch(fileProviderUri)
     }
 
     LaunchedEffect(detectState) {
         if (detectState is DiseaseViewModel.DiseaseDetectState.Success) {
             state = DiseaseScreenState.RESULT
         }
+    }
+
+    val onNavigateBack = {
+        if (state == DiseaseScreenState.RESULT || state == DiseaseScreenState.SCANNING) {
+            resetToIdle()
+        } else {
+            if (!navController.popBackStack(NavRoutes.Dashboard, inclusive = false)) {
+                navController.navigate(NavRoutes.Dashboard) {
+                    popUpTo(NavRoutes.Dashboard) { inclusive = false }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    BackHandler {
+        onNavigateBack()
     }
 
     NeoScaffoldBackground(modifier = Modifier.fillMaxSize()) {
@@ -141,14 +211,7 @@ fun CropDiseaseScreen(navController: NavController) {
                     ),
                     title = { Text(strings.disease.diseaseDetection, fontWeight = FontWeight.ExtraBold) },
                     navigationIcon = {
-                        IconButton(onClick = {
-                            if (state == DiseaseScreenState.RESULT) {
-                                state = DiseaseScreenState.IDLE
-                                diseaseViewModel.resetDetectState()
-                            } else {
-                                navController.popBackStack()
-                            }
-                        }) {
+                        IconButton(onClick = { onNavigateBack() }) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
                         }
                     }
@@ -158,26 +221,33 @@ fun CropDiseaseScreen(navController: NavController) {
             Box(modifier = Modifier.fillMaxSize().padding(padding)) {
                 when (state) {
                     DiseaseScreenState.IDLE -> UploadPanel(
-                        onCapture = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-                        onGallery = { galleryLauncher.launch("image/*") }
+                        onCapture = {
+                            val hasPerm = androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            if (hasPerm) {
+                                launchCamera()
+                            } else {
+                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        onGallery = {
+                            capturedImageUri = null
+                            diseaseViewModel.resetDetectState()
+                            galleryLauncher.launch("image/*")
+                        }
                     )
                     DiseaseScreenState.SCANNING -> ScanningPanel(
                         imageUri = capturedImageUri,
-                        onCancel = {
-                            diseaseViewModel.resetDetectState()
-                            state = DiseaseScreenState.IDLE
-                        }
+                        onCancel = { resetToIdle() }
                     )
                     DiseaseScreenState.RESULT -> {
                         val res = (detectState as? DiseaseViewModel.DiseaseDetectState.Success)?.response?.data
                         ResultPanel(
                             imageUri = capturedImageUri,
                             result = res,
-                            onScanAgain = {
-                                state = DiseaseScreenState.IDLE
-                                capturedImageUri = null
-                                diseaseViewModel.resetDetectState()
-                            }
+                            onScanAgain = { resetToIdle() }
                         )
                     }
                 }
@@ -185,11 +255,11 @@ fun CropDiseaseScreen(navController: NavController) {
 
             if (detectState is DiseaseViewModel.DiseaseDetectState.Error) {
                 AlertDialog(
-                    onDismissRequest = { diseaseViewModel.resetDetectState(); state = DiseaseScreenState.IDLE },
+                    onDismissRequest = { resetToIdle() },
                     title = { Text("Scan Failed", fontWeight = FontWeight.Bold, color = CropErrorRed) },
                     text = { Text((detectState as DiseaseViewModel.DiseaseDetectState.Error).message) },
                     confirmButton = {
-                        Button(onClick = { diseaseViewModel.resetDetectState(); state = DiseaseScreenState.IDLE }) {
+                        Button(onClick = { resetToIdle() }) {
                             Text("Retry")
                         }
                     }
@@ -473,8 +543,16 @@ private fun ScanningPanel(imageUri: Uri?, onCancel: () -> Unit) {
             ) {
                 Box(modifier = Modifier.padding(4.dp).fillMaxSize()) {
                     if (imageUri != null) {
+                        val painter = rememberAsyncImagePainter(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(imageUri)
+                                .memoryCachePolicy(CachePolicy.DISABLED)
+                                .diskCachePolicy(CachePolicy.DISABLED)
+                                .crossfade(true)
+                                .build()
+                        )
                         Image(
-                            painter = rememberAsyncImagePainter(imageUri),
+                            painter = painter,
                             contentDescription = strings.disease.scanningLeaf,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
@@ -634,8 +712,16 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
                 ) {
                     Box {
                         if (imageUri != null) {
+                            val painter = rememberAsyncImagePainter(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(imageUri)
+                                    .memoryCachePolicy(CachePolicy.DISABLED)
+                                    .diskCachePolicy(CachePolicy.DISABLED)
+                                    .crossfade(true)
+                                    .build()
+                            )
                             Image(
-                                painter = rememberAsyncImagePainter(imageUri),
+                                painter = painter,
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
@@ -819,7 +905,17 @@ private fun ResultPanel(imageUri: Uri?, result: DiseaseResult?, onScanAgain: () 
         Box(modifier = Modifier.padding(horizontal = 20.dp)) {
             Surface(shape = RoundedCornerShape(28.dp), modifier = Modifier.fillMaxWidth().height(200.dp).shadow(8.dp)) {
                 Box {
-                    if (imageUri != null) Image(painter = rememberAsyncImagePainter(imageUri), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    if (imageUri != null) {
+                        val painter = rememberAsyncImagePainter(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(imageUri)
+                                .memoryCachePolicy(CachePolicy.DISABLED)
+                                .diskCachePolicy(CachePolicy.DISABLED)
+                                .crossfade(true)
+                                .build()
+                        )
+                        Image(painter = painter, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    }
                     Surface(color = statusBgColor, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(16.dp).align(Alignment.TopEnd)) {
                         Text(statusText, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
@@ -983,6 +1079,96 @@ fun StoreMiniCard(item: StoreRecommendationItem, onClick: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+private fun optimizeImageFile(file: File, maxDimension: Int = 1280, quality: Int = 82) {
+    try {
+        if (!file.exists() || file.length() == 0L) return
+        val boundsOptions = android.graphics.BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        android.graphics.BitmapFactory.decodeFile(file.absolutePath, boundsOptions)
+        val origW = boundsOptions.outWidth
+        val origH = boundsOptions.outHeight
+        if (origW <= 0 || origH <= 0) return
+
+        var sampleSize = 1
+        while ((origW / sampleSize) > maxDimension * 2 || (origH / sampleSize) > maxDimension * 2) {
+            sampleSize *= 2
+        }
+
+        val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+        }
+        val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath, decodeOptions) ?: return
+
+        val scale = minOf(1.0f, maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height).toFloat())
+        val finalBitmap = if (scale < 1.0f) {
+            val destW = (bitmap.width * scale).toInt()
+            val destH = (bitmap.height * scale).toInt()
+            android.graphics.Bitmap.createScaledBitmap(bitmap, destW, destH, true).also {
+                if (it != bitmap) bitmap.recycle()
+            }
+        } else {
+            bitmap
+        }
+
+        FileOutputStream(file).use { out ->
+            finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+        }
+        finalBitmap.recycle()
+        android.util.Log.d("CropDisease", "Optimized camera image size: ${file.length()} bytes")
+    } catch (e: Exception) {
+        android.util.Log.e("CropDisease", "Image optimization failed, using original", e)
+    }
+}
+
+private fun prepareImageFromUri(context: Context, uri: Uri, targetFile: File, maxDimension: Int = 1280, quality: Int = 82): Boolean {
+    return try {
+        val boundsOptions = android.graphics.BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            android.graphics.BitmapFactory.decodeStream(stream, null, boundsOptions)
+        }
+        val origW = boundsOptions.outWidth
+        val origH = boundsOptions.outHeight
+
+        var sampleSize = 1
+        if (origW > 0 && origH > 0) {
+            while ((origW / sampleSize) > maxDimension * 2 || (origH / sampleSize) > maxDimension * 2) {
+                sampleSize *= 2
+            }
+        }
+
+        val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+        }
+        val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+            android.graphics.BitmapFactory.decodeStream(stream, null, decodeOptions)
+        } ?: return copyUriToTempFile(context, uri, targetFile)
+
+        val scale = minOf(1.0f, maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height).toFloat())
+        val finalBitmap = if (scale < 1.0f) {
+            val destW = (bitmap.width * scale).toInt()
+            val destH = (bitmap.height * scale).toInt()
+            android.graphics.Bitmap.createScaledBitmap(bitmap, destW, destH, true).also {
+                if (it != bitmap) bitmap.recycle()
+            }
+        } else {
+            bitmap
+        }
+
+        FileOutputStream(targetFile).use { out ->
+            finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+        }
+        finalBitmap.recycle()
+        android.util.Log.d("CropDisease", "Optimized gallery image saved: ${targetFile.length()} bytes")
+        true
+    } catch (e: Exception) {
+        android.util.Log.e("CropDisease", "Optimized load failed, fallback to raw copy", e)
+        copyUriToTempFile(context, uri, targetFile)
     }
 }
 

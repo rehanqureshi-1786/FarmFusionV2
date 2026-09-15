@@ -37,111 +37,102 @@ class DiseaseViewModel : ViewModel() {
         viewModelScope.launch {
             _detectState.value = DiseaseDetectState.Loading
 
-            try {
-                if (!imageFile.exists()) {
-                    _detectState.value = DiseaseDetectState.Error("Image file not found: ${imageFile.absolutePath}")
-                    return@launch
-                }
-
-                if (!imageFile.isFile || !imageFile.canRead()) {
-                    _detectState.value = DiseaseDetectState.Error("Image file is not readable: ${imageFile.absolutePath}")
-                    return@launch
-                }
-
-                val fileSize = imageFile.length()
-                if (fileSize == 0L) {
-                    _detectState.value = DiseaseDetectState.Error("Image file is empty (0 bytes)")
-                    return@launch
-                }
-
-                android.util.Log.d("DiseaseViewModel", "Uploading image: ${imageFile.name} (${fileSize} bytes)")
-
-                runCatching { api.checkHealth() }
-
-                val requestFile = try {
-                    imageFile.asRequestBody(mimeType.toMediaTypeOrNull())
-                } catch (e: Exception) {
-                    _detectState.value = DiseaseDetectState.Error("Failed to prepare image for upload: ${e.message}")
-                    android.util.Log.e("DiseaseViewModel", "Error creating request body", e)
-                    return@launch
-                }
-
-                val imagePart = MultipartBody.Part.createFormData(
-                    "image",
-                    imageFile.name,
-                    requestFile
-                )
-
-                val response = try {
-                    api.detectDisease(
-                        imagePart,
-                        cropType,
-                        firebaseToken,
-                        responseLanguage
-                    )
-                } catch (e: Exception) {
-                    _detectState.value = DiseaseDetectState.Error("Network request failed: ${e.message ?: "Unknown error"}")
-                    android.util.Log.e("DiseaseViewModel", "API request failed", e)
-                    return@launch
-                }
-
-                if (response.isSuccessful) {
-                    response.body()?.let { body ->
-                        android.util.Log.d("DiseaseViewModel", "Response received: disease=${body.data?.disease_name}, success=${body.success}")
-
-                        val rawJson = com.google.gson.Gson().toJson(body)
-                        android.util.Log.d("DiseaseDebug", "Full parsed body as JSON: $rawJson")
-
-                        if (body.data == null) {
-                            _detectState.value = DiseaseDetectState.Error("Server returned no disease data")
-                            return@launch
-                        }
-
-                        _detectState.value = DiseaseDetectState.Success(body)
-                    } ?: run {
-                        _detectState.value = DiseaseDetectState.Error("Server response body is empty")
+            val resultState: DiseaseDetectState = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    if (!imageFile.exists()) {
+                        return@withContext DiseaseDetectState.Error("Image file not found: ${imageFile.absolutePath}")
                     }
-                } else {
-                    val errorBody = try {
-                        response.errorBody()?.string() ?: "No error details"
+
+                    if (!imageFile.isFile || !imageFile.canRead()) {
+                        return@withContext DiseaseDetectState.Error("Image file is not readable: ${imageFile.absolutePath}")
+                    }
+
+                    val fileSize = imageFile.length()
+                    if (fileSize == 0L) {
+                        return@withContext DiseaseDetectState.Error("Image file is empty (0 bytes)")
+                    }
+
+                    android.util.Log.d("DiseaseViewModel", "Uploading image: ${imageFile.name} (${fileSize} bytes)")
+
+                    val requestFile = try {
+                        imageFile.asRequestBody(mimeType.toMediaTypeOrNull())
                     } catch (e: Exception) {
-                        "Unable to read error details"
+                        android.util.Log.e("DiseaseViewModel", "Error creating request body", e)
+                        return@withContext DiseaseDetectState.Error("Failed to prepare image for upload: ${e.message}")
                     }
-                    _detectState.value = DiseaseDetectState.Error(
-                        "Server Error: ${response.code()} - ${response.message()}\n$errorBody"
+
+                    val imagePart = MultipartBody.Part.createFormData(
+                        "image",
+                        imageFile.name,
+                        requestFile
                     )
-                    android.util.Log.e("DiseaseViewModel", "API error: ${response.code()} - $errorBody")
+
+                    val response = try {
+                        api.detectDisease(
+                            imagePart,
+                            cropType,
+                            firebaseToken,
+                            responseLanguage
+                        )
+                    } catch (e: Exception) {
+                        android.util.Log.e("DiseaseViewModel", "API request failed", e)
+                        return@withContext DiseaseDetectState.Error("Network request failed: ${e.message ?: "Unknown error"}")
+                    }
+
+                    if (response.isSuccessful) {
+                        response.body()?.let { body ->
+                            android.util.Log.d("DiseaseViewModel", "Response received: disease=${body.data?.disease_name}, success=${body.success}")
+
+                            if (body.data == null) {
+                                return@withContext DiseaseDetectState.Error("Server returned no disease data")
+                            }
+
+                            DiseaseDetectState.Success(body)
+                        } ?: DiseaseDetectState.Error("Server response body is empty")
+                    } else {
+                        val errorBody = try {
+                            response.errorBody()?.string() ?: "No error details"
+                        } catch (e: Exception) {
+                            "Unable to read error details"
+                        }
+                        android.util.Log.e("DiseaseViewModel", "API error: ${response.code()} - $errorBody")
+                        DiseaseDetectState.Error(
+                            "Server Error: ${response.code()} - ${response.message()}\n$errorBody"
+                        )
+                    }
+                } catch (e: Exception) {
+                    android.util.Log.e("DiseaseViewModel", "Unexpected exception", e)
+                    DiseaseDetectState.Error("Unexpected error: ${e.message ?: "Unknown error"}")
                 }
-            } catch (e: Exception) {
-                _detectState.value = DiseaseDetectState.Error("Unexpected error: ${e.message ?: "Unknown error"}")
-                android.util.Log.e("DiseaseViewModel", "Unexpected exception", e)
             }
+            _detectState.value = resultState
         }
     }
 
-    fun getHistory(firebaseToken: String, limit: Int = 10) {
+    fun getHistory(firebaseToken: String? = null, limit: Int = 10) {
         viewModelScope.launch {
             _historyState.value = DiseaseHistoryState.Loading
 
-            try {
-                val response = api.getDiseaseHistory(firebaseToken, limit)
+            val resultState: DiseaseHistoryState = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val response = api.getDiseaseHistory(firebaseToken, limit)
 
-                if (response.isSuccessful) {
-                    response.body()?.let {
-                        _historyState.value = DiseaseHistoryState.Success(it)
-                    } ?: run {
-                        _historyState.value = DiseaseHistoryState.Success(
+                    if (response.isSuccessful) {
+                        response.body()?.let {
+                            DiseaseHistoryState.Success(it)
+                        } ?: DiseaseHistoryState.Success(
                             DiseaseHistoryResponse(true, emptyList())
                         )
+                    } else {
+                        DiseaseHistoryState.Error(
+                            "Error: ${response.code()}"
+                        )
                     }
-                } else {
-                    _historyState.value = DiseaseHistoryState.Error(
-                        "Error: ${response.code()}"
-                    )
+                } catch (e: Exception) {
+                    DiseaseHistoryState.Error(e.message ?: "Unknown error")
                 }
-            } catch (e: Exception) {
-                _historyState.value = DiseaseHistoryState.Error(e.message ?: "Unknown error")
             }
+            _historyState.value = resultState
         }
     }
 
@@ -149,23 +140,24 @@ class DiseaseViewModel : ViewModel() {
         viewModelScope.launch {
             _infoState.value = DiseaseInfoState.Loading
 
-            try {
-                val response = api.getDiseaseInfo(diseaseName)
+            val resultState: DiseaseInfoState = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val response = api.getDiseaseInfo(diseaseName)
 
-                if (response.isSuccessful) {
-                    response.body()?.let {
-                        _infoState.value = DiseaseInfoState.Success(it)
-                    } ?: run {
-                        _infoState.value = DiseaseInfoState.Error("No information found")
+                    if (response.isSuccessful) {
+                        response.body()?.let {
+                            DiseaseInfoState.Success(it)
+                        } ?: DiseaseInfoState.Error("No information found")
+                    } else {
+                        DiseaseInfoState.Error(
+                            "Error: ${response.code()}"
+                        )
                     }
-                } else {
-                    _infoState.value = DiseaseInfoState.Error(
-                        "Error: ${response.code()}"
-                    )
+                } catch (e: Exception) {
+                    DiseaseInfoState.Error(e.message ?: "Unknown error")
                 }
-            } catch (e: Exception) {
-                _infoState.value = DiseaseInfoState.Error(e.message ?: "Unknown error")
             }
+            _infoState.value = resultState
         }
     }
 

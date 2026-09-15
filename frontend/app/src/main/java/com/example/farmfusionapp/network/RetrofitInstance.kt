@@ -10,7 +10,7 @@ object RetrofitInstance {
 
     private val okHttpClient: OkHttpClient by lazy {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.HEADERS
         }
 
         OkHttpClient.Builder()
@@ -20,22 +20,12 @@ object RetrofitInstance {
                 val requestBuilder = original.newBuilder()
                     .header("Accept-Language", lang)
                     .header("X-User-Language", lang)
-                val requestWithLang = requestBuilder.build()
-
-                var response = chain.proceed(requestWithLang)
-                var attempt = 0
-                while (response.code == 503 && attempt < 3) {
-                    response.close()
-                    attempt++
-                    Thread.sleep(15_000L)
-                    response = chain.proceed(requestWithLang)
-                }
-                response
+                chain.proceed(requestBuilder.build())
             }
             .addInterceptor(logging)
-            .connectTimeout(120, TimeUnit.SECONDS)
-            .readTimeout(120, TimeUnit.SECONDS)
-            .writeTimeout(120, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
             .build()
     }
 

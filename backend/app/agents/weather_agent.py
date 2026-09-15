@@ -1008,7 +1008,11 @@ class WeatherAgent:
         start_date: str,
         end_date: str,
     ) -> Dict[str, Any]:
-        """Fetch historical daily precipitation sum from Open-Meteo Historical API."""
+        cache_key = f"hist_rain:{round(lat, 3)}:{round(lon, 3)}:{start_date}:{end_date}"
+        cached = self._get_cache(cache_key)
+        if cached:
+            return cached
+
         try:
             params = {
                 "latitude": lat,
@@ -1018,7 +1022,7 @@ class WeatherAgent:
                 "daily": "precipitation_sum",
                 "timezone": "auto",
             }
-            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0), trust_env=False) as client:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(25.0), trust_env=False) as client:
                 response = await client.get(self.historical_url, params=params)
                 response.raise_for_status()
                 payload = response.json()
@@ -1028,20 +1032,26 @@ class WeatherAgent:
             valid_values = [p for p in precip_values if p is not None]
             total_rainfall = round(sum(valid_values), 1)
 
-            return {
+            res = {
                 "success": True,
                 "total_rainfall_mm": total_rainfall,
+                "annual_rainfall_mm": total_rainfall,
+                "total_precipitation_mm": total_rainfall,
                 "daily_rainfall": valid_values,
                 "days_count": len(valid_values),
                 "start_date": start_date,
                 "end_date": end_date,
                 "source": "Open-Meteo-ERA5-Land",
+                "rainfall_source": "Open-Meteo ERA5-Land",
             }
+            self._set_cache(cache_key, res)
+            return res
         except Exception as exc:
             return {
                 "success": False,
                 "error": f"Failed to fetch historical rainfall: {str(exc)}",
                 "source": "Open-Meteo-ERA5-Land",
+                "rainfall_source": "Open-Meteo ERA5-Land",
             }
 
     async def get_seasonal_rainfall(
@@ -1072,6 +1082,7 @@ class WeatherAgent:
         if result.get("success"):
             result["season"] = season
             result["year"] = current_year
+            result["rainfall_period"] = f"{season.capitalize()} {current_year}"
         return result
 
     async def get_annual_rainfall(
@@ -1088,6 +1099,9 @@ class WeatherAgent:
         result = await self.get_historical_rainfall(lat, lon, start_date, end_date)
         if result.get("success"):
             result["year"] = target_year
+            result["rainfall_period"] = str(target_year)
+            result["annual_rainfall_mm"] = result.get("total_rainfall_mm")
+            result["rainfall_source"] = "Open-Meteo ERA5-Land"
         return result
 
 

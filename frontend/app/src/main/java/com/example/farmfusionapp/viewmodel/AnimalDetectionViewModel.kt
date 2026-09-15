@@ -89,10 +89,15 @@ class AnimalDetectionViewModel : ViewModel() {
                 _latestStatusState.value = LatestStatusState.Loading
             }
             try {
-                val response = api.getAnimalDetectionLatest(deviceId = deviceId)
+                val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    api.getAnimalDetectionLatest(deviceId = deviceId)
+                }
                 if (response.isSuccessful) {
-                    response.body()?.let {
-                        _latestStatusState.value = LatestStatusState.Success(it)
+                    response.body()?.let { body ->
+                        val current = _latestStatusState.value
+                        if (current !is LatestStatusState.Success || current.data != body) {
+                            _latestStatusState.value = LatestStatusState.Success(body)
+                        }
                     } ?: run {
                         if (!silent) _latestStatusState.value = LatestStatusState.Error("Empty telemetry data")
                     }
@@ -109,12 +114,14 @@ class AnimalDetectionViewModel : ViewModel() {
         viewModelScope.launch {
             _historyState.value = HistoryState.Loading
             try {
-                val response = api.getAnimalDetectionHistory(
-                    deviceId = deviceId,
-                    limit = 30,
-                    offset = 0,
-                    sensorType = sensorType
-                )
+                val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    api.getAnimalDetectionHistory(
+                        deviceId = deviceId,
+                        limit = 30,
+                        offset = 0,
+                        sensorType = sensorType
+                    )
+                }
                 if (response.isSuccessful) {
                     response.body()?.let {
                         _historyState.value = HistoryState.Success(it)
@@ -133,10 +140,15 @@ class AnimalDetectionViewModel : ViewModel() {
     fun fetchDeviceStatus(deviceId: String = "NODE_01") {
         viewModelScope.launch {
             try {
-                val response = api.getDeviceStatus(deviceId = deviceId)
+                val response = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    api.getDeviceStatus(deviceId = deviceId)
+                }
                 if (response.isSuccessful) {
-                    response.body()?.let {
-                        _deviceStatusState.value = DeviceStatusState.Success(it)
+                    response.body()?.let { body ->
+                        val current = _deviceStatusState.value
+                        if (current !is DeviceStatusState.Success || current.data != body) {
+                            _deviceStatusState.value = DeviceStatusState.Success(body)
+                        }
                     }
                 }
             } catch (e: Exception) {

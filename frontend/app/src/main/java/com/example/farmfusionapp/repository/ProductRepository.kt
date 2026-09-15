@@ -29,9 +29,13 @@ class ProductRepository(
     }
 
     suspend fun getRankedProducts(detectedDisease: String?) : ProductRankingService.RankingResult {
-        val dtos = api.getProducts()
-        val products = dtos.map { dto -> mapStoreProduct(dto) }
-        return rankingService.rankProducts(products, detectedDisease)
+        val dtos = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            api.getProducts()
+        }
+        return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            val products = dtos.map { dto -> mapStoreProduct(dto) }
+            rankingService.rankProducts(products, detectedDisease)
+        }
     }
 
     companion object {

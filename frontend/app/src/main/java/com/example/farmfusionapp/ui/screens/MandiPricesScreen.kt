@@ -1,5 +1,6 @@
 package com.example.farmfusionapp.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -62,10 +63,19 @@ fun MandiPricesScreen(
     productViewModel: ProductViewModel = viewModel()
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val currentLang = LocalAppLanguage.current
+    val strings = LocalStrings.current
     var selectedCategory by remember { mutableStateOf("ALL CROPS") }
     var searchQuery by remember { mutableStateOf("") }
 
     val pricesState by viewModel.pricesState
+    val filteredPrices = remember(pricesState, searchQuery, selectedCategory) {
+        val success = pricesState as? MarketViewModel.MarketPricesState.Success
+        success?.response?.data?.filter {
+            (searchQuery.isEmpty() || it.commodity.contains(searchQuery, true) || it.market.contains(searchQuery, true) || it.district.contains(searchQuery, true)) &&
+                    (selectedCategory == "ALL CROPS" || isCropInCategory(it.commodity, selectedCategory))
+        } ?: emptyList()
+    }
     val categories = listOf("ALL CROPS", "GRAINS", "VEGETABLES", "PULSES", "FRUITS", "SPICES")
 
     // Comprehensive default crop list (covers 30+ high-volume Agmarknet crops)
@@ -126,12 +136,31 @@ fun MandiPricesScreen(
         label = "dialog_blur"
     )
 
+    val onNavigateBackToHome = {
+        if (!navController.popBackStack(NavRoutes.Dashboard, inclusive = false)) {
+            navController.navigate(NavRoutes.Dashboard) {
+                popUpTo(NavRoutes.Dashboard) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    BackHandler {
+        onNavigateBackToHome()
+    }
+
     LaunchedEffect(Unit) {
-        viewModel.getMarketPrices()
-        productViewModel.loadProducts(null)
-        coroutineScope.launch {
+        if (viewModel.pricesState.value !is MarketViewModel.MarketPricesState.Success) {
+            viewModel.getMarketPrices()
+        }
+        if (productViewModel.bestTreatment.value.isNullOrEmpty()) {
+            productViewModel.loadProducts(null)
+        }
+        if (allAvailableCrops.size <= defaultCrops.size) {
             try {
-                val commRes = RetrofitInstance.api.getCommodities()
+                val commRes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    RetrofitInstance.api.getCommodities()
+                }
                 if (commRes.isSuccessful && commRes.body() != null && commRes.body()!!.isNotEmpty()) {
                     allAvailableCrops = commRes.body()!!
                 }
@@ -151,13 +180,13 @@ fun MandiPricesScreen(
                     ),
                     title = {
                         Text(
-                            "Market Prices & Intelligence",
+                            AppLocalizer.localizeMarketPhrase("market prices & intelligence", currentLang),
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1A1A1A)
                         )
                     },
                     navigationIcon = {
-                        IconButton(onClick = { navController.popBackStack() }) {
+                        IconButton(onClick = { onNavigateBackToHome() }) {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back", tint = Color(0xFF1A1A1A))
                         }
                     }
@@ -190,7 +219,7 @@ fun MandiPricesScreen(
                         TextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search crops (e.g. Wheat, Gram, Mustard), mandis...") },
+                            placeholder = { Text(AppLocalizer.localizeMarketPhrase("search crops placeholder", currentLang)) },
                             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
                             trailingIcon = {
                                 if (searchQuery.isNotEmpty()) {
@@ -225,8 +254,8 @@ fun MandiPricesScreen(
                         ) {
                             // 1. Best Nearby
                             MandiIntelligenceCard(
-                                title = "Best Nearby",
-                                subtitle = "Highest net price market",
+                                title = AppLocalizer.localizeMarketPhrase("best nearby", currentLang),
+                                subtitle = AppLocalizer.localizeMarketPhrase("highest net price market", currentLang),
                                 icon = Icons.Rounded.NearMe,
                                 bgColor = Color(0xFFD3F8E5),
                                 iconTint = Color(0xFF047857),
@@ -236,8 +265,8 @@ fun MandiPricesScreen(
 
                             // 2. Compare Mandis
                             MandiIntelligenceCard(
-                                title = "Compare",
-                                subtitle = "Side-by-side mandi rates",
+                                title = AppLocalizer.localizeMarketPhrase("compare", currentLang),
+                                subtitle = AppLocalizer.localizeMarketPhrase("side-by-side mandi rates", currentLang),
                                 icon = Icons.AutoMirrored.Rounded.CompareArrows,
                                 bgColor = Color(0xFFE2EAFB),
                                 iconTint = Color(0xFF1D4ED8),
@@ -255,8 +284,8 @@ fun MandiPricesScreen(
                         ) {
                             // 3. Sell vs Wait Advisory
                             MandiIntelligenceCard(
-                                title = "Sell vs Wait",
-                                subtitle = "7-day price trajectory",
+                                title = AppLocalizer.localizeMarketPhrase("sell vs wait", currentLang),
+                                subtitle = AppLocalizer.localizeMarketPhrase("7-day price trajectory", currentLang),
                                 icon = Icons.AutoMirrored.Rounded.TrendingUp,
                                 bgColor = Color(0xFFF1EAFF),
                                 iconTint = Color(0xFF6D28D9),
@@ -269,8 +298,8 @@ fun MandiPricesScreen(
 
                             // 4. Set Alert
                             MandiIntelligenceCard(
-                                title = "Set Alert",
-                                subtitle = "Notify on target prices",
+                                title = AppLocalizer.localizeMarketPhrase("set alert", currentLang),
+                                subtitle = AppLocalizer.localizeMarketPhrase("notify on target prices", currentLang),
                                 icon = Icons.Rounded.NotificationsActive,
                                 bgColor = Color(0xFFFFF4D9),
                                 iconTint = Color(0xFFD97706),
@@ -300,7 +329,7 @@ fun MandiPricesScreen(
                                 shadowElevation = if (!isSelected) 2.dp else 0.dp
                             ) {
                                 Text(
-                                    text = category,
+                                    text = AppLocalizer.localizeMarketPhrase(category, currentLang),
                                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
                                     style = MaterialTheme.typography.labelLarge.copy(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
@@ -318,12 +347,7 @@ fun MandiPricesScreen(
                         item { Box(Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color(0xFF1B4332)) } }
                     }
                     is MarketViewModel.MarketPricesState.Success -> {
-                        val filtered = state.response.data.filter {
-                            (searchQuery.isEmpty() || it.commodity.contains(searchQuery, true) || it.market.contains(searchQuery, true) || it.district.contains(searchQuery, true)) &&
-                                    (selectedCategory == "ALL CROPS" || isCropInCategory(it.commodity, selectedCategory))
-                        }
-
-                        if (filtered.isEmpty()) {
+                        if (filteredPrices.isEmpty()) {
                             item {
                                 Box(
                                     modifier = Modifier
@@ -343,7 +367,10 @@ fun MandiPricesScreen(
                                 }
                             }
                         } else {
-                            items(filtered.take(30)) { item ->
+                            items(
+                                items = filteredPrices.take(30),
+                                key = { "${it.market}_${it.commodity}_${it.district}_${it.arrival_date}_${it.modal_price}" }
+                            ) { item ->
                                 PriceCard(
                                     item = item,
                                     modifier = Modifier.padding(horizontal = 20.dp)
@@ -386,7 +413,7 @@ fun MandiPricesScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Rounded.NearMe, null, tint = Color(0xFF10B981))
-                    Text("Best Nearby Mandi", fontWeight = FontWeight.Bold)
+                    Text(AppLocalizer.localizeMarketPhrase("best nearby mandi", currentLang), fontWeight = FontWeight.Bold)
                 }
             },
             content = {
@@ -410,12 +437,14 @@ fun MandiPricesScreen(
                     )
 
                     // Matching Crop Suggestions & Popular Chips
-                    val matchingNearbyCrops = allAvailableCrops.filter {
-                        nearbyCropInput.isBlank() || it.contains(nearbyCropInput, ignoreCase = true)
-                    }.take(10)
+                    val matchingNearbyCrops = remember(allAvailableCrops, nearbyCropInput) {
+                        allAvailableCrops.filter {
+                            nearbyCropInput.isBlank() || it.contains(nearbyCropInput, ignoreCase = true)
+                        }.take(10)
+                    }
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingNearbyCrops) { crop ->
+                        items(matchingNearbyCrops, key = { it }) { crop ->
                             val isSel = crop.equals(nearbySelectedCrop, ignoreCase = true)
                             FilterChip(
                                 selected = isSel,
@@ -588,7 +617,7 @@ fun MandiPricesScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.AutoMirrored.Rounded.CompareArrows, null, tint = Color(0xFF3B82F6))
-                    Text("Compare Mandi Prices", fontWeight = FontWeight.Bold)
+                    Text(AppLocalizer.localizeMarketPhrase("compare mandis", currentLang), fontWeight = FontWeight.Bold)
                 }
             },
             content = {
@@ -611,12 +640,14 @@ fun MandiPricesScreen(
                     )
 
                     // Quick Crop Chips
-                    val matchingCompareCrops = allAvailableCrops.filter {
-                        compareCrop.isBlank() || it.contains(compareCrop, ignoreCase = true)
-                    }.take(8)
+                    val matchingCompareCrops = remember(allAvailableCrops, compareCrop) {
+                        allAvailableCrops.filter {
+                            compareCrop.isBlank() || it.contains(compareCrop, ignoreCase = true)
+                        }.take(8)
+                    }
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingCompareCrops) { crop ->
+                        items(matchingCompareCrops, key = { it }) { crop ->
                             FilterChip(
                                 selected = crop.equals(compareCrop, ignoreCase = true),
                                 onClick = { compareCrop = crop; compareResult = null },
@@ -726,7 +757,7 @@ fun MandiPricesScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.AutoMirrored.Rounded.TrendingUp, null, tint = Color(0xFF8B5CF6))
-                    Text("Sell vs Wait Advisory", fontWeight = FontWeight.Bold)
+                    Text(AppLocalizer.localizeMarketPhrase("sell vs wait advisory", currentLang), fontWeight = FontWeight.Bold)
                 }
             },
             content = {
@@ -745,12 +776,14 @@ fun MandiPricesScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    val matchingAdvisoryCrops = allAvailableCrops.filter {
-                        advisoryCrop.isBlank() || it.contains(advisoryCrop, ignoreCase = true)
-                    }.take(8)
+                    val matchingAdvisoryCrops = remember(allAvailableCrops, advisoryCrop) {
+                        allAvailableCrops.filter {
+                            advisoryCrop.isBlank() || it.contains(advisoryCrop, ignoreCase = true)
+                        }.take(8)
+                    }
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingAdvisoryCrops) { crop ->
+                        items(matchingAdvisoryCrops, key = { it }) { crop ->
                             FilterChip(
                                 selected = crop.equals(advisoryCrop, ignoreCase = true),
                                 onClick = { advisoryCrop = crop; advisoryResult = null },
@@ -847,7 +880,7 @@ fun MandiPricesScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Rounded.NotificationsActive, null, tint = Color(0xFFF59E0B))
-                    Text("Set Price Opportunity Alert", fontWeight = FontWeight.Bold)
+                    Text(AppLocalizer.localizeMarketPhrase("set price alert", currentLang), fontWeight = FontWeight.Bold)
                 }
             },
             content = {
@@ -866,12 +899,14 @@ fun MandiPricesScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    val matchingAlertCrops = allAvailableCrops.filter {
-                        alertCrop.isBlank() || it.contains(alertCrop, ignoreCase = true)
-                    }.take(8)
+                    val matchingAlertCrops = remember(allAvailableCrops, alertCrop) {
+                        allAvailableCrops.filter {
+                            alertCrop.isBlank() || it.contains(alertCrop, ignoreCase = true)
+                        }.take(8)
+                    }
 
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        items(matchingAlertCrops) { crop ->
+                        items(matchingAlertCrops, key = { it }) { crop ->
                             FilterChip(
                                 selected = crop.equals(alertCrop, ignoreCase = true),
                                 onClick = { alertCrop = crop; alertSuccessMsg = null },

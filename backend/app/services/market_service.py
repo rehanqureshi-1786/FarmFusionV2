@@ -65,6 +65,23 @@ class MarketService:
     
     # Path to the CSV dataset (located in project root)
     CSV_PATH = Path(__file__).resolve().parent.parent.parent.parent / "commodity_price.csv"
+    _cached_raw_rows: Optional[List[Dict[str, str]]] = None
+    _cached_commodities: Optional[List[str]] = None
+    _cached_mandis: Optional[List[Dict[str, str]]] = None
+
+    @classmethod
+    def _get_raw_rows(cls) -> List[Dict[str, str]]:
+        if cls._cached_raw_rows is not None:
+            return cls._cached_raw_rows
+        rows: List[Dict[str, str]] = []
+        if os.path.exists(cls.CSV_PATH):
+            try:
+                with open(cls.CSV_PATH, mode='r', encoding='utf-8') as f:
+                    rows = list(csv.DictReader(f))
+            except Exception as e:
+                print(f"Error reading market CSV: {e}")
+        cls._cached_raw_rows = rows
+        return rows
 
     @staticmethod
     async def get_current_prices(
@@ -103,63 +120,58 @@ class MarketService:
         csv_records = []
         all_commodity_csv_records = []
 
-        if os.path.exists(MarketService.CSV_PATH):
-            try:
-                with open(MarketService.CSV_PATH, mode='r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        r_state = (row.get("State") or "")
-                        r_dist = (row.get("District") or "")
-                        r_mkt = (row.get("Market") or "")
-                        r_comm = (row.get("Commodity") or "")
+        cached_rows = MarketService._get_raw_rows()
+        for row in cached_rows:
+            r_state = (row.get("State") or "")
+            r_dist = (row.get("District") or "")
+            r_mkt = (row.get("Market") or "")
+            r_comm = (row.get("Commodity") or "")
 
-                        r_state_lower = r_state.lower()
-                        r_dist_lower = r_dist.lower()
-                        r_mkt_lower = r_mkt.lower()
-                        r_comm_lower = r_comm.lower()
+            r_state_lower = r_state.lower()
+            r_dist_lower = r_dist.lower()
+            r_mkt_lower = r_mkt.lower()
+            r_comm_lower = r_comm.lower()
 
-                        # Check commodity match
-                        is_comm_match = match_commodity_name(filter_commodity, r_comm_lower)
+            # Check commodity match
+            is_comm_match = match_commodity_name(filter_commodity, r_comm_lower)
 
-                        if filter_commodity and not is_comm_match:
-                            continue
+            if filter_commodity and not is_comm_match:
+                continue
 
-                        min_p = float(row.get("Min_x0020_Price") or 0)
-                        max_p = float(row.get("Max_x0020_Price") or 0)
-                        mod_p = float(row.get("Modal_x0020_Price") or 0)
+            min_p = float(row.get("Min_x0020_Price") or 0)
+            max_p = float(row.get("Max_x0020_Price") or 0)
+            mod_p = float(row.get("Modal_x0020_Price") or 0)
 
-                        item_dict = {
-                            "state": r_state,
-                            "district": r_dist,
-                            "market": r_mkt,
-                            "commodity": r_comm,
-                            "variety": row.get("Variety", "Common"),
-                            "grade": row.get("Grade", "FAQ"),
-                            "arrival_date": row.get("Arrival_Date", today_str),
-                            "min_price": min_p,
-                            "max_price": max_p,
-                            "modal_price": mod_p,
-                            "source": "Agmarknet Live"
-                        }
+            item_dict = {
+                "state": r_state,
+                "district": r_dist,
+                "market": r_mkt,
+                "commodity": r_comm,
+                "variety": row.get("Variety", "Common"),
+                "grade": row.get("Grade", "FAQ"),
+                "arrival_date": row.get("Arrival_Date", today_str),
+                "min_price": min_p,
+                "max_price": max_p,
+                "modal_price": mod_p,
+                "source": "Agmarknet Live"
+            }
 
-                        all_commodity_csv_records.append(item_dict)
+            all_commodity_csv_records.append(item_dict)
 
-                        # Match location filters flexibly (e.g. "Udaipur" can match Market or District)
-                        if filter_state and filter_state not in r_state_lower and filter_state not in r_dist_lower:
-                            continue
+            # Match location filters flexibly (e.g. "Udaipur" can match Market or District)
+            if filter_state and filter_state not in r_state_lower and filter_state not in r_dist_lower:
+                continue
 
-                        # When location filter provided, check if it matches market or district
-                        if filter_market:
-                            if filter_market not in r_mkt_lower and filter_market not in r_dist_lower and filter_market not in r_state_lower:
-                                continue
+            # When location filter provided, check if it matches market or district
+            if filter_market:
+                if filter_market not in r_mkt_lower and filter_market not in r_dist_lower and filter_market not in r_state_lower:
+                    continue
 
-                        if filter_district:
-                            if filter_district not in r_dist_lower and filter_district not in r_mkt_lower:
-                                continue
+            if filter_district:
+                if filter_district not in r_dist_lower and filter_district not in r_mkt_lower:
+                    continue
 
-                        csv_records.append(item_dict)
-            except Exception as e:
-                print(f"Error reading market CSV: {e}")
+            csv_records.append(item_dict)
 
         # Match baseline records
         matched_baseline = []
@@ -190,53 +202,50 @@ class MarketService:
         return []
 
 
-    @staticmethod
-    async def get_all_commodities() -> List[str]:
+    @classmethod
+    async def get_all_commodities(cls) -> List[str]:
         """
         Extract unique, sorted list of all supported commodities/crops from Agmarknet dataset.
         """
+        if cls._cached_commodities is not None:
+            return cls._cached_commodities
+
         commodities = set()
         # Add baseline commodities
         baseline_crops = ["Wheat", "Mustard", "Paddy (Dhan)", "Soybean", "Cotton", "Onion", "Potato", "Tomato", "Gram (Chana)", "Maize"]
         for c in baseline_crops:
             commodities.add(c)
 
-        if os.path.exists(MarketService.CSV_PATH):
-            try:
-                with open(MarketService.CSV_PATH, mode='r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        comm = row.get("Commodity", "").strip()
-                        if comm:
-                            commodities.add(comm)
-            except Exception as e:
-                print(f"Error reading commodities from CSV: {e}")
+        for row in cls._get_raw_rows():
+            comm = row.get("Commodity", "").strip()
+            if comm:
+                commodities.add(comm)
 
-        return sorted(list(commodities))
+        cls._cached_commodities = sorted(list(commodities))
+        return cls._cached_commodities
 
-
-    @staticmethod
-    async def get_all_mandis() -> List[Dict[str, str]]:
+    @classmethod
+    async def get_all_mandis(cls) -> List[Dict[str, str]]:
         """
         Extract unique list of Mandis (Market + District + State)
         """
+        if cls._cached_mandis is not None:
+            return cls._cached_mandis
+
         mandis = set()
-        
-        if os.path.exists(MarketService.CSV_PATH):
-            try:
-                with open(MarketService.CSV_PATH, mode='r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        mandi_key = (row["Market"], row["District"], row["State"])
-                        mandis.add(mandi_key)
-            except Exception as e:
-                print(f"Error reading mandis from CSV: {e}")
+        for row in cls._get_raw_rows():
+            mkt = row.get("Market", "").strip()
+            dist = row.get("District", "").strip()
+            st = row.get("State", "").strip()
+            if mkt:
+                mandis.add((mkt, dist, st))
 
         mandi_list = [
             {"market": m, "district": d, "state": s} 
             for m, d, s in mandis
         ]
-        return sorted(mandi_list, key=lambda x: (x["state"], x["market"]))
+        cls._cached_mandis = sorted(mandi_list, key=lambda x: (x["state"], x["market"]))
+        return cls._cached_mandis
 
     @staticmethod
     async def predict_prices(

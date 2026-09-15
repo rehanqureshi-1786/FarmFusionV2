@@ -10,13 +10,15 @@ Features:
 - Firebase Authentication
 - User Management & Farms
 
-Start: python main.py
-API Docs: http://localhost:8000/docs
+# Start: python main.py
+# API Docs: http://localhost:8000/docs
+
 """
 import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 
 from app.core.config import get_settings
 from app.db.database import init_db
@@ -39,6 +41,7 @@ from app.api.v1.labour import router as labour_router
 from app.api.v1.lifecycle import router as lifecycle_router
 from app.api.v1.knowledge import router as knowledge_router
 from app.api.v1.calling import router as calling_router
+from app.api.v1.cold_storage import router as cold_storage_router
 
 
 logging.basicConfig(
@@ -61,6 +64,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 
 @app.middleware("http")
@@ -122,6 +126,7 @@ app.include_router(labour_router, prefix="/api/v1")
 app.include_router(lifecycle_router, prefix="/api/v1")
 app.include_router(knowledge_router, prefix="/api/v1")
 app.include_router(calling_router, prefix="/api/v1")
+app.include_router(cold_storage_router, prefix="/api/v1")
 
 # IoT Animal Detection
 from app.animal_detection import animal_detection_router, ws_router

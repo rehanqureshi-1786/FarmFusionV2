@@ -114,7 +114,7 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
     # Auto-detect Hindi from Devanagari script or Hinglish vocabulary if client passed "en"
     has_devanagari = bool(re.search(r'[\u0900-\u097F]', query))
     has_hinglish = any(w in query for w in [
-        "mausam", "kaisa", "khet", "fasal", "bhai", "aaj", "rate", "bhav", "mandi",
+        "mausam", "kaisa", "khet", "fasal", "bhai", "aaj", "rate", "bhav", "bhaav", "baav", "daav", "mandi",
         "gehu", "chawal", "dhan", "kya", "hai", "karo", "batao", "rahega", "karna",
         "lagau", "kharab", "rog", "yojana", "pani", "mitti", "khad", "kisan", "kyon", "kyu", "boye", "salah"
     ])
@@ -193,22 +193,26 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
     # 4. In-App Navigation Intent (Strict Priority for "खोलो", "स्क्रीन", "पेज")
     elif any(kw in query for kw in ["स्क्रीन खोलो", "पेज खोलो", "स्क्रीन", "खोलो", "खोल", "चलो", "जाओ", "वापस", "दिखाओ", "होम पर", "navigate", "open screen", "open"]):
         intent = "navigation"
-        confidence = 0.92
-        dest = "home"
-        if any(w in query for w in ["मंडी", "market", "भाव"]):
-            dest = "market_prices"
-        elif any(w in query for w in ["मौसम", "weather"]):
+        confidence = 0.95
+        dest = "dashboard"
+        if any(w in query for w in ["मंडी", "market", "भाव", "bhav", "mandi", "rate", "rates", "दाम", "price"]):
+            dest = "mandi_prices"
+        elif any(w in query for w in ["कोल्ड स्टोरेज", "cold storage", "स्टोरेज", "गोदाम", "warehouse", "storage", "godam"]):
+            dest = "cold_storage"
+        elif any(w in query for w in ["मौसम", "weather", "बारिश", "rain", "तापमान"]):
             dest = "weather"
-        elif any(w in query for w in ["फसल", "crop", "सलाह"]):
+        elif any(w in query for w in ["फसल", "crop", "सलाह", "recommendation"]):
             dest = "crop_recommendation"
-        elif any(w in query for w in ["बीमारी", "रोग", "disease"]):
-            dest = "disease_detection"
-        elif any(w in query for w in ["योजना", "scheme"]):
-            dest = "government_schemes"
+        elif any(w in query for w in ["बीमारी", "रोग", "disease", "scan", "camera", "कैमरा"]):
+            dest = "crop_disease"
+        elif any(w in query for w in ["योजना", "scheme", "सब्सिडी", "subsidy", "finance", "kcc"]):
+            dest = "financial_services"
+        elif any(w in query for w in ["जानवर", "animal", "security", "sensor"]):
+            dest = "animal_detection"
         elif any(w in query for w in ["वापस", "back"]):
             dest = "back"
-        elif any(w in query for w in ["होम", "home", "डैशबोर्ड"]):
-            dest = "home"
+        elif any(w in query for w in ["होम", "home", "डैशबोर्ड", "dashboard"]):
+            dest = "dashboard"
         filled_slots["destination"] = dest
 
     # 5. Repeat Last Response: "फिर से बताओ", "दोबारा बोलो", "repeat that"
@@ -432,7 +436,8 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
     # 12f. General Mandi / Market Prices Intent (Multi-lingual: Gujarati 'ભાવ', Punjabi 'ਕੀਮਤ', Telugu 'ధర', Tamil 'விலை', Kannada 'ಬೆಲೆ', Malayalam 'വില', Odia 'ଦର', Urdu 'قیمत')
     elif any(kw in query for kw in [
         "मंडी", "भाव", "कीमत", "दाम", "price", "mandi", "rate", "market", "रेट", "दर", "चल रहा", "क्या रेट", "क्या भाव", "कितना है",
-        "bhav", "mandi bhav", "market rate", "kitna hai", "kya rate", "bhav kya",
+        "bhav", "bhaav", "baav", "mandi bhav", "market rate", "kitna hai", "kya rate", "bhav kya", "bhaav kya", "baav kya",
+        "kya bhav", "kya bhaav", "kya baav", "ke kya bhav", "ke kya bhaav", "ke kya baav", "daam", "daav",
         "ભાવ", "શું છે", "ਕੀਮਤ", "ధర", "விலை", "ಬೆಲೆ", "വില", "ଦର", "قیمत", "گندم", "দাম"
     ]):
         intent = "mandi"
@@ -444,6 +449,14 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
                 if c_word in query:
                     filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
                     break
+        if "commodity" not in filled_slots:
+            norm_c = normalize_crop_name(query)
+            if norm_c:
+                filled_slots["commodity"] = norm_c
+            elif last_recs:
+                filled_slots["commodity"] = last_recs[0].get("crop_name", "Wheat")
+            else:
+                filled_slots["commodity"] = "Wheat"
 
     # 12g. Disaster & Extreme Weather Hazard Intent (DisasterPredictorAI ML Ensemble & 7-Day Forecasting)
     elif any(kw in query for kw in [
@@ -536,11 +549,17 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         confidence = 0.95
         filled_slots["device_id"] = "NODE_01"
 
-    # 16. General Farming Query Fallback (Intelligent agricultural understanding rather than asking to repeat)
-    elif any(kw in query for kw in ["खेती", "फसल", "पौधा", "पेड़", "जमीन", "मिट्टी", "खाद", "पानी", "बीज", "कीटनाशक", "कृषि", "farming", "crop", "plant", "soil", "kisan"]):
-        intent = "crop_care"
-        confidence = 0.90
-        filled_slots["crop_name"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
+    # 15b. Cold Storage & Warehouse Intent
+    elif any(kw in query for kw in [
+        "कोल्ड स्टोरेज", "cold storage", "स्टोरेज", "गोदाम", "वेयरहाउस", "warehouse",
+        "माल रखने", "भंडारण", "storage", "fasal rakhne", "aloo rakhne", "godam", "cold store"
+    ]):
+        intent = "cold_storage"
+        confidence = 0.96
+        for c_word in ["आलू", "प्याज", "लहसुन", "सेब", "टमाटर", "गाजर", "मटर", "potato", "onion", "garlic", "apple", "tomato"]:
+            if c_word in query:
+                filled_slots["crop"] = normalize_crop_name(c_word) or c_word
+                break
 
     # Inherit semantic_frame intent if deterministic/LLM extractor identified higher confidence
     if intent == "unknown" and semantic_frame.intent != CanonicalIntent.CLARIFICATION:
@@ -646,6 +665,21 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         for k, v in semantic_frame.entities.additional_entities.items():
             if k not in filled_slots:
                 filled_slots[k] = v
+
+    # Synchronize entities from semantic frame into filled_slots
+    if semantic_frame.entities.crop and "commodity" not in filled_slots:
+        filled_slots["commodity"] = semantic_frame.entities.crop
+    if semantic_frame.entities.crop and "crop_name" not in filled_slots:
+        filled_slots["crop_name"] = semantic_frame.entities.crop
+    if semantic_frame.entities.market and "location_name" not in filled_slots:
+        filled_slots["location_name"] = semantic_frame.entities.market
+    if len(semantic_frame.entities.markets) >= 2:
+        filled_slots["market_a"] = semantic_frame.entities.markets[0]
+        filled_slots["market_b"] = semantic_frame.entities.markets[1]
+    if semantic_frame.entities.forecast_days and "days" not in filled_slots:
+        filled_slots["days"] = semantic_frame.entities.forecast_days
+    if semantic_frame.entities.timeframe and "timeframe" not in filled_slots:
+        filled_slots["timeframe"] = semantic_frame.entities.timeframe
 
     state["filled_slots"] = filled_slots
     return state

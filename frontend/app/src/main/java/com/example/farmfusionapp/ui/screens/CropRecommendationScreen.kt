@@ -1,5 +1,6 @@
 package com.example.farmfusionapp.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -171,6 +172,33 @@ fun CropRecommendationScreen(
                 .align(Alignment.BottomCenter)
         )
 
+        val onBackAction = {
+            when (currentStep) {
+                RecommendationStep.SOIL_SELECTION -> {
+                    if (!navController.popBackStack(NavRoutes.Dashboard, inclusive = false)) {
+                        navController.navigate(NavRoutes.Dashboard) {
+                            popUpTo(NavRoutes.Dashboard) { inclusive = false }
+                            launchSingleTop = true
+                        }
+                    }
+                }
+                RecommendationStep.REPORT_CHECK -> currentStep = RecommendationStep.SOIL_SELECTION
+                RecommendationStep.UPLOAD_REPORT -> currentStep = RecommendationStep.REPORT_CHECK
+                RecommendationStep.AUTO_ANALYSIS -> currentStep = if (isAdvancedMode) RecommendationStep.UPLOAD_REPORT else RecommendationStep.REPORT_CHECK
+                RecommendationStep.RESULT -> {
+                    currentStep = RecommendationStep.SOIL_SELECTION
+                    viewModel.resetState()
+                    viewModel.resetNoSoilReportState()
+                    selectedSoil = null
+                    formInputs = CropRecommendationFormInputs()
+                }
+            }
+        }
+
+        BackHandler {
+            onBackAction()
+        }
+
         Scaffold(
             containerColor = Color.Transparent, // Makes scaffold transparent so gradient shows
             topBar = {
@@ -188,21 +216,7 @@ fun CropRecommendationScreen(
                     ) {
                         // Frosted Glass Back Button
                         Surface(
-                            onClick = {
-                                when (currentStep) {
-                                    RecommendationStep.SOIL_SELECTION -> navController.popBackStack()
-                                    RecommendationStep.REPORT_CHECK -> currentStep = RecommendationStep.SOIL_SELECTION
-                                    RecommendationStep.UPLOAD_REPORT -> currentStep = RecommendationStep.REPORT_CHECK
-                                    RecommendationStep.AUTO_ANALYSIS -> currentStep = if (isAdvancedMode) RecommendationStep.UPLOAD_REPORT else RecommendationStep.REPORT_CHECK
-                                    RecommendationStep.RESULT -> {
-                                        currentStep = RecommendationStep.SOIL_SELECTION
-                                        viewModel.resetState()
-                                        viewModel.resetNoSoilReportState()
-                                        selectedSoil = null
-                                        formInputs = CropRecommendationFormInputs()
-                                    }
-                                }
-                            },
+                            onClick = { onBackAction() },
                             shape = CircleShape,
                             color = Color.White.copy(alpha = 0.55f),
                             border = BorderStroke(1.dp, Color.White),
@@ -632,6 +646,8 @@ fun UploadSoilReportStep(
         )
     }
 
+    val coroutineScope = rememberCoroutineScope()
+
     var documentName by remember { mutableStateOf(formInputs.documentFilename) }
     var documentBytes by remember { mutableStateOf(formInputs.documentBytes) }
     var documentMime by remember { mutableStateOf(formInputs.documentMimeType) }
@@ -654,83 +670,100 @@ fun UploadSoilReportStep(
         contract = androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
     ) { uri: android.net.Uri? ->
         if (uri != null) {
-            try {
-                val contentResolver = context.contentResolver
-                val mime = contentResolver.getType(uri) ?: "application/pdf"
-                var name = "Soil_Health_Card.pdf"
-                contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                        if (nameIndex != -1) {
-                            cursor.getString(nameIndex)?.let { name = it }
+            coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try {
+                    val contentResolver = context.contentResolver
+                    val mime = contentResolver.getType(uri) ?: "application/pdf"
+                    var name = "Soil_Health_Card.pdf"
+                    contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                            if (nameIndex != -1) {
+                                cursor.getString(nameIndex)?.let { name = it }
+                            }
                         }
                     }
+                    val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    if (bytes != null) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            documentName = name
+                            documentBytes = bytes
+                            documentMime = mime
+                            onInputsChange(
+                                formInputs.copy(
+                                    documentUri = uri,
+                                    documentBytes = bytes,
+                                    documentFilename = name,
+                                    documentMimeType = mime
+                                )
+                            )
+                        }
+                    }
+                } catch (e: Exception) {
+                    // handle error gracefully
                 }
-                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                if (bytes != null) {
-                    documentName = name
-                    documentBytes = bytes
-                    documentMime = mime
-                    onInputsChange(
-                        formInputs.copy(
-                            documentUri = uri,
-                            documentBytes = bytes,
-                            documentFilename = name,
-                            documentMimeType = mime
-                        )
-                    )
-                }
-            } catch (e: Exception) {
-                // handle error gracefully
             }
         }
     }
 
     // Auto-fetch location & weather on load
     LaunchedEffect(Unit) {
-        val location = getDeviceLocation(context)
-        val lat = location?.first ?: LocationSnapshotStore.latestLatitude ?: 26.9124
-        val lon = location?.second ?: LocationSnapshotStore.latestLongitude ?: 75.7873
-        val appLang = LanguagePreferences.getSelectedLanguage(context) ?: "en"
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val location = getDeviceLocation(context)
+            val lat = location?.first ?: LocationSnapshotStore.latestLatitude ?: 26.9124
+            val lon = location?.second ?: LocationSnapshotStore.latestLongitude ?: 75.7873
+            val appLang = LanguagePreferences.getSelectedLanguage(context) ?: "en"
 
-        val city = getCityFromLocation(context, lat, lon, appLang)
-        if (!city.isNullOrBlank()) {
-            locationDisplay = city
-            LocationSnapshotStore.latestCity = city
-        } else if (!LocationSnapshotStore.latestCity.isNullOrBlank()) {
-            locationDisplay = LocationSnapshotStore.latestCity!!
-        } else {
-            locationDisplay = "Jaipur, Rajasthan"
-        }
-
-        // Live weather query
-        val weatherRes = runCatching { RetrofitInstance.farmFusionApi.getCurrentWeather(lat, lon) }.getOrNull()
-        val weatherData = weatherRes?.body()?.data
-        if (weatherData != null) {
-            tempDisplay = String.format(java.util.Locale.US, "%.1f", weatherData.temperature_c)
-            val estRainfall = when {
-                lat in 24.0..30.5 && lon in 70.0..78.5 -> 612.0  // NW / Rajasthan
-                lat in 8.0..18.0 && lon in 74.0..78.0 -> 950.0   // South
-                lat in 20.0..28.0 && lon in 80.0..89.0 -> 1150.0 // East / Gangetic
-                else -> 750.0
+            val city = getCityFromLocation(context, lat, lon, appLang)
+            val resolvedCity = if (!city.isNullOrBlank()) {
+                LocationSnapshotStore.latestCity = city
+                city
+            } else if (!LocationSnapshotStore.latestCity.isNullOrBlank()) {
+                LocationSnapshotStore.latestCity!!
+            } else {
+                "Jaipur, Rajasthan"
             }
-            rainfallDisplay = estRainfall.toInt().toString()
-        } else if (WeatherSnapshotStore.latestWeather != null) {
-            tempDisplay = "${WeatherSnapshotStore.latestWeather!!.temperature}.0"
-            rainfallDisplay = "612"
-        } else {
-            tempDisplay = "27.4"
-            rainfallDisplay = "612"
-        }
 
-        onInputsChange(
-            formInputs.copy(
-                location = locationDisplay,
-                rainfallMm = rainfallDisplay,
-                temperatureC = tempDisplay,
-                farmSizeAcres = formInputs.farmSizeAcres.ifBlank { "1.0" }
-            )
-        )
+            // Live weather query
+            val weatherRes = runCatching { RetrofitInstance.farmFusionApi.getCurrentWeather(lat, lon) }.getOrNull()
+            val weatherData = weatherRes?.body()?.data
+            val resolvedTemp = if (weatherData != null) {
+                String.format(java.util.Locale.US, "%.1f", weatherData.temperature_c)
+            } else if (WeatherSnapshotStore.latestWeather != null) {
+                "${WeatherSnapshotStore.latestWeather!!.temperature}.0"
+            } else {
+                "27.4"
+            }
+
+            // Fetch real ERA-5 historical annual rainfall from backend
+            val rainfallRes = runCatching { RetrofitInstance.farmFusionApi.getAnnualRainfall(lat, lon) }.getOrNull()
+            val rainVal = rainfallRes?.body()?.data?.let { it.annual_rainfall_mm ?: it.total_rainfall_mm }
+            val resolvedRainfall = if (rainVal != null && rainVal > 0) {
+                String.format(java.util.Locale.US, "%.0f", rainVal)
+            } else {
+                val estRainfall = when {
+                    lat in 24.0..30.5 && lon in 70.0..78.5 -> 612.0  // NW / Rajasthan
+                    lat in 8.0..18.0 && lon in 74.0..78.0 -> 950.0   // South
+                    lat in 20.0..28.0 && lon in 80.0..89.0 -> 1150.0 // East / Gangetic
+                    else -> 750.0
+                }
+                estRainfall.toInt().toString()
+            }
+
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                locationDisplay = resolvedCity
+                tempDisplay = resolvedTemp
+                rainfallDisplay = resolvedRainfall
+                onInputsChange(
+                    formInputs.copy(
+                        location = resolvedCity,
+                        rainfallMm = resolvedRainfall,
+                        temperatureC = resolvedTemp,
+                        farmSizeAcres = formInputs.farmSizeAcres.ifBlank { "1.0" }
+                    )
+                )
+            }
+        }
     }
 
     Column(

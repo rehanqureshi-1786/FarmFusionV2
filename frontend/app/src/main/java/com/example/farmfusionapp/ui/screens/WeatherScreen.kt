@@ -1,5 +1,6 @@
 package com.example.farmfusionapp.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -117,6 +118,19 @@ fun WeatherScreen(navController: NavController) {
     var errorMessage by remember { mutableStateOf<String?>(WeatherSnapshotStore.latestError) }
     var isLoading by remember { mutableStateOf(weatherData == null) }
 
+    val onNavigateBackToHome = {
+        if (!navController.popBackStack(NavRoutes.Dashboard, inclusive = false)) {
+            navController.navigate(NavRoutes.Dashboard) {
+                popUpTo(NavRoutes.Dashboard) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
+
+    BackHandler {
+        onNavigateBackToHome()
+    }
+
     LocationPermissionEffect(
         context = context,
         onPermissionGranted = {
@@ -158,7 +172,7 @@ fun WeatherScreen(navController: NavController) {
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { onNavigateBackToHome() }) {
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = "Back",
@@ -306,7 +320,7 @@ fun WeatherScreen(navController: NavController) {
                                 contentPadding = PaddingValues(horizontal = 24.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(weatherData!!.forecast) { forecast ->
+                                items(weatherData!!.forecast, key = { it.day }) { forecast ->
                                     OutlookCard(forecast, modifier = Modifier.width(85.dp))
                                 }
                             }
@@ -641,6 +655,7 @@ private fun WeatherAlertsBanner(alerts: List<WeatherAlertItemUi>) {
 
 @Composable
 private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
+    val currentLang = LocalAppLanguage.current
     val prediction = disasterRisk.predictions.firstOrNull() ?: return
     val alert = disasterRisk.alert
     val isCritical = prediction.risk_level.equals("CRITICAL", ignoreCase = true)
@@ -690,12 +705,12 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
                 ) {
                     Icon(
                         imageVector = if (isCritical || isHigh) Icons.Rounded.Warning else Icons.Rounded.Info,
-                        contentDescription = "Disaster Risk",
+                        contentDescription = AppLocalizer.localizeDisasterPhrase("disaster risk", currentLang),
                         tint = primaryColor,
                         modifier = Modifier.size(24.dp)
                     )
                     Text(
-                        text = "DISASTER RISK",
+                        text = AppLocalizer.localizeDisasterPhrase("disaster risk", currentLang),
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.Black,
                             color = primaryColor,
@@ -708,8 +723,9 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
                     shape = RoundedCornerShape(12.dp),
                     color = primaryColor
                 ) {
+                    val localizedRiskLevel = AppLocalizer.localizeRiskLevel(prediction.risk_level, currentLang)
                     Text(
-                        text = "${prediction.risk_level} (${prediction.risk_score.toInt()}%)",
+                        text = "$localizedRiskLevel (${prediction.risk_score.toInt()}%)",
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
@@ -723,14 +739,14 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
             // Hazard Type and Window
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
-                    text = prediction.disaster_type,
+                    text = AppLocalizer.localizeDisasterType(prediction.disaster_type, currentLang),
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = Color(0xFF1B1B1B)
                     )
                 )
                 Text(
-                    text = "Probability: ${(prediction.probability * 100).toInt()}% • Next 48 hours",
+                    text = "${AppLocalizer.localizeDisasterPhrase("probability", currentLang)}: ${(prediction.probability * 100).toInt()}% • ${AppLocalizer.localizeDisasterPhrase("next 48 hours", currentLang)}",
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontWeight = FontWeight.Medium,
                         color = Color.DarkGray
@@ -751,7 +767,7 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Observed Key Triggers:",
+                            text = AppLocalizer.localizeDisasterPhrase("observed key triggers", currentLang),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = primaryColor
@@ -763,7 +779,7 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
                                 Text("•", style = MaterialTheme.typography.bodySmall.copy(color = primaryColor, fontWeight = FontWeight.Bold))
-                                Text(factor, style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF2E2E2E)))
+                                Text(AppLocalizer.localizeDisasterPhrase(factor, currentLang), style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFF2E2E2E)))
                             }
                         }
                     }
@@ -785,12 +801,12 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Phone,
-                            contentDescription = "Calling Active",
+                            contentDescription = AppLocalizer.localizeDisasterPhrase("calling active", currentLang),
                             tint = Color(0xFF512DA8),
                             modifier = Modifier.size(18.dp)
                         )
                         Text(
-                            text = "Priority emergency voice alert initiated via Kisan Calling Agent.",
+                            text = AppLocalizer.localizeDisasterPhrase("priority emergency voice alert", currentLang),
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Color(0xFF311B92),
                                 fontWeight = FontWeight.SemiBold
@@ -805,7 +821,7 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
                 if (showDetails) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text(
-                            text = "Actionable Farm Precautions:",
+                            text = AppLocalizer.localizeDisasterPhrase("actionable farm precautions", currentLang),
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF1B1B1B)
@@ -823,7 +839,7 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
                                     modifier = Modifier.size(14.dp).padding(top = 2.dp)
                                 )
                                 Text(
-                                    text = rec,
+                                    text = AppLocalizer.localizeDisasterPhrase(rec, currentLang),
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Color(0xFF212121),
                                         fontWeight = FontWeight.Normal
@@ -842,7 +858,7 @@ private fun DisasterRiskCard(disasterRisk: DisasterRiskResponse) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = if (showDetails) "Hide Precautions" else "Take Precautions",
+                        text = if (showDetails) AppLocalizer.localizeDisasterPhrase("hide precautions", currentLang) else AppLocalizer.localizeDisasterPhrase("take precautions", currentLang),
                         style = MaterialTheme.typography.labelLarge.copy(
                             color = Color.White,
                             fontWeight = FontWeight.Bold
@@ -1787,13 +1803,16 @@ private fun WeatherErrorState(message: String, onRetry: () -> Unit) {
 suspend fun fetchWeatherFromLocation(
     context: android.content.Context,
     onResult: (DisplayWeatherData?, String?) -> Unit
-) {
+) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
     try {
         val location = getDeviceLocation(context)
         if (location == null) {
-            WeatherSnapshotStore.latestError = "Could not get device location. Please enable GPS and try again."
-            onResult(null, "Could not get device location. Please enable GPS and try again.")
-            return
+            val err = "Could not get device location. Please enable GPS and try again."
+            WeatherSnapshotStore.latestError = err
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                onResult(null, err)
+            }
+            return@withContext
         }
 
         val appLanguage = LanguagePreferences.getSelectedLanguage(context) ?: "en"
@@ -1909,14 +1928,19 @@ suspend fun fetchWeatherFromLocation(
                     disasterRisk = disasterRiskObj,
                     smartIrrigation = backendData.smart_irrigation
                 )
-                WeatherSnapshotStore.latestWeather = data
-                WeatherSnapshotStore.latestLanguage = appLanguage
-                WeatherSnapshotStore.latestError = null
-                WeatherSnapshotStore.lastUpdatedAt = System.currentTimeMillis()
-                onResult(data, null)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    WeatherSnapshotStore.latestWeather = data
+                    WeatherSnapshotStore.latestLanguage = appLanguage
+                    WeatherSnapshotStore.latestError = null
+                    WeatherSnapshotStore.lastUpdatedAt = System.currentTimeMillis()
+                    onResult(data, null)
+                }
             } else {
-                WeatherSnapshotStore.latestError = "Failed to get weather data."
-                onResult(null, "Failed to get weather data.")
+                val err = "Failed to get weather data."
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    WeatherSnapshotStore.latestError = err
+                    onResult(null, err)
+                }
             }
         } else {
             val message = if (response.code() == 503) {
@@ -1924,11 +1948,16 @@ suspend fun fetchWeatherFromLocation(
             } else {
                 "Backend unreachable. Error: ${response.code()}"
             }
-            WeatherSnapshotStore.latestError = message
-            onResult(null, message)
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                WeatherSnapshotStore.latestError = message
+                onResult(null, message)
+            }
         }
     } catch (e: Exception) {
-        WeatherSnapshotStore.latestError = "Network Error: ${e.message}"
-        onResult(null, "Network Error: ${e.message}")
+        val err = "Network Error: ${e.message}"
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            WeatherSnapshotStore.latestError = err
+            onResult(null, err)
+        }
     }
 }

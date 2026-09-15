@@ -39,6 +39,7 @@ import com.example.farmfusionapp.utils.AuthStore
 import com.example.farmfusionapp.viewmodel.DiseaseViewModel
 import com.example.farmfusionapp.viewmodel.DiseaseViewModel.DiseaseDetectState
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -59,6 +60,7 @@ enum class ScanState {
 @Composable
 fun DiseaseScreen(navController: NavController) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val viewModel: DiseaseViewModel = viewModel()
     val detectState = viewModel.detectState.value
     
@@ -67,53 +69,85 @@ fun DiseaseScreen(navController: NavController) {
     
     val currentLang = remember { AuthStore.getLanguage(context) ?: "en" }
     val token = remember { AuthStore.getAuthToken(context) }
-    val tempFile = remember { File(context.cacheDir, "disease_scan_temp.jpg") }
-    val fileProviderUri = remember { FileProvider.getUriForFile(context, "com.example.farmfusionapp.provider", tempFile) }
+    var currentScanFile by remember { mutableStateOf<File?>(null) }
+    var currentScanUri by remember { mutableStateOf<Uri?>(null) }
 
-    val startAnalysis = {
-        currentState = ScanState.SCANNING
-        viewModel.detectDisease(
-            imageFile = tempFile,
-            cropType = null,
-            firebaseToken = token,
-            responseLanguage = currentLang
-        )
+    val createFreshScanTarget = {
+        currentScanFile?.let { oldFile ->
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                try { if (oldFile.exists()) oldFile.delete() } catch (_: Exception) {}
+            }
+        }
+        val newFile = File(context.cacheDir, "disease_scan_${System.currentTimeMillis()}.jpg")
+        val newUri = FileProvider.getUriForFile(context, "com.example.farmfusionapp.provider", newFile)
+        currentScanFile = newFile
+        currentScanUri = newUri
+        Pair(newFile, newUri)
     }
 
     val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        if (success) {
-            // Verify file was actually written before proceeding
-            if (!tempFile.exists() || tempFile.length() == 0L) {
-                android.util.Log.e("DiseaseScreen", "Camera capture failed: photo file not found or empty")
-                return@rememberLauncherForActivityResult
+        val file = currentScanFile
+        val uri = currentScanUri
+        if (success && file != null && uri != null && file.exists() && file.length() > 0L) {
+            capturedImageUri = uri
+            currentState = ScanState.SCANNING
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                optimizeImageFile(file)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    viewModel.detectDisease(
+                        imageFile = file,
+                        cropType = null,
+                        firebaseToken = null,
+                        responseLanguage = currentLang
+                    )
+                }
             }
-            capturedImageUri = fileProviderUri
-            startAnalysis()
         } else {
-            android.util.Log.d("DiseaseScreen", "Camera capture cancelled by user")
+            android.util.Log.d("DiseaseScreen", "Camera capture cancelled or failed")
+            if (currentState == ScanState.SCANNING) {
+                currentState = ScanState.IDLE
+            }
         }
+    }
+
+    val launchCamera = {
+        val (_, newUri) = createFreshScanTarget()
+        capturedImageUri = null
+        viewModel.resetDetectState()
+        cameraLauncher.launch(newUri)
     }
 
     val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { selectedUri ->
         if (selectedUri != null) {
-            try {
-                copyUriToTempFile(context, selectedUri, tempFile)
-                // Verify file was written successfully
-                if (!tempFile.exists() || tempFile.length() == 0L) {
-                    android.util.Log.e("DiseaseScreen", "Gallery file copy failed: file doesn't exist or is empty")
-                    return@rememberLauncherForActivityResult
+            val (newFile, _) = createFreshScanTarget()
+            capturedImageUri = selectedUri
+            currentState = ScanState.SCANNING
+            viewModel.resetDetectState()
+            scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                val ok = prepareImageFromUri(context, selectedUri, newFile)
+                if (ok && newFile.exists() && newFile.length() > 0L) {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        viewModel.detectDisease(
+                            imageFile = newFile,
+                            cropType = null,
+                            firebaseToken = null,
+                            responseLanguage = currentLang
+                        )
+                    }
+                } else {
+                    android.util.Log.e("DiseaseScreen", "Gallery file copy/optimize failed")
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        currentState = ScanState.IDLE
+                        capturedImageUri = null
+                    }
                 }
-                capturedImageUri = selectedUri
-                startAnalysis()
-            } catch (e: Exception) {
-                android.util.Log.e("DiseaseScreen", "Error copying gallery file: ${e.message}", e)
             }
         }
     }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
-            cameraLauncher.launch(fileProviderUri)
+            launchCamera()
         }
     }
 
@@ -185,8 +219,22 @@ fun DiseaseScreen(navController: NavController) {
             ) { state ->
                 when (state) {
                     ScanState.IDLE -> CameraCaptureStep(
-                        onCameraClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
-                        onGalleryClick = { galleryLauncher.launch("image/*") }
+                        onCameraClick = {
+                            val hasPerm = androidx.core.content.ContextCompat.checkSelfPermission(
+                                context,
+                                Manifest.permission.CAMERA
+                            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                            if (hasPerm) {
+                                launchCamera()
+                            } else {
+                                permissionLauncher.launch(Manifest.permission.CAMERA)
+                            }
+                        },
+                        onGalleryClick = {
+                            capturedImageUri = null
+                            viewModel.resetDetectState()
+                            galleryLauncher.launch("image/*")
+                        }
                     )
                     ScanState.SCANNING -> ScanningStep()
                     ScanState.RESULT -> {
@@ -987,9 +1035,96 @@ fun DiseaseResultStep(
     }
 }
 
-// ============================================
-// UTILITY FUNCTIONS
-// ============================================
+private fun optimizeImageFile(file: File, maxDimension: Int = 1280, quality: Int = 82) {
+    try {
+        if (!file.exists() || file.length() == 0L) return
+        val boundsOptions = android.graphics.BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        android.graphics.BitmapFactory.decodeFile(file.absolutePath, boundsOptions)
+        val origW = boundsOptions.outWidth
+        val origH = boundsOptions.outHeight
+        if (origW <= 0 || origH <= 0) return
+
+        var sampleSize = 1
+        while ((origW / sampleSize) > maxDimension * 2 || (origH / sampleSize) > maxDimension * 2) {
+            sampleSize *= 2
+        }
+
+        val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+        }
+        val bitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath, decodeOptions) ?: return
+
+        val scale = minOf(1.0f, maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height).toFloat())
+        val finalBitmap = if (scale < 1.0f) {
+            val destW = (bitmap.width * scale).toInt()
+            val destH = (bitmap.height * scale).toInt()
+            android.graphics.Bitmap.createScaledBitmap(bitmap, destW, destH, true).also {
+                if (it != bitmap) bitmap.recycle()
+            }
+        } else {
+            bitmap
+        }
+
+        FileOutputStream(file).use { out ->
+            finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+        }
+        finalBitmap.recycle()
+        android.util.Log.d("DiseaseScreen", "Optimized camera image size: ${file.length()} bytes")
+    } catch (e: Exception) {
+        android.util.Log.e("DiseaseScreen", "Image optimization failed, using original", e)
+    }
+}
+
+private fun prepareImageFromUri(context: Context, uri: Uri, targetFile: File, maxDimension: Int = 1280, quality: Int = 82): Boolean {
+    return try {
+        val boundsOptions = android.graphics.BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        context.contentResolver.openInputStream(uri)?.use { stream ->
+            android.graphics.BitmapFactory.decodeStream(stream, null, boundsOptions)
+        }
+        val origW = boundsOptions.outWidth
+        val origH = boundsOptions.outHeight
+
+        var sampleSize = 1
+        if (origW > 0 && origH > 0) {
+            while ((origW / sampleSize) > maxDimension * 2 || (origH / sampleSize) > maxDimension * 2) {
+                sampleSize *= 2
+            }
+        }
+
+        val decodeOptions = android.graphics.BitmapFactory.Options().apply {
+            inSampleSize = sampleSize
+        }
+        val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+            android.graphics.BitmapFactory.decodeStream(stream, null, decodeOptions)
+        } ?: return try { copyUriToTempFile(context, uri, targetFile); true } catch (e: Exception) { false }
+
+        val scale = minOf(1.0f, maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height).toFloat())
+        val finalBitmap = if (scale < 1.0f) {
+            val destW = (bitmap.width * scale).toInt()
+            val destH = (bitmap.height * scale).toInt()
+            android.graphics.Bitmap.createScaledBitmap(bitmap, destW, destH, true).also {
+                if (it != bitmap) bitmap.recycle()
+            }
+        } else {
+            bitmap
+        }
+
+        FileOutputStream(targetFile).use { out ->
+            finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+        }
+        finalBitmap.recycle()
+        android.util.Log.d("DiseaseScreen", "Optimized gallery image saved: ${targetFile.length()} bytes")
+        true
+    } catch (e: Exception) {
+        android.util.Log.e("DiseaseScreen", "Optimized load failed, fallback to raw copy", e)
+        try { copyUriToTempFile(context, uri, targetFile); true } catch (e2: Exception) { false }
+    }
+}
+
 private fun copyUriToTempFile(context: Context, uri: Uri, targetFile: File) {
     try {
         // Delete old file if it exists

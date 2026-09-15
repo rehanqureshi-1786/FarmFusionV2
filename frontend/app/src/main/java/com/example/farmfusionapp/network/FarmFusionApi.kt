@@ -63,7 +63,7 @@ interface FarmFusionApi {
 
     @GET("api/v1/disease/history")
     suspend fun getDiseaseHistory(
-        @Query("firebase_token") token: String,
+        @Query("firebase_token") token: String? = null,
         @Query("limit") limit: Int = 10
     ): Response<DiseaseHistoryResponse>
 
@@ -71,6 +71,35 @@ interface FarmFusionApi {
     suspend fun getDiseaseInfo(
         @Path("disease_name") diseaseName: String
     ): Response<DiseaseInfoResponse>
+
+    // ============ COLD STORAGE / CROP STORAGE ============
+
+    @GET("api/v1/cold-storage/search")
+    suspend fun searchColdStorages(
+        @Query("query") query: String? = null,
+        @Query("latitude") latitude: Double? = null,
+        @Query("longitude") longitude: Double? = null,
+        @Query("radius") radius: Double = 50.0,
+        @Query("crop") crop: String? = null,
+        @Query("limit") limit: Int = 50
+    ): Response<ColdStorageResponse>
+
+    @GET("api/v1/cold-storage/nearby")
+    suspend fun getNearbyColdStorages(
+        @Query("latitude") latitude: Double,
+        @Query("longitude") longitude: Double,
+        @Query("radius") radius: Double? = 50.0,
+        @Query("crop") crop: String? = null,
+        @Query("limit") limit: Int = 25
+    ): Response<ColdStorageResponse>
+
+    @GET("api/v1/cold-storage/district")
+    suspend fun getDistrictColdStorages(
+        @Query("state") state: String,
+        @Query("district") district: String,
+        @Query("crop") crop: String? = null,
+        @Query("limit") limit: Int = 50
+    ): Response<ColdStorageResponse>
 
     // ============ MARKET PRICES ============
 
@@ -132,6 +161,13 @@ interface FarmFusionApi {
         @Query("lon") longitude: Double,
         @Query("language") language: String? = null
     ): Response<WeatherResponse>
+
+    @GET("api/v1/weather/annual-rainfall")
+    suspend fun getAnnualRainfall(
+        @Query("lat") latitude: Double,
+        @Query("lon") longitude: Double,
+        @Query("year") year: Int? = null
+    ): Response<AnnualRainfallResponse>
 
     @GET("api/v1/weather/forecast")
     suspend fun getWeatherForecast(

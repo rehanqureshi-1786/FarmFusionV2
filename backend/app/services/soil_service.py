@@ -39,6 +39,8 @@ SOILGRIDS_DEPTHS = ["0-5cm", "5-15cm", "15-30cm", "30-60cm", "60-100cm", "100-20
 
 
 class SoilService:
+    _cache: Dict[str, Dict[str, Any]] = {}
+
     def __init__(self) -> None:
         self.settings: Settings = get_settings()
         self._base_url = "https://rest.isric.org/soilgrids/v2.0/properties/query"
@@ -88,6 +90,10 @@ class SoilService:
             }
             or {"success": False, "source": "SoilGrids", "error": ...}
         """
+        cache_key = f"{round(latitude, 2)}_{round(longitude, 2)}"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+
         params = [
             ("lon", longitude),
             ("lat", latitude),
@@ -100,7 +106,7 @@ class SoilService:
         ]
 
         try:
-            timeout = httpx.Timeout(20.0)
+            timeout = httpx.Timeout(8.0)
             async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
                 response = await client.get(self._base_url, params=params)
                 response.raise_for_status()
@@ -171,7 +177,7 @@ class SoilService:
             "SoilGrids N/P/K represent concentration (g/kg, mg/kg, cmolc/kg), not kg/ha stock. They are NOT used.",
         ]
 
-        return {
+        result = {
             "success": True,
             "soil_data_available": True,
             "ph": float(ph),
@@ -186,6 +192,8 @@ class SoilService:
             "depth_used": "0-5cm",
             "warnings": warnings,
         }
+        self._cache[cache_key] = result
+        return result
 
     async def get_soil_nutrients(self, latitude: float, longitude: float) -> Dict[str, Any]:
         """

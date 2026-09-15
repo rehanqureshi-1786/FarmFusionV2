@@ -75,8 +75,13 @@ async def _resolve_rainfall(input_data: CropRecommendationInput) -> tuple[float,
         try:
             annual = await WeatherService.get_annual_rainfall(input_data.latitude, input_data.longitude)
             if annual.get("success"):
-                total = float(annual.get("annual_rainfall_mm", annual.get("total_precipitation_mm", 0.0)))
-                period = annual.get("rainfall_period", "previous year")
+                total = float(
+                    annual.get("annual_rainfall_mm")
+                    or annual.get("total_rainfall_mm")
+                    or annual.get("total_precipitation_mm")
+                    or 0.0
+                )
+                period = str(annual.get("rainfall_period") or annual.get("year") or "previous year")
                 return total, (
                     f"Rainfall was derived as {total:.1f} mm annual precipitation ({period}) "
                     "from Open-Meteo ERA5-Land historical reanalysis."

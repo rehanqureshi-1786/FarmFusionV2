@@ -87,7 +87,17 @@ data class WeatherStrings(
     val clearSky: String,
     val overcast: String,
     val rainy: String,
-    val sunny: String
+    val sunny: String,
+    val disasterRisk: String = "DISASTER RISK",
+    val disasterRiskTitle: String = "Disaster Risk & Early Warning",
+    val probability: String = "Probability",
+    val next48Hours: String = "Next 48 hours",
+    val observedTriggers: String = "Observed Key Triggers:",
+    val emergencyVoiceAlert: String = "Priority emergency voice alert initiated via Kisan Calling Agent.",
+    val callingActive: String = "Calling Active",
+    val actionablePrecautions: String = "Actionable Farm Precautions:",
+    val takePrecautions: String = "Take Precautions",
+    val hidePrecautions: String = "Hide Precautions"
 )
 
 data class MandiStrings(
@@ -110,7 +120,17 @@ data class MandiStrings(
     val targetPrice: String,
     val alertSaved: String,
     val historicalTrends: String,
-    val aiMarketAdvice: String
+    val aiMarketAdvice: String,
+    val bestNearbyTitle: String = "Best Nearby",
+    val bestNearbySub: String = "Highest net price market",
+    val compareTitle: String = "Compare",
+    val compareSub: String = "Side-by-side mandi rates",
+    val sellVsWaitTitle: String = "Sell vs Wait",
+    val sellVsWaitSub: String = "7-day price trajectory",
+    val setAlertTitle: String = "Set Alert",
+    val setAlertSub: String = "Notify on target prices",
+    val marketIntelligenceTitle: String = "Market Prices & Intelligence",
+    val searchCropsPlaceholder: String = "Search crops (e.g. Wheat, Gram, Mustard), mandis..."
 )
 
 data class DiseaseStrings(

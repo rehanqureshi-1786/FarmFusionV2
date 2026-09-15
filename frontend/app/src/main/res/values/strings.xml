@@ -109,4 +109,24 @@
 
     <!-- Dashboard carousel -->
     <string name="dashboard_carousel_alert_badge">ALERT</string>
+
+    <!-- Market Intelligence Cards -->
+    <string name="market_best_nearby_title">Best Nearby</string>
+    <string name="market_best_nearby_sub">Highest net price market</string>
+    <string name="market_compare_title">Compare</string>
+    <string name="market_compare_sub">Side-by-side mandi rates</string>
+    <string name="market_sell_vs_wait_title">Sell vs Wait</string>
+    <string name="market_sell_vs_wait_sub">7-day price trajectory</string>
+    <string name="market_set_alert_title">Set Alert</string>
+    <string name="market_set_alert_sub">Notify on target prices</string>
+    <string name="market_screen_title">Market Prices &amp; Intelligence</string>
+
+    <!-- Weather Disaster Risk -->
+    <string name="disaster_risk_badge">DISASTER RISK</string>
+    <string name="disaster_risk_probability">Probability: %1$s%% • Next 48 hours</string>
+    <string name="disaster_risk_triggers_label">Observed Key Triggers:</string>
+    <string name="disaster_risk_voice_alert">Priority emergency voice alert initiated via Kisan Calling Agent.</string>
+    <string name="disaster_risk_precautions_label">Actionable Farm Precautions:</string>
+    <string name="disaster_risk_take_precautions">Take Precautions</string>
+    <string name="disaster_risk_hide_precautions">Hide Precautions</string>
 </resources>
