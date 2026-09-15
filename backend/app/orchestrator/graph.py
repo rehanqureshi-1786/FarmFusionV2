@@ -127,6 +127,7 @@ async def run_orchestrator_pipeline(
     last_final_response: Optional[str] = None,
     image_bytes: Optional[bytes] = None,
     image_path: Optional[str] = None,
+    active_crop: Optional[str] = None,
 ) -> OrchestratorState:
     """
     Execute the full orchestrator graph turn via LangGraph StateGraph:
@@ -136,6 +137,52 @@ async def run_orchestrator_pipeline(
     4. Parallel/sequential execution via ToolRegistry
     5. Response synthesis with zero data fabrication
     """
+    config = {"configurable": {"thread_id": session_id}}
+    prev_snapshot = await orchestrator_graph.aget_state(config)
+    prev_state = prev_snapshot.values if (prev_snapshot and prev_snapshot.values) else {}
+
+    combined_slots = dict(prev_state.get("filled_slots") or {})
+    if filled_slots:
+        combined_slots.update(filled_slots)
+
+    combined_farmer_ctx = dict(prev_state.get("farmer_context") or {})
+    if farmer_context:
+        combined_farmer_ctx.update(farmer_context)
+
+    combined_crop = (
+        active_crop
+        or prev_state.get("active_crop")
+        or combined_farmer_ctx.get("active_crop")
+        or combined_slots.get("commodity")
+        or combined_slots.get("crop_name")
+    )
+
+    combined_market = (
+        prev_state.get("active_market")
+        or combined_slots.get("market")
+        or combined_slots.get("mandi")
+    )
+
+    combined_location = (
+        prev_state.get("active_location")
+        or combined_slots.get("location_name")
+        or combined_slots.get("city")
+    )
+
+    candidate_crops = list(prev_state.get("candidate_crops") or [])
+    if combined_crop and combined_crop not in candidate_crops:
+        candidate_crops.append(combined_crop)
+
+    candidate_markets = list(prev_state.get("candidate_markets") or [])
+    if combined_market and combined_market not in candidate_markets:
+        candidate_markets.append(combined_market)
+
+    prev_intent = prev_state.get("intent")
+    last_intent_val = (
+        prev_intent if prev_intent and prev_intent != "unknown"
+        else prev_state.get("last_intent")
+    )
+
     initial_state: OrchestratorState = {
         "user_id": None,
         "session_id": session_id,
@@ -143,10 +190,16 @@ async def run_orchestrator_pipeline(
         "detected_language": detected_language,
         "detected_dialect": detected_dialect,
         "language_confidence": language_confidence,
-        "farmer_context": farmer_context or {},
+        "farmer_context": combined_farmer_ctx,
+        "active_crop": combined_crop,
+        "active_market": combined_market,
+        "active_location": combined_location,
+        "candidate_crops": candidate_crops,
+        "candidate_markets": candidate_markets,
         "intent": "unknown",
+        "last_intent": last_intent_val,
         "intent_confidence": 0.0,
-        "filled_slots": filled_slots or {},
+        "filled_slots": combined_slots,
         "missing_slots": [],
         "image_bytes": image_bytes,
         "image_path": image_path,
@@ -154,20 +207,20 @@ async def run_orchestrator_pipeline(
         "pending_tasks": [],
         "completed_tasks": [],
         "failed_tasks": [],
-        "tool_results": {},
+        "tool_results": dict(prev_state.get("tool_results") or {}),
         "unresolved_inputs": [],
         "next_action": None,
-        "last_tool": None,
-        "last_tool_result": None,
+        "last_tool": prev_state.get("last_tool"),
+        "last_tool_result": prev_state.get("last_tool_result"),
         "tool_output": None,
         "tool_status": None,
-        "last_recommendations": last_recommendations or [],
-        "last_final_response": last_final_response,
-        "messages": [],
+        "last_recommendations": last_recommendations or prev_state.get("last_recommendations") or [],
+        "last_final_response": last_final_response or prev_state.get("last_final_response"),
+        "messages": list(prev_state.get("messages") or []),
         "final_response": "",
         "requires_clarification": False,
         "clarification_question": None,
-        "turn_history": [],
+        "turn_history": list(prev_state.get("turn_history") or []),
         "tts_language": None,
         "native_tts": None,
         "fallback_used": None,
@@ -183,8 +236,18 @@ async def run_orchestrator_pipeline(
         "orchestration_traces": [],
     }
 
-
-
-    config = {"configurable": {"thread_id": session_id}}
     result_state = await orchestrator_graph.ainvoke(initial_state, config=config)
+
+    # Record turn into turn_history for conversational context tracking
+    turn_record = {
+        "turn": len(result_state.get("turn_history", [])) + 1,
+        "user_input": user_input,
+        "intent": result_state.get("intent"),
+        "active_crop": result_state.get("active_crop"),
+        "active_market": result_state.get("active_market"),
+        "completed_tasks": result_state.get("completed_tasks", []),
+        "final_response": result_state.get("final_response", ""),
+    }
+    result_state.setdefault("turn_history", []).append(turn_record)
+
     return result_state

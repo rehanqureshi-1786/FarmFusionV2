@@ -114,3 +114,4 @@ class DiseaseDetectionAgent:
             "treatment": treatment,
             "prevention": prevention,
         }
+disease_agent = DiseaseDetectionAgent()

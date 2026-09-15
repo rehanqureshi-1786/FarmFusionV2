@@ -34,11 +34,17 @@ SARVAM_LANG = {"hi": "hi-IN", "en": "en-IN", "gu": "gu-IN", "mr": "mr-IN",
                "kn": "kn-IN", "ml": "ml-IN"}
 
 
+_UNSET = object()
+
+
 class SarvamVoiceClient:
     """Thin Sarvam STT+TTS + language-signal client with graceful fallback."""
 
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or settings.sarvam_api_key
+    def __init__(self, api_key: Optional[str] = _UNSET):
+        if api_key is _UNSET:
+            self.api_key = settings.sarvam_api_key
+        else:
+            self.api_key = api_key
         self._client = httpx.AsyncClient(timeout=12.0)
 
     @property

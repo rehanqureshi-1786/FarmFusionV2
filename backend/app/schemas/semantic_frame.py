@@ -274,6 +274,11 @@ class ConversationContext(BaseModel):
 
     turn_index: int = 0
     active_crop: Optional[str] = None
+    active_market: Optional[str] = None
+    active_location: Optional[str] = None
+    active_timeframe: Optional[str] = None
+    candidate_crops: List[str] = Field(default_factory=list)
+    candidate_markets: List[str] = Field(default_factory=list)
     last_intent: Optional[str] = None
     last_action: Optional[ActionIntent] = None
     last_destination: Optional[NavigationDestination] = None

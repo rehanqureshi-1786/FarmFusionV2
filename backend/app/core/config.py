@@ -44,7 +44,9 @@ class Settings(BaseSettings):
 
     # LLM via OpenRouter
     openrouter_api_key: Optional[str] = Field(None, validation_alias="OPENROUTER_API_KEY")
-    primary_llm_model: str = Field("google/gemma-3-12b-it", validation_alias="PRIMARY_LLM_MODEL")
+    openrouter_model: str = Field("openrouter/free", validation_alias=AliasChoices("OPENROUTER_MODEL", "PRIMARY_LLM_MODEL"))
+    openrouter_base_url: str = Field("https://openrouter.ai/api/v1", validation_alias="OPENROUTER_BASE_URL")
+    primary_llm_model: str = Field("openrouter/free", validation_alias="PRIMARY_LLM_MODEL")
     fallback_llm_model: str = Field("qwen/qwen-2.5-7b-instruct", validation_alias="FALLBACK_LLM_MODEL")
 
 

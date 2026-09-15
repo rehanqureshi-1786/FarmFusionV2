@@ -220,64 +220,119 @@ def verify_numerical_immutability(
 
 async def call_llm_synthesizer(
     user_prompt: str,
-    timeout_seconds: float = 4.0,
+    timeout_seconds: float = 6.0,
 ) -> Tuple[Optional[Dict[str, Any]], str]:
     """
-    Invokes configured cloud LLM (OpenRouter or Groq) with structured JSON response.
+    Invokes configured cloud LLM with structured JSON response.
+    Provider Order: OPENROUTER -> GROQ -> deterministic fallback.
     Returns (parsed_json_dict, failure_reason).
     """
-    openrouter_key = os.getenv("OPENROUTER_API_KEY")
-    groq_key = os.getenv("GROQ_API_KEY")
+    from app.core.config import get_settings
+    settings = get_settings()
 
-    api_key = None
-    api_url = None
-    model_name = None
+    openrouter_key = settings.openrouter_api_key
+    groq_key = settings.groq_api_key
 
+    last_error = "llm_unavailable_no_api_key"
+
+    # 1. Attempt OpenRouter
     if openrouter_key and not openrouter_key.startswith("placeholder"):
-        api_key = openrouter_key
-        api_url = "https://openrouter.ai/api/v1/chat/completions"
-        model_name = "google/gemma-3-12b-it"
-    elif groq_key and not groq_key.startswith("gsk_placeholder"):
-        api_key = groq_key
+        api_url = f"{settings.openrouter_base_url.rstrip('/')}/chat/completions"
+        model_name = settings.openrouter_model
+        headers = {
+            "Authorization": f"Bearer {openrouter_key}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://farmfusion.app",
+            "X-Title": "FarmFusion",
+        }
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.post(api_url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    content = data["choices"][0]["message"]["content"]
+                    try:
+                        # Clean markdown code fences if present
+                        raw_c = content.strip()
+                        if raw_c.startswith("```json"):
+                            raw_c = raw_c[7:]
+                        elif raw_c.startswith("```"):
+                            raw_c = raw_c[3:]
+                        if raw_c.endswith("```"):
+                            raw_c = raw_c[:-3]
+                        parsed = json.loads(raw_c.strip())
+                        return parsed, "success_openrouter"
+                    except json.JSONDecodeError:
+                        last_error = "openrouter_malformed_json"
+                        logger.warning("openrouter_synthesis_json_decode_error")
+                else:
+                    last_error = f"openrouter_http_error_{resp.status_code}"
+                    logger.warning("openrouter_synthesis_http_error", status_code=resp.status_code)
+        except httpx.TimeoutException:
+            last_error = "openrouter_timeout"
+            logger.warning("openrouter_synthesis_timeout")
+        except Exception as exc:
+            last_error = f"openrouter_error_{type(exc).__name__}"
+            logger.warning("openrouter_synthesis_failed", error=str(exc))
+
+    # 2. Fallback to Groq
+    if groq_key and not groq_key.startswith("gsk_placeholder"):
         api_url = "https://api.groq.com/openai/v1/chat/completions"
-        model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
-    else:
-        return None, "llm_unavailable_no_api_key"
+        model_name = settings.groq_model or "llama-3.3-70b-versatile"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+        }
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
-    payload = {
-        "model": model_name,
-        "messages": [
-            {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        "temperature": 0.1,
-        "response_format": {"type": "json_object"},
-    }
+        try:
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.post(api_url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    content = data["choices"][0]["message"]["content"]
+                    try:
+                        raw_c = content.strip()
+                        if raw_c.startswith("```json"):
+                            raw_c = raw_c[7:]
+                        elif raw_c.startswith("```"):
+                            raw_c = raw_c[3:]
+                        if raw_c.endswith("```"):
+                            raw_c = raw_c[:-3]
+                        parsed = json.loads(raw_c.strip())
+                        return parsed, "success_groq"
+                    except json.JSONDecodeError:
+                        last_error = "groq_malformed_json"
+                        logger.warning("groq_synthesis_json_decode_error")
+                else:
+                    last_error = f"groq_http_error_{resp.status_code}"
+                    logger.warning("groq_synthesis_http_error", status_code=resp.status_code)
+        except httpx.TimeoutException:
+            last_error = "groq_timeout"
+            logger.warning("groq_synthesis_timeout")
+        except Exception as exc:
+            last_error = f"groq_error_{type(exc).__name__}"
+            logger.warning("groq_synthesis_failed", error=str(exc))
 
-    try:
-        async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-            resp = await client.post(api_url, headers=headers, json=payload)
-            if resp.status_code == 200:
-                data = resp.json()
-                content = data["choices"][0]["message"]["content"]
-                try:
-                    parsed = json.loads(content)
-                    return parsed, "success"
-                except json.JSONDecodeError:
-                    return None, "malformed_structured_output_json_decode_error"
-            else:
-                logger.warning("llm_synthesizer_http_error", status_code=resp.status_code, body=resp.text[:200])
-                return None, f"http_error_{resp.status_code}"
-    except httpx.TimeoutException:
-        logger.warning("llm_synthesizer_timeout")
-        return None, "timeout"
-    except Exception as exc:
-        logger.warning("llm_synthesizer_call_failed", error=str(exc))
-        return None, f"other_error_{type(exc).__name__}"
+    return None, last_error
 
 
 def is_hinglish_query(query: str, detected_lang: str) -> bool:
@@ -380,9 +435,16 @@ def deterministic_fallback_synthesizer(
 
     # 3. Navigation
     if intent in ["navigation", "navigation_request"] or state.get("next_action") == "NAVIGATE":
-        dest = tool_data.get("destination") or state.get("last_navigation_destination") or "home"
-        route = tool_data.get("android_route") or f"nav_{dest}"
-        req_in = tool_data.get("required_input") or ("LEAF_IMAGE" if dest in ["disease_detection", "DISEASE_SCAN"] else None)
+        req_in = tool_data.get("required_input") or state.get("required_input")
+        dest = tool_data.get("destination") or state.get("last_navigation_destination")
+        if not dest:
+            if req_in == "LEAF_IMAGE" or intent in ["disease", "disease_detection"]:
+                dest = "DISEASE_SCAN"
+            else:
+                dest = "home"
+        route = tool_data.get("android_route") or ("disease_scan" if dest in ["DISEASE_SCAN", "disease_detection"] else f"nav_{dest}")
+        if not req_in and dest in ["disease_detection", "DISEASE_SCAN"]:
+            req_in = "LEAF_IMAGE"
         dest_hi = {
             "home": "होम स्क्रीन", "market_prices": "मंडी भाव स्क्रीन",
             "weather": "मौसम स्क्रीन", "crop_recommendation": "फसल सलाह स्क्रीन",
@@ -556,7 +618,7 @@ def deterministic_fallback_synthesizer(
             or "--"
         )
         if isinstance(price, (int, float)):
-            price_fmt = f"{price:,.0f}" if price == int(price) else f"{price:,.2f}"
+            price_fmt = f"{int(price)}" if price == int(price) else f"{price:.2f}"
         else:
             price_fmt = str(price)
 
@@ -786,6 +848,23 @@ def deterministic_fallback_synthesizer(
             text = f"आज {loc} में तापमान {_safe_g(temp)}°C और humidity {hum}% है, मौसम {cond} रहेगा।{wind_str_hi}"
         else:
             text = f"Today in {loc}, temperature is {_safe_g(temp)}°C with {hum}% humidity and {cond} conditions.{wind_str_en}"
+
+        # Check for composite smart irrigation advice
+        irrigation_task = next((v for k, v in tool_results.items() if "irrigation" in k), {})
+        si_source = irrigation_task if (isinstance(irrigation_task, dict) and irrigation_task) else (
+            tool_data.get("smart_irrigation") or {}
+        )
+        si_advice = si_source.get("actionable_advice") or si_source.get("advice", "")
+        if si_advice:
+            if is_hinglish:
+                text += f" Sinchai salah: {si_advice}"
+            elif is_marwari:
+                text += f" सिंचाई सलाह: {si_advice}"
+            elif lang == "hi":
+                text += f" सिंचाई सलाह: {si_advice}"
+            else:
+                text += f" Irrigation advisory: {si_advice}"
+
         return text, StructuredActionPayload(action="ANSWER")
 
     # 8d. Crop Care / General Agriculture / Agronomy

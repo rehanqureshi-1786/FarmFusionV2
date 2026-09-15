@@ -938,6 +938,9 @@ VOCABULARY_PACK: Dict[str, Dict[str, Any]] = {
     "vengayam": {"canonical_id": "onion", "canonical_name": "Onion", "category": "crop", "language": "ta"},
 
     "आलू": {"canonical_id": "potato", "canonical_name": "Potato", "category": "crop"},
+    "aloo": {"canonical_id": "potato", "canonical_name": "Potato", "category": "crop"},
+    "alu": {"canonical_id": "potato", "canonical_name": "Potato", "category": "crop"},
+    "aalu": {"canonical_id": "potato", "canonical_name": "Potato", "category": "crop"},
     "बटाटा": {"canonical_id": "potato", "canonical_name": "Potato", "category": "crop", "language": "mr"},
     "batata": {"canonical_id": "potato", "canonical_name": "Potato", "category": "crop"},
     "potato": {"canonical_id": "potato", "canonical_name": "Potato", "category": "crop"},

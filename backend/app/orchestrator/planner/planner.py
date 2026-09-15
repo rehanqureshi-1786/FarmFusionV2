@@ -171,11 +171,12 @@ def generate_task_plan(
     # -------------------------------------------------------------------------
     # 5. Missing Location Gate for Physical Tools
     # -------------------------------------------------------------------------
+    city_name = entities.city or entities.market or (entities.farm_location.city if entities.farm_location else None)
     needs_physical_location = any(
         cap in semantic_frame.required_capabilities
         for cap in [CapabilityType.WEATHER, CapabilityType.CROP_RECOMMENDATION, CapabilityType.DISASTER_RISK]
     )
-    if needs_physical_location and (lat is None or lon is None) and not district_name and not state_name:
+    if needs_physical_location and (lat is None or lon is None) and not district_name and not state_name and not city_name:
         return TaskPlan(
             session_id=semantic_frame.session_id,
             objective="Physical farming recommendations require location context.",
@@ -217,7 +218,7 @@ def generate_task_plan(
                     static_inputs={
                         "latitude": float(lat) if lat is not None else 26.9124,
                         "longitude": float(lon) if lon is not None else 75.7873,
-                        "location_name": district_name or state_name,
+                        "location_name": district_name or state_name or city_name or "Jaipur",
                         "days": int((tc or {}).get("forecast_days") or (tc or {}).get("horizon_days") or entities.forecast_days or 7),
                         "target_date": target_date,
                     },
@@ -235,7 +236,7 @@ def generate_task_plan(
                     static_inputs={
                         "latitude": float(lat) if lat is not None else 26.9124,
                         "longitude": float(lon) if lon is not None else 75.7873,
-                        "location_name": district_name or state_name,
+                        "location_name": district_name or state_name or city_name or "Jaipur",
                     },
                     is_blocking=False,
                 )

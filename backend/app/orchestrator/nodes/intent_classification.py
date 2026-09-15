@@ -48,11 +48,46 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         state.get("active_crop")
         or farmer_ctx.get("active_crop")
         or (farmer_ctx.get("profile") or {}).get("active_crop")
+        or filled_slots.get("commodity")
+        or filled_slots.get("crop_name")
         or (last_recs[0].get("crop_name") if last_recs else None)
     )
+    candidate_crops = list(state.get("candidate_crops") or [])
+    if active_crop_ctx and active_crop_ctx not in candidate_crops:
+        candidate_crops.append(active_crop_ctx)
+
+    active_market_ctx = (
+        state.get("active_market")
+        or filled_slots.get("market")
+        or filled_slots.get("mandi")
+        or filled_slots.get("location_name")
+        or farmer_ctx.get("preferred_mandi")
+    )
+    candidate_markets = list(state.get("candidate_markets") or [])
+    if active_market_ctx and active_market_ctx not in candidate_markets:
+        candidate_markets.append(active_market_ctx)
+
+    active_location_ctx = (
+        state.get("active_location")
+        or filled_slots.get("city")
+        or filled_slots.get("location_name")
+        or (farmer_ctx.get("city") if farmer_ctx else None)
+        or (farmer_ctx.get("district") if farmer_ctx else None)
+    )
+
+    last_intent_ctx = (
+        state.get("last_intent")
+        or (state.get("turn_history")[-1].get("intent") if state.get("turn_history") else None)
+        or (state.get("intent") if state.get("intent") != "unknown" else None)
+    )
+
     conversation_context = ConversationContext(
         active_crop=active_crop_ctx,
-        last_intent=state.get("intent"),
+        active_market=active_market_ctx,
+        active_location=active_location_ctx,
+        candidate_crops=candidate_crops,
+        candidate_markets=candidate_markets,
+        last_intent=last_intent_ctx,
         accumulated_slots=filled_slots,
     )
 
@@ -217,7 +252,8 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         "कीड़े", "कीड़ा", "कीट", "कीड़े लगे", "कीट लगे", "लगे हैं", "बीमारी", "रोग", "पत्ते", "पत्ता", "पत्ता खराब", "पत्ते खराब",
         "पीले पत्ते", "सूख रहे", "धब्बे", "इल्ली", "माहू", "दीमक", "फफूंद", "फंगस", "सुंडी", "मच्छर", "पौधे में क्या लगा", "पौधे में",
         "दवा", "कीटनाशक", "दवाई", "स्प्रे", "उपचार", "रोकथाम", "photo", "फोटो", "स्कैन", "disease", "pest", "leaf", "fungus", "spots", "insect", "worm",
-        "keede", "kida", "bimari", "rog", "patta kharab", "illey", "mahu", "kitnashak", "दावा", "நோய்", "ರೋಗ", "രോഗം", "କୀଟ"
+        "keede", "kida", "bimari", "rog", "patta kharab", "illey", "mahu", "kitnashak", "दावा", "நோய்", "ರೋಗ", "രോഗം", "କୀଟ",
+        "dawai", "dawa", "spray", "safed makkhi", "makkhi", "whitefly", "prakop", "keet"
     ]):
         intent = "disease"
         confidence = 0.94
@@ -301,8 +337,11 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
             filled_slots["commodity"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
 
     # 12c. Sell-Now vs Wait Advisory Intent: "आज बेचूं या रुकूं?", "अभी बेचना ठीक रहेगा?", "कब बेचूं?"
-    elif any(kw in query for kw in ["बेचूं या रुकूं", "बेचना ठीक", "रुकना ठीक", "कब बेचना", "sell now or wait", "should i sell", "should i wait"]):
-        intent = "sell_wait_advisory"
+    elif any(kw in query for kw in [
+        "बेचूं या रुकूं", "बेचना ठीक", "रुकना ठीक", "कब बेचना", "sell now or wait", "should i sell", "should i wait",
+        "bechna theek", "bechna sahi", "aaj bechna", "bechna chahiye", "rukna chahiye"
+    ]):
+        intent = "mandi_decision"
         confidence = 0.95
         filled_slots["query_type"] = "advisory"
         for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "onion"]:
@@ -310,7 +349,7 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
                 filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
                 break
         if "commodity" not in filled_slots:
-            filled_slots["commodity"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
+            filled_slots["commodity"] = active_crop_ctx or (last_recs[0].get("crop_name") if last_recs else "Wheat")
 
     # 12d. Mandi Comparison Intent: "उदयपुर और जयपुर में कौन महंगा है?", "गेहूं का भाव compare करो", "मंडी तुलना"
     elif any(kw in query for kw in ["compare", "तुलना", "कहाँ महंगा", "कौन महंगा", "कहाँ सस्ता", "vs", "versus"]):
@@ -504,12 +543,15 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         filled_slots["crop_name"] = (last_recs[0].get("crop_name") if last_recs else "Wheat")
 
     # Inherit semantic_frame intent if deterministic/LLM extractor identified higher confidence
-    if intent == "unknown" and semantic_frame.intent not in [CanonicalIntent.GENERAL_AGRICULTURE, CanonicalIntent.CLARIFICATION]:
-        intent = semantic_frame.intent.value
+    if intent == "unknown" and semantic_frame.intent != CanonicalIntent.CLARIFICATION:
+        if semantic_frame.intent == CanonicalIntent.GENERAL_AGRICULTURE:
+            intent = "crop_care"
+        else:
+            intent = semantic_frame.intent.value
         confidence = max(confidence, semantic_frame.confidence.intent_confidence)
 
     # Enforce Safety Rule #6: Low Confidence Clarification
-    if confidence < 0.6:
+    if confidence < 0.6 or semantic_frame.intent == CanonicalIntent.CLARIFICATION:
         logger.warning("low_intent_confidence_trigger_clarification", confidence=confidence, query=query)
         state["intent"] = "clarify"
         state["intent_confidence"] = confidence
@@ -518,23 +560,92 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
     else:
         state["intent"] = intent
         state["intent_confidence"] = confidence
+        state["last_intent"] = last_intent_ctx
         if not state.get("requires_clarification"):
             state["requires_clarification"] = False
+        # Inherit active crop from previous context if not identified in current semantic frame
+        if not semantic_frame.entities.crop:
+            # Use existing active crop or commodity from filled slots
+            previous_crop = state.get("active_crop") or filled_slots.get("commodity")
+            if previous_crop:
+                state["active_crop"] = previous_crop
+                filled_slots["commodity"] = previous_crop
+                filled_slots["crop_name"] = previous_crop
 
-    # Synchronize entities from semantic frame into filled_slots
-    if semantic_frame.entities.crop and "commodity" not in filled_slots:
+    # Synchronize entities from semantic frame into state and filled_slots
+    if semantic_frame.entities.crop:
+        state["active_crop"] = semantic_frame.entities.crop
         filled_slots["commodity"] = semantic_frame.entities.crop
-    if semantic_frame.entities.crop and "crop_name" not in filled_slots:
         filled_slots["crop_name"] = semantic_frame.entities.crop
-    if semantic_frame.entities.market and "location_name" not in filled_slots:
+        cand_crops = list(state.get("candidate_crops") or [])
+        if semantic_frame.entities.crop not in cand_crops:
+            cand_crops.append(semantic_frame.entities.crop)
+        state["candidate_crops"] = cand_crops
+
+    if semantic_frame.entities.additional_entities and semantic_frame.entities.additional_entities.get("candidate_crops"):
+        cand_crops = list(state.get("candidate_crops") or [])
+        for c in semantic_frame.entities.additional_entities["candidate_crops"]:
+            if c not in cand_crops:
+                cand_crops.append(c)
+        state["candidate_crops"] = cand_crops
+        if len(cand_crops) > 1 and not semantic_frame.entities.crop:
+            state["active_crop"] = None
+            filled_slots.pop("commodity", None)
+            filled_slots.pop("crop_name", None)
+
+    if semantic_frame.entities.market:
+        state["active_market"] = semantic_frame.entities.market
         filled_slots["location_name"] = semantic_frame.entities.market
+        filled_slots["market"] = semantic_frame.entities.market
+        cand_markets = list(state.get("candidate_markets") or [])
+        if semantic_frame.entities.market not in cand_markets:
+            cand_markets.append(semantic_frame.entities.market)
+        state["candidate_markets"] = cand_markets
+
+    if semantic_frame.entities.additional_entities and semantic_frame.entities.additional_entities.get("candidate_markets"):
+        cand_markets = list(state.get("candidate_markets") or [])
+        for m in semantic_frame.entities.additional_entities["candidate_markets"]:
+            if m not in cand_markets:
+                cand_markets.append(m)
+        state["candidate_markets"] = cand_markets
+        if len(cand_markets) > 1 and not semantic_frame.entities.market:
+            state["active_market"] = None
+
+    if semantic_frame.entities.city:
+        state["active_location"] = semantic_frame.entities.city
+        if "location_name" not in filled_slots:
+            filled_slots["location_name"] = semantic_frame.entities.city
+
     if len(semantic_frame.entities.markets) >= 2:
         filled_slots["market_a"] = semantic_frame.entities.markets[0]
         filled_slots["market_b"] = semantic_frame.entities.markets[1]
-    if semantic_frame.entities.forecast_days and "days" not in filled_slots:
+        state["candidate_markets"] = list(semantic_frame.entities.markets)
+
+    if semantic_frame.entities.forecast_days:
         filled_slots["days"] = semantic_frame.entities.forecast_days
-    if semantic_frame.entities.timeframe and "timeframe" not in filled_slots:
+
+    # Current turn temporal expression takes precedence over prior turns
+    if semantic_frame.entities.timeframe:
         filled_slots["timeframe"] = semantic_frame.entities.timeframe
+
+    if semantic_frame.entities.time_context:
+        state["time_context"] = semantic_frame.entities.time_context.model_dump()
+        rel_day = getattr(semantic_frame.entities.time_context, "relative_day", None)
+        if rel_day and rel_day != "UNSPECIFIED":
+            filled_slots["timeframe"] = rel_day.lower()
+    # Ensure timeframe is set for relative terms like "kal" when not directly captured
+    if not filled_slots.get("timeframe") and any(word in state.get("user_input", "").lower() for word in ["kal", "tomorrow", "aaj", "today"]):
+        # Simple heuristic: map known words to relative days
+        word_map = {"kal": "tomorrow", "aaj": "today", "today": "today", "tomorrow": "tomorrow"}
+        for w, tf in word_map.items():
+            if w in state.get("user_input", "").lower():
+                filled_slots["timeframe"] = tf
+                break
+
+    if semantic_frame.entities.additional_entities:
+        for k, v in semantic_frame.entities.additional_entities.items():
+            if k not in filled_slots:
+                filled_slots[k] = v
 
     state["filled_slots"] = filled_slots
     return state

@@ -37,7 +37,7 @@ CROP_SYNONYMS = {
     "कांदा": "Onion", "कांद्याचा": "Onion", "dungri": "Onion", "ડુંગળી": "Onion", "vengayam": "Onion", "ulli": "Onion",
 
     # Potato
-    "potato": "Potato", "aloo": "Potato", "alu": "Potato", "आलू": "Potato", "batata": "Potato",
+    "potato": "Potato", "aloo": "Potato", "alu": "Potato", "aalu": "Potato", "आलू": "Potato", "batata": "Potato",
     "बटाटा": "Potato", "urulaikizhangu": "Potato", "bangaladumpa": "Potato",
 
     # Tomato
@@ -167,6 +167,24 @@ def normalize_crop_name(text: str) -> Optional[str]:
             return canonical
     return None
 
+
+def extract_crops(text: str) -> List[str]:
+    """Extract all distinct recognized crop names mentioned in text."""
+    if not text:
+        return []
+    cleaned = text.lower()
+    found: List[str] = []
+    tokens = re.findall(r'[^\s,?.!।॥/()]+', cleaned, re.UNICODE)
+    for token in tokens:
+        if token in CROP_SYNONYMS:
+            canonical = CROP_SYNONYMS[token]
+            if canonical not in found:
+                found.append(canonical)
+    for synonym, canonical in CROP_SYNONYMS.items():
+        if (" " in synonym or len(synonym) >= 4) and synonym in cleaned:
+            if canonical not in found:
+                found.append(canonical)
+    return found
 
 
 def extract_markets(text: str) -> List[str]:
