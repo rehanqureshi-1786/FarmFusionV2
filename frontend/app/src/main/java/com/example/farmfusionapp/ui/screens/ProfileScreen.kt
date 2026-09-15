@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.animation.core.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
@@ -47,6 +48,7 @@ import com.example.farmfusionapp.utils.AuthStore
 import com.example.farmfusionapp.utils.LanguagePreferences
 import com.example.farmfusionapp.utils.LocaleHelper
 import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
+import com.example.farmfusionapp.ui.components.ProfileLanguageDialog
 import com.example.farmfusionapp.ui.screens.WeatherSnapshotStore
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,6 +57,13 @@ fun ProfileScreen(navController: NavController) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
     val currentLang = LocalAppLanguage.current
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    val blurRadius by animateDpAsState(
+        targetValue = if (showLanguageDialog) 16.dp else 0.dp,
+        animationSpec = tween(durationMillis = 300),
+        label = "profile_blur"
+    )
+
     val savedDialect = AuthStore.getDialect(context)
     val activeCode = savedDialect ?: currentLang
     val langObj = remember(activeCode) { com.example.farmfusionapp.data.model.LanguageRegistry.findByCode(activeCode) }
@@ -125,6 +134,7 @@ fun ProfileScreen(navController: NavController) {
                 .align(Alignment.TopEnd)
                 .size(240.dp)
                 .offset(x = 40.dp, y = (20).dp)
+                .blur(radius = blurRadius)
                 .graphicsLayer {
                     // Fixed anchor point at the end buds on the screen edge (stays completely static)
                     transformOrigin = TransformOrigin(0.85f, 0.20f)
@@ -134,6 +144,7 @@ fun ProfileScreen(navController: NavController) {
 
         Scaffold(
             containerColor = Color.Transparent,
+            modifier = Modifier.blur(radius = blurRadius),
             topBar = {
                 CenterAlignedTopAppBar(
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -278,7 +289,7 @@ fun ProfileScreen(navController: NavController) {
                         icon = Icons.Rounded.Translate,
                         title = AppLocalizer.localizeProfilePhrase("app language", currentLang),
                         subtitle = langLabel,
-                        onClick = { navController.navigate(NavRoutes.LanguageSelection) }
+                        onClick = { showLanguageDialog = true }
                     )
                     SettingPremiumRow(
                         icon = Icons.Rounded.Notifications,
@@ -327,6 +338,12 @@ fun ProfileScreen(navController: NavController) {
 
                 Spacer(modifier = Modifier.height(40.dp))
             }
+        }
+
+        if (showLanguageDialog) {
+            ProfileLanguageDialog(
+                onDismiss = { showLanguageDialog = false }
+            )
         }
     }
 }
