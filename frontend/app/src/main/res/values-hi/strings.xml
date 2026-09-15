@@ -82,4 +82,24 @@
     <string name="profile_lang_display_pa">ਪੰਜਾਬੀ</string>
     <string name="profile_lang_display_te">తెలుగు</string>
     <string name="dashboard_carousel_alert_badge">अलर्ट</string>
+    
+    <!-- Market Intelligence Cards -->
+    <string name="market_best_nearby_title">सर्वोत्तम नजदीकी मंडी</string>
+    <string name="market_best_nearby_sub">अधिकतम शुद्ध भाव वाला बाजार</string>
+    <string name="market_compare_title">मंडियों की तुलना</string>
+    <string name="market_compare_sub">विभिन्न मंडियों के भाव की तुलना</string>
+    <string name="market_sell_vs_wait_title">बेचें या रोकें</string>
+    <string name="market_sell_vs_wait_sub">आगामी 7 दिनों का मूल्य रुझान</string>
+    <string name="market_set_alert_title">मूल्य अलर्ट</string>
+    <string name="market_set_alert_sub">वांछित भाव पर तुरंत सूचना पाएं</string>
+    <string name="market_screen_title">मंडी भाव और कृषि बाजार विश्लेषण</string>
+
+    <!-- Weather Disaster Risk -->
+    <string name="disaster_risk_badge">आपदा जोखिम</string>
+    <string name="disaster_risk_probability">संभावना: %1$s%% • अगले 48 घंटे</string>
+    <string name="disaster_risk_triggers_label">मुख्य प्रेक्षित कारण:</string>
+    <string name="disaster_risk_voice_alert">किसान कॉलिंग एजेंट द्वारा आपातकालीन वॉयस अलर्ट शुरू किया गया।</string>
+    <string name="disaster_risk_precautions_label">खेत के लिए आवश्यक सावधानियां:</string>
+    <string name="disaster_risk_take_precautions">सावधानियां देखें</string>
+    <string name="disaster_risk_hide_precautions">सावधानियां छुपाएं</string>
 </resources>

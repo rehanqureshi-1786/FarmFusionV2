@@ -63,6 +63,8 @@ fun MandiPricesScreen(
     productViewModel: ProductViewModel = viewModel()
 ) {
     val coroutineScope = rememberCoroutineScope()
+    val currentLang = LocalAppLanguage.current
+    val strings = LocalStrings.current
     var selectedCategory by remember { mutableStateOf("ALL CROPS") }
     var searchQuery by remember { mutableStateOf("") }
 
@@ -178,7 +180,7 @@ fun MandiPricesScreen(
                     ),
                     title = {
                         Text(
-                            "Market Prices & Intelligence",
+                            AppLocalizer.localizeMarketPhrase("market prices & intelligence", currentLang),
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF1A1A1A)
                         )
@@ -217,7 +219,7 @@ fun MandiPricesScreen(
                         TextField(
                             value = searchQuery,
                             onValueChange = { searchQuery = it },
-                            placeholder = { Text("Search crops (e.g. Wheat, Gram, Mustard), mandis...") },
+                            placeholder = { Text(AppLocalizer.localizeMarketPhrase("search crops placeholder", currentLang)) },
                             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = Color.Gray) },
                             trailingIcon = {
                                 if (searchQuery.isNotEmpty()) {
@@ -252,8 +254,8 @@ fun MandiPricesScreen(
                         ) {
                             // 1. Best Nearby
                             MandiIntelligenceCard(
-                                title = "Best Nearby",
-                                subtitle = "Highest net price market",
+                                title = AppLocalizer.localizeMarketPhrase("best nearby", currentLang),
+                                subtitle = AppLocalizer.localizeMarketPhrase("highest net price market", currentLang),
                                 icon = Icons.Rounded.NearMe,
                                 bgColor = Color(0xFFD3F8E5),
                                 iconTint = Color(0xFF047857),
@@ -263,8 +265,8 @@ fun MandiPricesScreen(
 
                             // 2. Compare Mandis
                             MandiIntelligenceCard(
-                                title = "Compare",
-                                subtitle = "Side-by-side mandi rates",
+                                title = AppLocalizer.localizeMarketPhrase("compare", currentLang),
+                                subtitle = AppLocalizer.localizeMarketPhrase("side-by-side mandi rates", currentLang),
                                 icon = Icons.AutoMirrored.Rounded.CompareArrows,
                                 bgColor = Color(0xFFE2EAFB),
                                 iconTint = Color(0xFF1D4ED8),
@@ -282,8 +284,8 @@ fun MandiPricesScreen(
                         ) {
                             // 3. Sell vs Wait Advisory
                             MandiIntelligenceCard(
-                                title = "Sell vs Wait",
-                                subtitle = "7-day price trajectory",
+                                title = AppLocalizer.localizeMarketPhrase("sell vs wait", currentLang),
+                                subtitle = AppLocalizer.localizeMarketPhrase("7-day price trajectory", currentLang),
                                 icon = Icons.AutoMirrored.Rounded.TrendingUp,
                                 bgColor = Color(0xFFF1EAFF),
                                 iconTint = Color(0xFF6D28D9),
@@ -296,8 +298,8 @@ fun MandiPricesScreen(
 
                             // 4. Set Alert
                             MandiIntelligenceCard(
-                                title = "Set Alert",
-                                subtitle = "Notify on target prices",
+                                title = AppLocalizer.localizeMarketPhrase("set alert", currentLang),
+                                subtitle = AppLocalizer.localizeMarketPhrase("notify on target prices", currentLang),
                                 icon = Icons.Rounded.NotificationsActive,
                                 bgColor = Color(0xFFFFF4D9),
                                 iconTint = Color(0xFFD97706),
@@ -327,7 +329,7 @@ fun MandiPricesScreen(
                                 shadowElevation = if (!isSelected) 2.dp else 0.dp
                             ) {
                                 Text(
-                                    text = category,
+                                    text = AppLocalizer.localizeMarketPhrase(category, currentLang),
                                     modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
                                     style = MaterialTheme.typography.labelLarge.copy(
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
@@ -411,7 +413,7 @@ fun MandiPricesScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Rounded.NearMe, null, tint = Color(0xFF10B981))
-                    Text("Best Nearby Mandi", fontWeight = FontWeight.Bold)
+                    Text(AppLocalizer.localizeMarketPhrase("best nearby mandi", currentLang), fontWeight = FontWeight.Bold)
                 }
             },
             content = {
@@ -615,7 +617,7 @@ fun MandiPricesScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.AutoMirrored.Rounded.CompareArrows, null, tint = Color(0xFF3B82F6))
-                    Text("Compare Mandi Prices", fontWeight = FontWeight.Bold)
+                    Text(AppLocalizer.localizeMarketPhrase("compare mandis", currentLang), fontWeight = FontWeight.Bold)
                 }
             },
             content = {
@@ -755,7 +757,7 @@ fun MandiPricesScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.AutoMirrored.Rounded.TrendingUp, null, tint = Color(0xFF8B5CF6))
-                    Text("Sell vs Wait Advisory", fontWeight = FontWeight.Bold)
+                    Text(AppLocalizer.localizeMarketPhrase("sell vs wait advisory", currentLang), fontWeight = FontWeight.Bold)
                 }
             },
             content = {
@@ -878,7 +880,7 @@ fun MandiPricesScreen(
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Icons.Rounded.NotificationsActive, null, tint = Color(0xFFF59E0B))
-                    Text("Set Price Opportunity Alert", fontWeight = FontWeight.Bold)
+                    Text(AppLocalizer.localizeMarketPhrase("set price alert", currentLang), fontWeight = FontWeight.Bold)
                 }
             },
             content = {

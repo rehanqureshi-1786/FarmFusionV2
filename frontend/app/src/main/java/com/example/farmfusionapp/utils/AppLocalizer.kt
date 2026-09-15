@@ -2819,4 +2819,89 @@ object AppLocalizer {
         }
         return phraseKey
     }
+
+    // ==========================================
+    // 19. MARKET INTELLIGENCE SCREEN (14 LANGUAGES)
+    // ==========================================
+    fun localizeMarketPhrase(phraseKey: String, langCode: String): String {
+        val normalized = phraseKey.trim().lowercase().trimEnd('.', ';', ':')
+        val phrases = MarketLocalizerData.PHRASES
+        val match = phrases[normalized]
+        if (match != null) {
+            return match[langCode] ?: match["hi"] ?: phraseKey
+        }
+        for ((key, translations) in phrases) {
+            if (normalized.contains(key) || key.contains(normalized)) {
+                return translations[langCode] ?: translations["hi"] ?: phraseKey
+            }
+        }
+        return phraseKey
+    }
+
+    // ==========================================
+    // 20. DISASTER RISK & EARLY WARNING (14 LANGUAGES)
+    // ==========================================
+    fun localizeDisasterPhrase(phraseKey: String, langCode: String): String {
+        val normalized = phraseKey.trim().lowercase().trimEnd('.', ';', ':')
+        
+        // 1. Direct match in disaster phrases
+        val directMatch = DisasterLocalizerData.PHRASES[normalized]
+        if (directMatch != null) {
+            return directMatch[langCode] ?: directMatch["hi"] ?: phraseKey
+        }
+
+        // 2. Risk levels check
+        val riskMatch = DisasterLocalizerData.RISK_LEVELS[normalized]
+        if (riskMatch != null) {
+            return riskMatch[langCode] ?: riskMatch["hi"] ?: phraseKey
+        }
+
+        // 3. Disaster types check
+        val typeMatch = DisasterLocalizerData.DISASTER_TYPES[normalized]
+        if (typeMatch != null) {
+            return typeMatch[langCode] ?: typeMatch["hi"] ?: phraseKey
+        }
+
+        // 4. Substring match in phrases
+        for ((key, translations) in DisasterLocalizerData.PHRASES) {
+            if (normalized.contains(key) || key.contains(normalized)) {
+                return translations[langCode] ?: translations["hi"] ?: phraseKey
+            }
+        }
+
+        // 5. Keyword match for triggers & precautions
+        for ((pattern, translations) in DisasterLocalizerData.COMMON_PATTERNS) {
+            if (normalized.contains(pattern)) {
+                return translations[langCode] ?: translations["hi"] ?: phraseKey
+            }
+        }
+
+        return phraseKey
+    }
+
+    fun localizeDisasterType(disasterType: String?, langCode: String): String {
+        if (disasterType.isNullOrBlank()) return ""
+        val normalized = disasterType.trim().lowercase()
+        val match = DisasterLocalizerData.DISASTER_TYPES[normalized]
+        if (match != null) {
+            return match[langCode] ?: match["hi"] ?: disasterType
+        }
+        for ((key, translations) in DisasterLocalizerData.DISASTER_TYPES) {
+            if (normalized.contains(key) || key.contains(normalized)) {
+                return translations[langCode] ?: translations["hi"] ?: disasterType
+            }
+        }
+        return disasterType
+    }
+
+    fun localizeRiskLevel(level: String?, langCode: String): String {
+        if (level.isNullOrBlank()) return ""
+        val normalized = level.trim().lowercase()
+        val match = DisasterLocalizerData.RISK_LEVELS[normalized]
+        if (match != null) {
+            return match[langCode] ?: match["hi"] ?: level
+        }
+        return level
+    }
 }
+
