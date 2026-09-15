@@ -18,7 +18,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
@@ -99,13 +101,108 @@ private fun LoginScreenContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(illustrationHeight)
+                    .clipToBounds()
             ) {
+                // Fixed Base Layer: Landscape background
                 Image(
                     painter = painterResource(id = R.drawable.ill_login_bg),
                     contentDescription = "Farm Landscape Background",
                     contentScale = ContentScale.Crop,
                     alignment = Alignment.TopCenter,
                     modifier = Modifier.fillMaxSize()
+                )
+
+                // 1. Windmill Turbine precisely placed atop existing tower
+                Image(
+                    painter = painterResource(id = R.drawable.ill_login_windmill),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(
+                            width = screenWidth * (152.4f / 853f),
+                            height = screenWidth * (138.9f / 853f)
+                        )
+                        .offset(
+                            x = screenWidth * (704.3f / 853f),
+                            y = screenWidth * (473.8f / 853f)
+                        )
+                )
+
+                // 2. Three Birds flying in the sky
+                Image(
+                    painter = painterResource(id = R.drawable.ill_login_bird),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(screenWidth * (44f / 853f))
+                        .offset(
+                            x = screenWidth * (671.4f / 853f),
+                            y = screenWidth * (423.0f / 853f)
+                        )
+                        .graphicsLayer { rotationZ = -22f }
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.ill_login_bird),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(screenWidth * (42f / 853f))
+                        .offset(
+                            x = screenWidth * (635.1f / 853f),
+                            y = screenWidth * (465.7f / 853f)
+                        )
+                        .graphicsLayer { rotationZ = -9f }
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.ill_login_bird),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(screenWidth * (44f / 853f))
+                        .offset(
+                            x = screenWidth * (579.3f / 853f),
+                            y = screenWidth * (493.6f / 853f)
+                        )
+                        .graphicsLayer { rotationZ = -20f }
+                )
+
+                // 3. Left Bottom Leaves
+                Image(
+                    painter = painterResource(id = R.drawable.ill_login_left_bottom_leaves),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(screenWidth * (194.4f / 853f))
+                        .offset(
+                            x = screenWidth * (110f / 853f),
+                            y = screenWidth * (695f / 853f)
+                        )
+                )
+
+                // 4. Left Large Leaves
+                Image(
+                    painter = painterResource(id = R.drawable.ill_login_left_large_leaves),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(screenWidth * (279.6f / 853f))
+                        .offset(
+                            x = screenWidth * (-46f / 853f),
+                            y = screenWidth * (520f / 853f)
+                        )
+                )
+
+                // 5. Right Leaves
+                Image(
+                    painter = painterResource(id = R.drawable.ill_login_right_leaves),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .size(screenWidth * (294.7f / 853f))
+                        .offset(
+                            x = screenWidth * (562f / 853f),
+                            y = screenWidth * (657f / 853f)
+                        )
                 )
 
                 // Header Content overlaying the illustration
