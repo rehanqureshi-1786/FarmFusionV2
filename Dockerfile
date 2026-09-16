@@ -16,12 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
 
 # Copy requirements and install remaining dependencies
-COPY requirements.txt ./requirements.txt
+COPY backend/requirements.txt ./requirements.txt
 RUN sed -i '/torch/d' requirements.txt && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy backend application source into container
-COPY . .
+COPY backend/ .
 RUN mkdir -p uploads
 
 ENV PORT=8000
