@@ -138,9 +138,34 @@ def generate_task_plan(
     # -------------------------------------------------------------------------
     # 4. Resolve Contextual Entities
     # -------------------------------------------------------------------------
+    # 4. Resolve Contextual Entities & Dynamic Geocoding
+    # -------------------------------------------------------------------------
+    from app.services.mandi_intelligence import MANDI_COORDINATES
+
     crop = entities.crop or s_state.get("active_crop")
     market = entities.market or s_state.get("last_market")
     markets = entities.markets or ([market] if market else [])
+
+    # Extract location labels
+    state_name = (
+        entities.state
+        or (entities.farm_location.state if entities.farm_location else None)
+        or f_ctx.get("state")
+    )
+    district_name = (
+        entities.district
+        or (entities.farm_location.district if entities.farm_location else None)
+        or f_ctx.get("district")
+    )
+    city_name = (
+        entities.city
+        or entities.market
+        or (entities.farm_location.city if entities.farm_location else None)
+        or f_ctx.get("location_name")
+        or f_ctx.get("city")
+    )
+
+    resolved_loc_name = district_name or city_name or state_name or f_ctx.get("location_name") or "Your Farm"
 
     lat = (
         entities.farm_location.latitude
@@ -152,16 +177,18 @@ def generate_task_plan(
         if entities.farm_location and entities.farm_location.longitude is not None
         else f_ctx.get("longitude")
     )
-    state_name = (
-        entities.state
-        or (entities.farm_location.state if entities.farm_location else None)
-        or f_ctx.get("state")
-    )
-    district_name = (
-        entities.district
-        or (entities.farm_location.district if entities.farm_location else None)
-        or f_ctx.get("district")
-    )
+
+    # Dynamic geocoding fallback from known locations/mandis if lat/lon is None
+    if (lat is None or lon is None) and resolved_loc_name:
+        clean_key = resolved_loc_name.lower().strip()
+        if clean_key in MANDI_COORDINATES:
+            lat, lon = MANDI_COORDINATES[clean_key]
+        else:
+            for m_key, coords in MANDI_COORDINATES.items():
+                if m_key in clean_key or clean_key in m_key:
+                    lat, lon = coords
+                    break
+
     soil_type = (
         (getattr(entities.soil_values, "soil_type", None) or (entities.soil_values.get("soil_type") if isinstance(entities.soil_values, dict) else None))
         if entities.soil_values
@@ -171,12 +198,11 @@ def generate_task_plan(
     # -------------------------------------------------------------------------
     # 5. Missing Location Gate for Physical Tools
     # -------------------------------------------------------------------------
-    city_name = entities.city or entities.market or (entities.farm_location.city if entities.farm_location else None)
     needs_physical_location = any(
         cap in semantic_frame.required_capabilities
         for cap in [CapabilityType.WEATHER, CapabilityType.CROP_RECOMMENDATION, CapabilityType.DISASTER_RISK]
     )
-    if needs_physical_location and (lat is None or lon is None) and not district_name and not state_name and not city_name:
+    if needs_physical_location and (lat is None or lon is None) and not district_name and not state_name and not city_name and not f_ctx.get("location_name"):
         return TaskPlan(
             session_id=semantic_frame.session_id,
             objective="Physical farming recommendations require location context.",
@@ -216,9 +242,9 @@ def generate_task_plan(
                     description="Fetch physical forecast for the requested date/horizon.",
                     depends_on=[],
                     static_inputs={
-                        "latitude": float(lat) if lat is not None else 26.9124,
-                        "longitude": float(lon) if lon is not None else 75.7873,
-                        "location_name": district_name or state_name or city_name or "Jaipur",
+                        "latitude": float(lat) if lat is not None else 24.5854,
+                        "longitude": float(lon) if lon is not None else 73.7125,
+                        "location_name": resolved_loc_name,
                         "days": int((tc or {}).get("forecast_days") or (tc or {}).get("horizon_days") or entities.forecast_days or 7),
                         "target_date": target_date,
                     },
@@ -234,9 +260,9 @@ def generate_task_plan(
                     description="Fetch real-time physical temperature, humidity, rainfall, and wind.",
                     depends_on=[],
                     static_inputs={
-                        "latitude": float(lat) if lat is not None else 26.9124,
-                        "longitude": float(lon) if lon is not None else 75.7873,
-                        "location_name": district_name or state_name or city_name or "Jaipur",
+                        "latitude": float(lat) if lat is not None else 24.5854,
+                        "longitude": float(lon) if lon is not None else 73.7125,
+                        "location_name": resolved_loc_name,
                     },
                     is_blocking=False,
                 )
@@ -253,8 +279,8 @@ def generate_task_plan(
                 description="Compute deterministic agronomic soil-moisture deficit and irrigation recommendation.",
                 depends_on=weather_dep,
                 static_inputs={
-                    "latitude": float(lat) if lat is not None else 26.9124,
-                    "longitude": float(lon) if lon is not None else 75.7873,
+                    "latitude": float(lat) if lat is not None else 24.5854,
+                    "longitude": float(lon) if lon is not None else 73.7125,
                     "crop": crop,
                     "language": semantic_frame.language or "hi",
                 },
@@ -273,11 +299,11 @@ def generate_task_plan(
                 description="Run DisasterPredictorAI 4-model ensemble for 7-day multi-hazard prediction.",
                 depends_on=weather_dep,
                 static_inputs={
-                    "latitude": float(lat) if lat is not None else 26.9124,
-                    "longitude": float(lon) if lon is not None else 75.7873,
+                    "latitude": float(lat) if lat is not None else 24.5854,
+                    "longitude": float(lon) if lon is not None else 73.7125,
                     "crop_name": crop,
                     "days": entities.forecast_days or 7,
-                    "location_name": district_name or state_name,
+                    "location_name": resolved_loc_name,
                 },
                 is_blocking=True,
             )
@@ -293,8 +319,8 @@ def generate_task_plan(
                 description="Recommend top suitable crops using XGBoost V2 model and ICAR agronomic rules.",
                 depends_on=[],
                 static_inputs={
-                    "latitude": float(lat) if lat is not None else 26.9124,
-                    "longitude": float(lon) if lon is not None else 75.7873,
+                    "latitude": float(lat) if lat is not None else 24.5854,
+                    "longitude": float(lon) if lon is not None else 73.7125,
                     "soil_type": soil_type,
                     "season": entities.season,
                     "state": state_name,

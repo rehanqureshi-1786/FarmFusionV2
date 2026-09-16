@@ -228,10 +228,27 @@ async def process_voice_query(request: VoiceQueryRequest) -> VoiceQueryResponse:
         logger.info(f"Processing voice query: {query_text[:50]}...")
 
         # Execute LangGraph Multilingual Orchestrator Pipeline
+        from app.services.mandi_intelligence import MANDI_COORDINATES
+        resolved_lat = request.latitude
+        resolved_lon = request.longitude
+        resolved_loc = (request.location or "").strip()
+
+        if (resolved_lat is None or resolved_lon is None) and resolved_loc:
+            clean_k = resolved_loc.lower()
+            if clean_k in MANDI_COORDINATES:
+                resolved_lat, resolved_lon = MANDI_COORDINATES[clean_k]
+            else:
+                for mk, coords in MANDI_COORDINATES.items():
+                    if mk in clean_k or clean_k in mk:
+                        resolved_lat, resolved_lon = coords
+                        break
+
         farmer_context = {
-            "latitude": request.latitude,
-            "longitude": request.longitude,
-            "location_name": request.location
+            "latitude": resolved_lat,
+            "longitude": resolved_lon,
+            "location_name": resolved_loc or "Your Farm",
+            "city": resolved_loc,
+            "district": resolved_loc,
         }
         turn_result = await run_orchestrator_pipeline(
             user_input=query_text,

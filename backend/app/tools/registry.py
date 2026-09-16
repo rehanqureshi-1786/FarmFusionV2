@@ -428,9 +428,24 @@ class ToolRegistry:
     # -------------------------------------------------------------------------
 
     async def _execute_weather(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        lat = float(slots.get("latitude") or context.get("latitude") or 26.9124)
-        lon = float(slots.get("longitude") or context.get("longitude") or 75.7873)
+        from app.services.mandi_intelligence import MANDI_COORDINATES
         loc_name = slots.get("location_name") or context.get("location_name") or "Your Farm"
+        
+        raw_lat = slots.get("latitude") or context.get("latitude")
+        raw_lon = slots.get("longitude") or context.get("longitude")
+        
+        if (raw_lat is None or raw_lon is None) and loc_name:
+            clean_key = loc_name.lower().strip()
+            if clean_key in MANDI_COORDINATES:
+                raw_lat, raw_lon = MANDI_COORDINATES[clean_key]
+            else:
+                for m_key, coords in MANDI_COORDINATES.items():
+                    if m_key in clean_key or clean_key in m_key:
+                        raw_lat, raw_lon = coords
+                        break
+
+        lat = float(raw_lat if raw_lat is not None else 24.5854)
+        lon = float(raw_lon if raw_lon is not None else 73.7125)
 
         weather_res = await WeatherService.get_current_weather(lat, lon)
         rainfall_res = await WeatherService.get_annual_rainfall(lat, lon)
@@ -465,9 +480,24 @@ class ToolRegistry:
         )
 
     async def _execute_weather_forecast(self, slots: Dict[str, Any], context: Dict[str, Any]) -> ToolResult:
-        lat = float(slots.get("latitude") or context.get("latitude") or 26.9124)
-        lon = float(slots.get("longitude") or context.get("longitude") or 75.7873)
+        from app.services.mandi_intelligence import MANDI_COORDINATES
         loc_name = slots.get("location_name") or context.get("location_name") or "Your Farm"
+        
+        raw_lat = slots.get("latitude") or context.get("latitude")
+        raw_lon = slots.get("longitude") or context.get("longitude")
+        
+        if (raw_lat is None or raw_lon is None) and loc_name:
+            clean_key = loc_name.lower().strip()
+            if clean_key in MANDI_COORDINATES:
+                raw_lat, raw_lon = MANDI_COORDINATES[clean_key]
+            else:
+                for m_key, coords in MANDI_COORDINATES.items():
+                    if m_key in clean_key or clean_key in m_key:
+                        raw_lat, raw_lon = coords
+                        break
+
+        lat = float(raw_lat if raw_lat is not None else 24.5854)
+        lon = float(raw_lon if raw_lon is not None else 73.7125)
         days = int(slots.get("days") or 7)
         target_date = slots.get("target_date")
 

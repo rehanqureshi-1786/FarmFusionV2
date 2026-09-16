@@ -126,11 +126,51 @@ fun VoiceAssistantScreen(navController: NavController) {
         }
     }
 
+    val coroutineScope = rememberCoroutineScope()
+
     val selectedLanguage = remember(currentAppLang) {
         val preferredDialect = AuthStore.getDialect(context)
         val preferredLang = AuthStore.getLanguage(context) ?: currentAppLang
         val activeCode = preferredDialect ?: preferredLang
         availableLanguages.firstOrNull { it.code == activeCode } ?: availableLanguages.first()
+    }
+
+    // Proactively request and resolve device GPS location so Voice Assistant has real location
+    com.example.farmfusionapp.utils.LocationPermissionEffect(
+        context = context,
+        onPermissionGranted = {
+            coroutineScope.launch {
+                val loc = com.example.farmfusionapp.utils.getDeviceLocation(context)
+                if (loc != null) {
+                    val resolvedCity = com.example.farmfusionapp.utils.getCityFromLocation(context, loc.first, loc.second, currentAppLang)
+                    if (!resolvedCity.isNullOrBlank()) {
+                        LocationSnapshotStore.latestCity = resolvedCity
+                    }
+                }
+            }
+        },
+        onPermissionDenied = { /* Fall back to WeatherSnapshotStore or default gracefully */ }
+    )
+
+    // Sync from WeatherSnapshotStore if LocationSnapshotStore is empty
+    LaunchedEffect(Unit) {
+        if (LocationSnapshotStore.latestCity.isNullOrBlank()) {
+            val weatherCity = WeatherSnapshotStore.latestWeather?.city
+            if (!weatherCity.isNullOrBlank() && !weatherCity.equals("Location unavailable", ignoreCase = true)) {
+                LocationSnapshotStore.latestCity = weatherCity
+            }
+        }
+        if (LocationSnapshotStore.latestLatitude == null || LocationSnapshotStore.latestLongitude == null) {
+            val loc = com.example.farmfusionapp.utils.getDeviceLocation(context)
+            if (loc != null) {
+                LocationSnapshotStore.latestLatitude = loc.first
+                LocationSnapshotStore.latestLongitude = loc.second
+                val resolvedCity = com.example.farmfusionapp.utils.getCityFromLocation(context, loc.first, loc.second, currentAppLang)
+                if (!resolvedCity.isNullOrBlank()) {
+                    LocationSnapshotStore.latestCity = resolvedCity
+                }
+            }
+        }
     }
 
     val activeLangCode = selectedLanguage.code
@@ -186,8 +226,6 @@ fun VoiceAssistantScreen(navController: NavController) {
     val androidTts = remember {
         TextToSpeech(context) { status -> ttsReady = status == TextToSpeech.SUCCESS }
     }
-
-    val coroutineScope = rememberCoroutineScope()
 
     fun stopAudioPlayback() {
         try {
@@ -283,8 +321,15 @@ fun VoiceAssistantScreen(navController: NavController) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, localeTag)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, localeTag)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            // Biasing prompt with agricultural variables for better recognition accuracy
+            putExtra(
+                RecognizerIntent.EXTRA_PROMPT,
+                "FarmFusion: उदयपुर, मौसम, मंडी भाव, फसल, सिंचाई, रोग"
+            )
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 1200L)
         }
     }
 
@@ -294,11 +339,20 @@ fun VoiceAssistantScreen(navController: NavController) {
         stopAudioPlayback()
         chatMessages.add(ChatMessage(cleaned, isUser = true))
         assistantState = VoiceAssistantState.PROCESSING
+
+        // Dynamic location resolution: preferentially use cached location, falling back to WeatherSnapshotStore
+        val weatherCity = WeatherSnapshotStore.latestWeather?.city?.takeIf {
+            it.isNotBlank() && !it.equals("Location unavailable", ignoreCase = true)
+        }
+        val resolvedCity = LocationSnapshotStore.latestCity?.takeIf { it.isNotBlank() } ?: weatherCity
+        val resolvedLat = LocationSnapshotStore.latestLatitude
+        val resolvedLon = LocationSnapshotStore.latestLongitude
+
         viewModel.processVoiceQuery(
             query = cleaned,
-            location = LocationSnapshotStore.latestCity,
-            latitude = LocationSnapshotStore.latestLatitude,
-            longitude = LocationSnapshotStore.latestLongitude,
+            location = resolvedCity,
+            latitude = resolvedLat,
+            longitude = resolvedLon,
             languageHint = selectedLanguage.code
         )
         query = ""

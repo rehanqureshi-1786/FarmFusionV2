@@ -34,6 +34,16 @@ SARVAM_LANG = {"hi": "hi-IN", "en": "en-IN", "gu": "gu-IN", "mr": "mr-IN",
                "kn": "kn-IN", "ml": "ml-IN"}
 
 
+AGRICULTURAL_SPEECH_PROMPT = (
+    "उदयपुर, मेवाड़ा, फतेह नगर, चित्तौड़गढ़, भीलवाड़ा, जयपुर, कोटा, जोधपुर, राजसमंद, "
+    "आज का मौसम, कल का मौसम, तापमान, बारिश, बरसात, वर्षा, आर्द्रता, हवा की गति, बादलों की स्थिति, सूखा, चक्रवात, "
+    "मंडी भाव, ताजा भाव, प्रति क्विंटल, गेहूं, मक्का, चना, सरसों, सोयाबीन, जीरा, इसबगोल, उड़द, मूंग, मूंगफली, ग्वार, "
+    "सिंचाई, पानी देना, मृदा नमी, खाद, डीएपी, यूरिया, एनपीके, जिंक, सल्फर, "
+    "फसल रोग, पत्ती धब्बा, झुलसा, पाउडरी मिल्ड्यू, उकठा, इल्ली, सफेद मक्खी, माहू, तना छेदक, कीटनाशक, फफूंदनाशक, "
+    "पीएम किसान, फसल बीमा योजना, कृषि योजना, बीज दर, बुवाई"
+)
+
+
 _UNSET = object()
 
 
@@ -61,6 +71,7 @@ class SarvamVoiceClient:
         audio_bytes: bytes,
         language: str = "hi",
         with_diarization: bool = False,
+        prompt: Optional[str] = None,
     ) -> Optional[Dict[str, Any]]:
         """
         Sarvam Speech-to-Text (Batch) -> {text, language, confidence, provider}.
@@ -73,6 +84,7 @@ class SarvamVoiceClient:
         target_lang = SARVAM_LANG.get(language[:2], "hi-IN")
         url = f"{SARVAM_BASE}/speech-to-text"
         headers = {"api-subscription-key": self.api_key}
+        effective_prompt = prompt or AGRICULTURAL_SPEECH_PROMPT
         try:
             resp = await self._client.post(
                 url,
@@ -81,6 +93,7 @@ class SarvamVoiceClient:
                 data={
                     "language_code": target_lang,
                     "model": "saaras:v3",
+                    "prompt": effective_prompt,
                     "with_diarization": str(with_diarization),
                     "num_speakers": "1",
                 },
