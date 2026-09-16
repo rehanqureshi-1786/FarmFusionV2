@@ -94,10 +94,43 @@ async def trigger_weather_alert_call(
 @router.api_route("/webhook/inbound", methods=["GET", "POST"])
 async def telephony_inbound_webhook(request: Request):
     """
-    Inbound webhook called by Vobiz / Plivo when the farmer answers the call.
+    Inbound webhook called by Vobiz / Plivo when the farmer answers or dials the call.
     Returns XML instructions to establish a bidirectional audio stream via WebSocket.
     """
     query_params = dict(request.query_params)
+    if request.method == "POST":
+        try:
+            form_data = await request.form()
+            for k, v in form_data.items():
+                if k not in query_params:
+                    query_params[k] = str(v)
+        except Exception:
+            pass
+
+    # Extract incoming caller phone number if this is an inbound call from a farmer
+    caller_phone = query_params.get("From")
+    if caller_phone and "farmer_name" not in query_params:
+        try:
+            from app.core.database import AsyncSessionLocal
+            from app.models.user import User
+            from sqlalchemy import select
+            clean_digits = "".join(filter(str.isdigit, caller_phone))[-10:]
+            if clean_digits:
+                async with AsyncSessionLocal() as db_session:
+                    stmt = select(User).where(User.phone.like(f"%{clean_digits}"))
+                    res = await db_session.execute(stmt)
+                    user = res.scalars().first()
+                    if user:
+                        if user.full_name:
+                            query_params["farmer_name"] = user.full_name
+                        if user.preferred_language:
+                            query_params["language"] = user.preferred_language
+                        loc = user.district or user.village or user.state
+                        if loc:
+                            query_params["location"] = loc
+        except Exception as e:
+            logger.warning("inbound_farmer_db_lookup_error", error=str(e))
+
     base_ws = settings.base_ws_url or os.getenv("BASE_WS_URL", "wss://farmfusion.app")
     ws_query = urllib.parse.urlencode(query_params)
     stream_url = f"{base_ws.rstrip('/')}/ws/calling/stream?{ws_query}"
@@ -162,7 +195,10 @@ async def telephony_audio_stream_endpoint(websocket: WebSocket):
     weather_summary = query_params.get("weather_summary") or None
     agent_instruction = query_params.get("agent_instruction") or None
     callback_url = query_params.get("callback_url") or None
-    call_id = query_params.get("call_id")
+    call_id = query_params.get("call_id") or query_params.get("CallUUID")
+    phone = query_params.get("From") or query_params.get("phone") or None
+    lat = float(query_params["latitude"]) if query_params.get("latitude") else None
+    lon = float(query_params["longitude"]) if query_params.get("longitude") else None
 
     orchestrator = KisanVoiceOrchestrator(
         websocket=websocket,
@@ -177,7 +213,10 @@ async def telephony_audio_stream_endpoint(websocket: WebSocket):
         weather_summary=weather_summary,
         agent_instruction=agent_instruction,
         callback_url=callback_url,
-        call_id=call_id
+        call_id=call_id,
+        latitude=lat,
+        longitude=lon,
+        phone=phone
     )
 
     try:

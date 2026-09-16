@@ -291,3 +291,69 @@ async def test_09_calling_api_endpoints_integration():
         })
         assert res_dup.status_code == 429
         assert "Duplicate call prevented" in res_dup.json()["detail"]
+
+# =============================================================================
+# 8. VOBIZ AS ORCHESTRATOR TESTS
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_10_vobiz_orchestrator_turn_execution():
+    """Verify that when farmer speaks on Vobiz call, run_orchestrator_pipeline is invoked."""
+    mock_ws = AsyncMock()
+    orchestrator = KisanVoiceOrchestrator(
+        websocket=mock_ws,
+        farmer_name="सुरेश",
+        language="hi",
+        location="Udaipur",
+        call_id="call_vobiz_101"
+    )
+
+    spoken_sentences = []
+    async def mock_speak(sentence: str):
+        spoken_sentences.append(sentence)
+
+    orchestrator.speak = mock_speak
+
+    mock_state = {
+        "final_response": "आज Udaipur में तापमान 24°C और humidity 90% है। सिंचाई की आवश्यकता नहीं है।",
+        "active_crop": "Wheat",
+        "active_market": "Udaipur"
+    }
+
+    with patch("app.calling_agent.orchestrator.run_orchestrator_pipeline", new=AsyncMock(return_value=mock_state)) as mock_pipe:
+        await orchestrator.on_transcript("आज का मौसम कैसा रहेगा")
+
+        # Verify LangGraph orchestrator pipeline was called with proper args
+        assert mock_pipe.called
+        call_kwargs = mock_pipe.call_args[1]
+        assert call_kwargs["user_input"] == "आज का मौसम कैसा रहेगा"
+        assert call_kwargs["detected_language"] == "hi"
+        assert call_kwargs["session_id"] == "call_vobiz_101"
+        assert call_kwargs["farmer_context"]["location_name"] == "Udaipur"
+        assert call_kwargs["farmer_context"]["session_type"] == "telephony"
+
+        # Verify response was spoken to the phone call
+        assert len(spoken_sentences) > 0
+        joined = " ".join(spoken_sentences)
+        assert "24°C" in joined
+        assert "Udaipur" in joined
+        assert orchestrator.crop_name == "Wheat"
+
+def test_11_clean_for_telephony():
+    """Verify markdown, emoji, and formatting stripping for telephony speech."""
+    dirty_text = "**अलर्ट:** [Open-Meteo](https://api.open-meteo.com) के अनुसार आज 🌧️ बारिश की संभावना 80% है।\n- खेत में पानी न लगने दें।"
+    clean = KisanVoiceOrchestrator._clean_for_telephony(dirty_text)
+
+    # Markdown stripped
+    assert "**" not in clean
+    assert "[" not in clean
+    assert "]" not in clean
+    assert "https://" not in clean
+    assert "Open-Meteo" in clean
+    # Emoji stripped
+    assert "🌧️" not in clean
+    # Bullet stripped
+    assert "- " not in clean
+    # Numbers and units preserved
+    assert "80%" in clean
+

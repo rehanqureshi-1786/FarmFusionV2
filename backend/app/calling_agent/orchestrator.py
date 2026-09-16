@@ -16,6 +16,8 @@ from app.calling_agent.prompts import get_kisan_call_prompt, get_initial_kisan_g
 from app.calling_agent.stt import TelephonySTT
 from app.calling_agent.tts import TelephonyTTS
 
+from app.orchestrator.graph import run_orchestrator_pipeline
+
 logger = structlog.get_logger()
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -37,6 +39,9 @@ class KisanVoiceOrchestrator:
         agent_instruction: Optional[str] = None,
         callback_url: Optional[str] = None,
         call_id: Optional[str] = None,
+        latitude: Optional[float] = None,
+        longitude: Optional[float] = None,
+        phone: Optional[str] = None,
         manager = None
     ):
         self.websocket = websocket
@@ -52,6 +57,9 @@ class KisanVoiceOrchestrator:
         self.agent_instruction = agent_instruction
         self.callback_url = callback_url
         self.call_id = call_id
+        self.latitude = latitude
+        self.longitude = longitude
+        self.phone = phone
         self.manager = manager
 
         self.tts = TelephonyTTS(language_code=language)
@@ -61,6 +69,25 @@ class KisanVoiceOrchestrator:
         self.messages: List[Dict[str, str]] = []
         self.transcript_history: List[Dict[str, str]] = []
         self.http_client = httpx.AsyncClient(timeout=10.0)
+
+    @staticmethod
+    def _clean_for_telephony(text: str) -> str:
+        """Cleans markdown symbols, bullet points, and emojis for spoken telephony audio."""
+        if not text:
+            return ""
+        # Remove bold, italic, code markdown formatting
+        t = re.sub(r'[*_~`#>]', '', text)
+        # Remove markdown links [label](url) -> label
+        t = re.sub(r'\[(.*?)\]\(.*?\)', r'\1', t)
+        # Remove bullet points and dashes
+        t = re.sub(r'^\s*[-•]\s*', '', t, flags=re.MULTILINE)
+        # Remove emojis
+        t = re.sub(r'[\U00010000-\U0010ffff]', '', t)
+        # Clean up newlines into sentence stops
+        t = re.sub(r'\n+', '. ', t)
+        # Collapse multiple spaces
+        t = re.sub(r'\s+', ' ', t).strip()
+        return t
 
     async def on_speech_started(self):
         """Barge-in: fired the millisecond farmer begins speaking."""
@@ -86,53 +113,111 @@ class KisanVoiceOrchestrator:
             current_price=self.current_price
         )
 
-        self.messages.append({"role": "assistant", "content": greeting_text})
-        self.transcript_history.append({"speaker": "Kisan Mitra", "text": greeting_text})
+        clean_greeting = self._clean_for_telephony(greeting_text)
+        self.messages.append({"role": "assistant", "content": clean_greeting})
+        self.transcript_history.append({"speaker": "Kisan Mitra", "text": clean_greeting})
 
         # Synthesize and speak greeting
-        await self.speak(greeting_text)
+        await self.speak(clean_greeting)
 
     async def process_inbound_audio(self, audio_data: bytes):
         """Streams raw audio bytes from telephony WebSocket to STT."""
         await self.stt.process_audio(audio_data)
 
     async def on_transcript(self, transcript: str):
-        """Fired when farmer's speech is transcribed."""
+        """
+        Fired when farmer's speech is transcribed via STT.
+        Executes the FarmFusion Multilingual Orchestrator to route tools, verify facts, and synthesize grounded responses.
+        """
+        if not transcript or not transcript.strip():
+            return
+
         self.is_interrupted = False
         logger.info("farmer_speech_transcribed", farmer=self.farmer_name, text=transcript)
 
         self.messages.append({"role": "user", "content": transcript})
         self.transcript_history.append({"speaker": f"Farmer ({self.farmer_name})", "text": transcript})
 
-        # Stream response sentence by sentence
-        full_response = ""
-        current_sentence = ""
+        full_response_text = ""
 
         try:
-            async for chunk in self._generate_stream(transcript):
-                if self.is_interrupted:
-                    logger.info("ai_response_interrupted", farmer=self.farmer_name)
-                    break
+            # Context passed to the LangGraph Orchestrator
+            farmer_ctx = {
+                "farmer_name": self.farmer_name,
+                "name": self.farmer_name,
+                "phone": self.phone,
+                "location_name": self.location,
+                "city": self.location,
+                "district": self.location,
+                "latitude": self.latitude,
+                "longitude": self.longitude,
+                "active_crop": self.crop_name,
+                "active_market": self.mandi_name,
+                "current_price": self.current_price,
+                "target_price": self.target_price,
+                "weather_summary": self.weather_summary,
+                "call_type": self.call_type,
+                "session_type": "telephony",
+            }
 
-                full_response += chunk
-                current_sentence += chunk
+            session_id = self.call_id or f"vobiz_call_{self.farmer_name}"
 
-                if re.search(r'[.!?।\n]', current_sentence) and len(current_sentence.strip()) > 10:
-                    sentence_to_speak = current_sentence.strip()
-                    current_sentence = ""
-                    await self.speak(sentence_to_speak)
-                    if self.is_interrupted:
-                        break
+            # Execute full LangGraph Orchestrator pipeline
+            result_state = await run_orchestrator_pipeline(
+                user_input=transcript,
+                detected_language=self.language,
+                session_id=session_id,
+                farmer_context=farmer_ctx,
+                active_crop=self.crop_name,
+            )
 
-            if not self.is_interrupted and current_sentence.strip():
-                await self.speak(current_sentence.strip())
+            # Update tracked active crop/market if orchestrator resolved them
+            if result_state.get("active_crop"):
+                self.crop_name = result_state.get("active_crop")
+            if result_state.get("active_market"):
+                self.mandi_name = result_state.get("active_market")
 
-            if full_response.strip():
-                self.messages.append({"role": "assistant", "content": full_response.strip()})
-                self.transcript_history.append({"speaker": "Kisan Mitra", "text": full_response.strip()})
+            raw_resp = (
+                result_state.get("final_response")
+                or (result_state.get("response_envelope") or {}).get("response_text")
+                or ""
+            )
+
+            clean_resp = self._clean_for_telephony(raw_resp)
+            if clean_resp:
+                full_response_text = clean_resp
+            else:
+                # Fallback to direct stream generator if pipeline returned empty text
+                async for chunk in self._generate_stream(transcript):
+                    full_response_text += chunk
 
         except Exception as e:
-            logger.error("calling_agent_response_error", error=str(e))
+            logger.warning("orchestrator_invocation_failed_using_stream_fallback", error=str(e))
+            try:
+                async for chunk in self._generate_stream(transcript):
+                    full_response_text += chunk
+            except Exception as stream_err:
+                logger.error("stream_fallback_failed", error=str(stream_err))
+                full_response_text = (
+                    f"जी {self.farmer_name} जी, आपकी बात समझ आ गई है।"
+                    if self.language == "hi"
+                    else f"Understood {self.farmer_name}. FarmFusion is here to assist you."
+                )
+
+        if not full_response_text.strip():
+            return
+
+        clean_final = self._clean_for_telephony(full_response_text)
+        self.messages.append({"role": "assistant", "content": clean_final})
+        self.transcript_history.append({"speaker": "Kisan Mitra", "text": clean_final})
+
+        # Break into natural sentences and stream speech to telephone line
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?।\n])\s+', clean_final) if s.strip()]
+        for sentence in sentences:
+            if self.is_interrupted:
+                logger.info("ai_response_interrupted", farmer=self.farmer_name)
+                break
+            await self.speak(sentence)
 
     async def _generate_stream(self, latest_input: str):
         """Generates stream chunks from LLM with agricultural persona prompt."""
