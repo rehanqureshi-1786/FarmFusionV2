@@ -170,26 +170,26 @@ class BhashiniASRProvider(BaseASRProvider):
         )
 
         try:
-            if not has_credentials:
-                # Honest reporting: credentials not present in local environment
+            from app.voice.bhashini import BhashiniClient
+            bhashini = BhashiniClient()
+            b_res = await bhashini.transcribe_audio(audio_bytes, language=effective_lang)
+            if b_res and b_res.get("transcription"):
                 return ASRResult(
-                    transcription="जयपुर में मौसम कैसा है" if effective_lang == "hi" else "How is the weather",
-                    detected_language=effective_lang,
+                    transcription=b_res["transcription"],
+                    detected_language=b_res.get("detected_language", effective_lang),
                     detected_dialect=profile.canonical_code if profile.is_dialect else None,
-                    confidence=0.92,
-                    provider="bhashini_local_fallback",
-                    credential_available=False,
+                    confidence=float(b_res.get("confidence", 0.92)),
+                    provider=b_res.get("provider", "bhashini"),
+                    credential_available=bhashini.is_configured,
                     latency_ms=(time.time() - start_t) * 1000,
                 )
-
-            # Live API dispatch when configured
             return ASRResult(
-                transcription="आज मौसम कैसा है",
+                transcription="",
                 detected_language=effective_lang,
-                detected_dialect=profile.canonical_code if profile.is_dialect else None,
-                confidence=0.96,
-                provider="bhashini_live",
-                credential_available=True,
+                confidence=0.0,
+                provider="bhashini",
+                error=b_res.get("error", "ASR transcription failed"),
+                credential_available=bhashini.is_configured,
                 latency_ms=(time.time() - start_t) * 1000,
             )
         except Exception as exc:
@@ -242,16 +242,51 @@ class BhashiniTTSProvider(BaseTTSProvider):
             hash=text_hash
         )
 
-        dummy_audio = b"RIFF....WAVEfmt ....data...."
+        from app.voice.bhashini import BhashiniClient
+        bhashini = BhashiniClient()
+        audio = await bhashini.generate_tts(text, language=effective_lang)
+        if audio and len(audio) > 100:
+            return TTSResult(
+                audio_bytes=audio,
+                response_language=effective_lang,
+                response_dialect=profile.canonical_code if profile.is_dialect else None,
+                tts_provider="bhashini" if bhashini.is_configured else "bhashini_sarvam_fallback",
+                fallback_used=fallback_used or not bhashini.is_configured,
+                fallback_reason=fallback_reason or ("bhashini_unconfigured_sarvam_fallback" if not bhashini.is_configured else None),
+                cached=False,
+                credential_available=bhashini.is_configured,
+                latency_ms=(time.time() - start_t) * 1000,
+            )
+
+        # Fallback to local neural VITS if available
+        try:
+            from app.voice.local.tts.local_tts import local_tts_engine
+            if local_tts_engine.supports_language(effective_lang):
+                synth = await local_tts_engine.synthesize(text, language=effective_lang)
+                if synth and synth.audio_bytes and len(synth.audio_bytes) > 100:
+                    return TTSResult(
+                        audio_bytes=synth.audio_bytes,
+                        response_language=effective_lang,
+                        response_dialect=profile.canonical_code if profile.is_dialect else None,
+                        tts_provider="local_neural_tts",
+                        fallback_used=True,
+                        fallback_reason="bhashini_unavailable_local_vits_fallback",
+                        cached=False,
+                        credential_available=False,
+                        latency_ms=(time.time() - start_t) * 1000,
+                    )
+        except Exception:
+            pass
+
         return TTSResult(
-            audio_bytes=dummy_audio,
+            audio_bytes=b"",
             response_language=effective_lang,
             response_dialect=profile.canonical_code if profile.is_dialect else None,
-            tts_provider="bhashini",
-            fallback_used=fallback_used,
-            fallback_reason=fallback_reason,
+            tts_provider="bhashini_none",
+            fallback_used=True,
+            fallback_reason="all_tts_providers_exhausted",
             cached=False,
-            credential_available=has_credentials,
+            credential_available=bhashini.is_configured,
             latency_ms=(time.time() - start_t) * 1000,
         )
 

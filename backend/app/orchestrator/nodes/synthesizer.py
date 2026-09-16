@@ -260,10 +260,13 @@ async def call_llm_synthesizer(
                 resp = await client.post(api_url, headers=headers, json=payload)
                 if resp.status_code == 200:
                     data = resp.json()
-                    content = data["choices"][0]["message"]["content"]
+                    content = (data["choices"][0]["message"].get("content") or "").strip()
+                    if not content:
+                        logger.warning("openrouter_synthesis_empty_content")
+                        return None, "openrouter_empty_content"
                     try:
                         # Clean markdown code fences if present
-                        raw_c = content.strip()
+                        raw_c = content
                         if raw_c.startswith("```json"):
                             raw_c = raw_c[7:]
                         elif raw_c.startswith("```"):
@@ -308,9 +311,12 @@ async def call_llm_synthesizer(
                 resp = await client.post(api_url, headers=headers, json=payload)
                 if resp.status_code == 200:
                     data = resp.json()
-                    content = data["choices"][0]["message"]["content"]
+                    content = (data["choices"][0]["message"].get("content") or "").strip()
+                    if not content:
+                        logger.warning("groq_synthesis_empty_content")
+                        return None, "groq_empty_content"
                     try:
-                        raw_c = content.strip()
+                        raw_c = content
                         if raw_c.startswith("```json"):
                             raw_c = raw_c[7:]
                         elif raw_c.startswith("```"):

@@ -73,7 +73,7 @@ class UniversalVoiceProviderRouter:
                 actual_tts_language=language,
                 actual_tts_dialect=dialect,
                 selected_provider="sarvam_asr",
-                selected_model="sarvam_saarika_v2",
+                selected_model="sarvam_saaras_v3",
                 capability_tier=cap.capability_tier,
                 is_local=False,
                 is_native=True,

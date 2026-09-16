@@ -39,34 +39,60 @@ router = APIRouter(prefix="/voice", tags=["voice-assistant"])
 async def voice_session_websocket(websocket: WebSocket):
     """
     WS /voice/session
-    Real-time streaming voice WebSocket session connecting Android app to Bhashini ASR/TTS and LangGraph Orchestrator.
+    Real-time streaming voice WebSocket session connecting Android app to Bhashini/Sarvam ASR/TTS and LangGraph Orchestrator.
     """
+    import json
+    import base64
     await websocket.accept()
     logger.info("voice_websocket_connected")
     bhashini = BhashiniClient()
     try:
         while True:
-            # Receive text payload or audio bytes
-            data = await websocket.receive_text()
-            logger.info("voice_ws_message_received", message=data)
-            
-            # Transcribe audio if needed or run orchestrator directly on query text
+            # Receive text payload or JSON with audio bytes
+            raw_data = await websocket.receive_text()
+            logger.info("voice_ws_message_received", length=len(raw_data))
+
+            user_input_text = raw_data.strip()
+            session_lang = "hi"
+
+            # Check if JSON payload with audio or structured fields
+            try:
+                parsed = json.loads(raw_data)
+                if isinstance(parsed, dict):
+                    if parsed.get("audio_base64"):
+                        audio_raw = base64.b64decode(parsed["audio_base64"])
+                        asr_res = await bhashini.transcribe_audio(audio_raw, language=parsed.get("language", "hi"))
+                        user_input_text = asr_res.get("transcription", "")
+                        session_lang = asr_res.get("detected_language", parsed.get("language", "hi"))
+                    elif parsed.get("query") or parsed.get("text"):
+                        user_input_text = parsed.get("query") or parsed.get("text")
+                        session_lang = parsed.get("language", "hi")
+            except Exception:
+                pass
+
+            if not user_input_text:
+                continue
+
             orchestrator_result = await run_orchestrator_pipeline(
-                user_input=data,
-                detected_language="hi",
+                user_input=user_input_text,
+                detected_language=session_lang,
                 session_id="ws_session"
             )
-            
+
             # Generate TTS audio for final response
             final_text = orchestrator_result.get("final_response", "")
-            tts_audio = await bhashini.generate_tts(final_text, language="hi")
-            
+            resp_lang = orchestrator_result.get("detected_language", session_lang)
+            tts_audio = await bhashini.generate_tts(final_text, language=resp_lang)
+
+            audio_b64 = base64.b64encode(tts_audio).decode("utf-8") if tts_audio else None
+
             await websocket.send_json({
                 "response_text": final_text,
                 "intent": orchestrator_result.get("intent"),
                 "detected_language": orchestrator_result.get("detected_language"),
                 "requires_clarification": orchestrator_result.get("requires_clarification"),
-                "tts_audio_base64": tts_audio.hex()
+                "tts_audio_base64": audio_b64,
+                "tts_audio_hex": tts_audio.hex() if tts_audio else None,
             })
     except WebSocketDisconnect:
         logger.info("voice_websocket_disconnected")
@@ -173,14 +199,33 @@ async def process_voice_query(request: VoiceQueryRequest) -> VoiceQueryResponse:
     """
     try:
         from datetime import datetime
-        logger.info(f"Processing voice query: {request.query[:50]}...")
+        import base64
+
+        query_text = (request.query or "").strip()
+        input_lang = request.language_hint or "hi"
+
+        # If audio_base64 is provided, transcribe using Bhashini/Sarvam STT
+        if request.audio_base64:
+            try:
+                audio_raw = base64.b64decode(request.audio_base64)
+                from app.voice.bhashini import BhashiniClient
+                bhashini_stt = BhashiniClient()
+                asr_result = await bhashini_stt.transcribe_audio(audio_raw, language=input_lang)
+                if asr_result and asr_result.get("transcription"):
+                    query_text = asr_result["transcription"].strip()
+                    input_lang = asr_result.get("detected_language") or input_lang
+                    logger.info("audio_transcribed_for_query", text=query_text, lang=input_lang, provider=asr_result.get("provider"))
+            except Exception as e:
+                logger.warning(f"Voice query audio transcription failed: {e}")
 
         # Validate input
-        if not request.query or len(request.query.strip()) == 0:
+        if not query_text:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Query cannot be empty"
+                detail="Query text or valid audio_base64 must be provided"
             )
+
+        logger.info(f"Processing voice query: {query_text[:50]}...")
 
         # Execute LangGraph Multilingual Orchestrator Pipeline
         farmer_context = {
@@ -189,8 +234,8 @@ async def process_voice_query(request: VoiceQueryRequest) -> VoiceQueryResponse:
             "location_name": request.location
         }
         turn_result = await run_orchestrator_pipeline(
-            user_input=request.query,
-            detected_language=request.language_hint or "hi",
+            user_input=query_text,
+            detected_language=input_lang,
             farmer_context=farmer_context
         )
 
@@ -275,6 +320,21 @@ async def process_voice_query(request: VoiceQueryRequest) -> VoiceQueryResponse:
             except Exception as e:
                 logger.warning(f"Sarvam TTS synthesis failed: {e}")
 
+        # Bhashini TTS Fallback
+        if audio_b64 is None and final_text:
+            try:
+                from app.voice.bhashini import BhashiniClient
+                bhashini_tts = BhashiniClient()
+                b_audio = await bhashini_tts.generate_tts(final_text, language=resp_lang or "hi")
+                if b_audio:
+                    audio_b64 = base64.b64encode(b_audio).decode("utf-8")
+                    tts_provider_name = "bhashini_tts"
+                    tts_model_name = "bhashini_bulbul_fallback"
+                    is_native_tts = True
+                    is_local_tts = False
+            except Exception as e:
+                logger.warning(f"Bhashini TTS synthesis failed: {e}")
+
         response = VoiceQueryResponse(
             intent=intent,
             action=action,
@@ -343,6 +403,91 @@ async def process_text_query(request: VoiceQueryRequest) -> VoiceQueryResponse:
     Same as `/voice` endpoint
     """
     return await process_voice_query(request)
+
+
+class TranscribeAudioRequest(BaseModel):
+    audio_base64: str = Field(..., description="Base64-encoded audio bytes (WAV/MP3/PCM)")
+    language_hint: Optional[str] = Field("hi", description="Optional language code hint (e.g. 'hi', 'mr', 'gu')")
+
+
+class TranscribeAudioResponse(BaseModel):
+    transcription: str
+    detected_language: str
+    confidence: float
+    provider: str
+
+
+class SynthesizeTTSRequest(BaseModel):
+    text: str = Field(..., description="Text to synthesize to speech")
+    language: Optional[str] = Field("hi", description="BCP-47 language code (e.g. 'hi', 'en', 'gu', 'mr')")
+
+
+class SynthesizeTTSResponse(BaseModel):
+    audio_base64: str
+    format: str = "audio/wav"
+    provider: str
+
+
+@router.post(
+    "/transcribe",
+    response_model=TranscribeAudioResponse,
+    summary="Direct Speech-to-Text Transcription via Bhashini/Sarvam"
+)
+async def transcribe_audio_endpoint(req: TranscribeAudioRequest) -> TranscribeAudioResponse:
+    """
+    Direct endpoint to transcribe speech audio using Sarvam STT / Bhashini.
+    """
+    import base64
+    try:
+        audio_bytes = base64.b64decode(req.audio_base64)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid base64 audio payload: {e}"
+        )
+
+    from app.voice.bhashini import BhashiniClient
+    bhashini = BhashiniClient()
+    res = await bhashini.transcribe_audio(audio_bytes, language=req.language_hint or "hi")
+    return TranscribeAudioResponse(
+        transcription=res.get("transcription", ""),
+        detected_language=res.get("detected_language", req.language_hint or "hi"),
+        confidence=float(res.get("confidence", 0.0)),
+        provider=res.get("provider", "unknown")
+    )
+
+
+@router.post(
+    "/tts",
+    response_model=SynthesizeTTSResponse,
+    summary="Direct Text-to-Speech Synthesis via Sarvam/Bhashini/Local VITS"
+)
+async def synthesize_tts_endpoint(req: SynthesizeTTSRequest) -> SynthesizeTTSResponse:
+    """
+    Direct endpoint to synthesize natural voice audio for text.
+    """
+    import base64
+    clean_text = req.text.strip()
+    if not clean_text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Text cannot be empty"
+        )
+
+    from app.voice.bhashini import BhashiniClient
+    bhashini = BhashiniClient()
+    audio = await bhashini.generate_tts(clean_text, language=req.language or "hi")
+    if not audio:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate audio from available TTS providers"
+        )
+
+    return SynthesizeTTSResponse(
+        audio_base64=base64.b64encode(audio).decode("utf-8"),
+        format="audio/wav",
+        provider="sarvam_bulbul" if settings.sarvam_api_key else "bhashini"
+    )
 
 
 # ============ UTILITY ENDPOINTS ============

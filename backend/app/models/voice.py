@@ -63,7 +63,8 @@ class VoiceQueryRequest(BaseModel):
             }
         }
     )
-    query: str = Field(..., description="User's voice/text query in any supported language")
+    query: Optional[str] = Field(None, description="User's voice/text query in any supported language")
+    audio_base64: Optional[str] = Field(None, description="Optional base64-encoded audio bytes for speech recognition")
     location: Optional[str] = Field(None, description="Optional user location")
     latitude: Optional[float] = Field(None, description="Optional device latitude")
     longitude: Optional[float] = Field(None, description="Optional device longitude")

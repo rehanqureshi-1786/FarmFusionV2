@@ -70,9 +70,8 @@ class SarvamVoiceClient:
             logger.info("sarvam_stt_unavailable", configured=self.is_configured)
             return None
 
-        # SarvamBatch expects a WAV/MP3; map malformed/missing audio to fallback signal.
-        sample_rate = SAMPLE_RATES.get(language[:2], 16000)
-        url = f"{SARVAM_BASE}/v1/speech-to-text"
+        target_lang = SARVAM_LANG.get(language[:2], "hi-IN")
+        url = f"{SARVAM_BASE}/speech-to-text"
         headers = {"api-subscription-key": self.api_key}
         try:
             resp = await self._client.post(
@@ -80,15 +79,15 @@ class SarvamVoiceClient:
                 headers=headers,
                 files={"file": ("input.wav", audio_bytes, "audio/wav")},
                 data={
-                    "language_code": language[:2],
-                    "model": "saarika:v2",
+                    "language_code": target_lang,
+                    "model": "saaras:v3",
                     "with_diarization": str(with_diarization),
                     "num_speakers": "1",
                 },
                 timeout=30.0,
             )
             if resp.status_code != 200:
-                logger.warning("sarvam_stt_http_error", status=resp.status_code)
+                logger.warning("sarvam_stt_http_error", status=resp.status_code, text=resp.text[:200])
                 return None
             data = resp.json()
             transcript = (data.get("transcript") or "").strip()
@@ -96,8 +95,8 @@ class SarvamVoiceClient:
                 return None
             return {
                 "text": transcript,
-                "language": data.get("language_code", language[:2]),
-                "confidence": round(float(data.get("confidence") or 0.90), 4),
+                "language": data.get("language_code") or target_lang,
+                "confidence": round(float(data.get("confidence") or 0.95), 4),
                 "provider": "sarvam_stt",
             }
         except Exception as exc:
