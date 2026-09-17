@@ -58,11 +58,16 @@ fun ProfileScreen(navController: NavController) {
     val scrollState = rememberScrollState()
     val currentLang = LocalAppLanguage.current
     var showLanguageDialog by remember { mutableStateOf(false) }
-    val blurRadius by animateDpAsState(
-        targetValue = if (showLanguageDialog) 16.dp else 0.dp,
-        animationSpec = tween(durationMillis = 300),
-        label = "profile_blur"
-    )
+    val globalBlur = LocalGlobalBlur.current
+
+    LaunchedEffect(showLanguageDialog) {
+        globalBlur.value = showLanguageDialog
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            globalBlur.value = false
+        }
+    }
 
     val savedDialect = AuthStore.getDialect(context)
     val activeCode = savedDialect ?: currentLang
@@ -134,7 +139,6 @@ fun ProfileScreen(navController: NavController) {
                 .align(Alignment.TopEnd)
                 .size(240.dp)
                 .offset(x = 40.dp, y = (20).dp)
-                .blur(radius = blurRadius)
                 .graphicsLayer {
                     // Fixed anchor point at the end buds on the screen edge (stays completely static)
                     transformOrigin = TransformOrigin(0.85f, 0.20f)
@@ -144,7 +148,6 @@ fun ProfileScreen(navController: NavController) {
 
         Scaffold(
             containerColor = Color.Transparent,
-            modifier = Modifier.blur(radius = blurRadius),
             topBar = {
                 CenterAlignedTopAppBar(
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
