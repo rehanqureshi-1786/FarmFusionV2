@@ -317,20 +317,37 @@ async def telephony_audio_stream_endpoint(websocket: WebSocket):
     )
 
     try:
-        # Start orchestrator greeting
-        await orchestrator.start()
+        # Launch greeting task in background so it starts synthesizing while socket receives start event
+        asyncio.create_task(orchestrator.start())
 
         while True:
             raw_text = await websocket.receive_text()
             data = json.loads(raw_text)
             event = data.get("event")
 
-            # 1. Connection initiation metadata event
+            # 1. Connection initiation metadata event from Vobiz
             if event == "start":
-                logger.info("telephony_stream_metadata_received", call_id=call_id, format=data.get("mediaFormat"))
+                stream_id = (
+                    data.get("start", {}).get("streamId")
+                    or data.get("streamId")
+                    or data.get("start", {}).get("callId")
+                    or call_id
+                )
+                if stream_id:
+                    orchestrator.set_stream_id(stream_id)
+                logger.info(
+                    "telephony_stream_metadata_received",
+                    call_id=call_id,
+                    stream_id=stream_id,
+                    format=data.get("start", {}).get("mediaFormat") or data.get("mediaFormat")
+                )
 
             # 2. Inbound audio chunk from phone (supports both "media" and "playAudio" frame envelopes)
             elif event in ("media", "playAudio"):
+                stream_id = data.get("streamId") or data.get("media", {}).get("streamId")
+                if stream_id and not orchestrator.stream_id:
+                    orchestrator.set_stream_id(stream_id)
+
                 media_payload = data.get("media", {}).get("payload") or data.get("payload")
                 if media_payload:
                     audio_bytes = base64.b64decode(media_payload)

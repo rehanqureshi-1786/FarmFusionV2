@@ -61,6 +61,9 @@ class KisanVoiceOrchestrator:
         self.longitude = longitude
         self.phone = phone
         self.manager = manager
+        self.stream_id: Optional[str] = None
+        self.stream_ready_event = asyncio.Event()
+        self.greeting_started = False
 
         self.tts = TelephonyTTS(language_code=language)
         self.stt = TelephonySTT(self.on_transcript, self.on_speech_started, language=language)
@@ -69,6 +72,13 @@ class KisanVoiceOrchestrator:
         self.messages: List[Dict[str, str]] = []
         self.transcript_history: List[Dict[str, str]] = []
         self.http_client = httpx.AsyncClient(timeout=10.0)
+
+    def set_stream_id(self, stream_id: str):
+        """Sets the Vobiz streamId from the WebSocket start event."""
+        if stream_id:
+            self.stream_id = str(stream_id)
+            self.stream_ready_event.set()
+            logger.info("telephony_stream_id_set", stream_id=self.stream_id, farmer=self.farmer_name)
 
     @staticmethod
     def _clean_for_telephony(text: str) -> str:
@@ -95,12 +105,18 @@ class KisanVoiceOrchestrator:
         logger.info("barge_in_detected", farmer=self.farmer_name)
         try:
             # Clear audio playback on telephony network immediately
-            await self.websocket.send_text(json.dumps({"event": "clearAudio"}))
+            payload = {"event": "clearAudio"}
+            if self.stream_id:
+                payload["streamId"] = self.stream_id
+            await self.websocket.send_text(json.dumps(payload))
         except Exception:
             pass
 
     async def start(self):
         """Starts the calling loop and sends the initial personalized greeting."""
+        if self.greeting_started:
+            return
+        self.greeting_started = True
         logger.info("kisan_call_session_started", farmer=self.farmer_name, call_type=self.call_type)
         asyncio.create_task(self.stt.start())
 
@@ -276,22 +292,40 @@ class KisanVoiceOrchestrator:
             yield f"Understood {self.farmer_name}. FarmFusion is here to assist you."
 
     async def speak(self, text: str):
-        """Synthesizes text and streams 8kHz PCM audio to telephony connection."""
+        """Synthesizes text and streams 8kHz PCMU mulaw audio to telephony connection."""
         if self.is_interrupted or not text.strip():
             return
 
-        pcm_audio = await self.tts.synthesize_for_phone(text)
-        if pcm_audio and not self.is_interrupted:
+        # Wait briefly for Vobiz streamId if it has not arrived yet (up to 1.5 seconds)
+        if not self.stream_id:
             try:
-                b64_audio = base64.b64encode(pcm_audio).decode("utf-8")
-                # Official current Vobiz streaming protocol uses event="playAudio"
+                await asyncio.wait_for(self.stream_ready_event.wait(), timeout=1.5)
+            except (asyncio.TimeoutError, Exception):
+                pass
+
+        mulaw_audio = await self.tts.synthesize_for_phone(text)
+        if mulaw_audio and not self.is_interrupted:
+            try:
+                b64_audio = base64.b64encode(mulaw_audio).decode("utf-8")
+                # Official Vobiz WebSocket audio streaming protocol specification
                 payload = {
                     "event": "playAudio",
                     "media": {
+                        "contentType": "audio/x-mulaw",
+                        "sampleRate": 8000,
                         "payload": b64_audio
                     }
                 }
+                if self.stream_id:
+                    payload["streamId"] = self.stream_id
+
                 await self.websocket.send_text(json.dumps(payload))
+                logger.info(
+                    "telephony_audio_played",
+                    farmer=self.farmer_name,
+                    stream_id=self.stream_id,
+                    bytes_len=len(mulaw_audio)
+                )
             except Exception as e:
                 logger.warning("telephony_audio_send_failed", error=str(e))
 
