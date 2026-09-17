@@ -114,12 +114,14 @@ fun AppNav() {
         LocalAppLanguage provides currentLang
     ) {
         // Wrapped everything in a Box to break free from the Scaffold's layout bounds
-        Box(modifier = Modifier.fillMaxSize()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .then(if (globalBlurRadius > 0.dp) Modifier.blur(radius = globalBlurRadius) else Modifier)
+        ) {
             Scaffold(
                 containerColor = Color(0xFFF4F9F4),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(if (globalBlurRadius > 0.dp) Modifier.blur(radius = globalBlurRadius) else Modifier),
+                modifier = Modifier.fillMaxSize(),
                 bottomBar = {
                     if (showBottomBar) {
                         Box(
