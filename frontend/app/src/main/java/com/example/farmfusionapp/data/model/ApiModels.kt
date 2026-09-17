@@ -427,6 +427,32 @@ data class VoiceQueryResponse(
     val timestamp: String
 )
 
+// ============ KISAN CALLING AGENT ============
+
+data class KisanCallApiRequest(
+    val phone: String,
+    val farmer_name: String,
+    val call_type: String = "general_advisory",
+    val language: String = "hi",
+    val location: String? = "India",
+    val crop_name: String? = null,
+    val mandi_name: String? = null,
+    val current_price: Double? = null,
+    val target_price: Double? = null,
+    val weather_summary: String? = null,
+    val agent_instruction: String? = null,
+    val bypass_cooldown: Boolean = false
+)
+
+data class KisanCallApiResponse(
+    val status: String = "success",
+    val call_id: String,
+    val message: String,
+    val phone: String,
+    val farmer_name: String,
+    val call_type: String
+)
+
 // ============ IOT ANIMAL DETECTION ============
 
 data class SensorDetailModel(

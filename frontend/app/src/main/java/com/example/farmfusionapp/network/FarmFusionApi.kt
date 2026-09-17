@@ -213,6 +213,13 @@ interface FarmFusionApi {
         @Body request: VoiceQueryRequest
     ): Response<VoiceQueryResponse>
 
+    // ============ KISAN CALLING AGENT ============
+
+    @POST("api/v1/calling/call")
+    suspend fun initiateKisanCall(
+        @Body request: KisanCallApiRequest
+    ): Response<KisanCallApiResponse>
+
     // ============ IOT ANIMAL DETECTION ============
 
     @GET("api/v1/animal-detection/latest")

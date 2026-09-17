@@ -1,6 +1,10 @@
 package com.example.farmfusionapp.ui.screens
 
 import android.app.Activity
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -392,8 +396,37 @@ fun DashboardScreen(navController: NavController) {
                                     launchSingleTop = true
                                     restoreState = true
                                 }
+                            },
+                            onCallClick = {
+                                dialKisanHelpline(context)
+                            },
+                            onVoiceClick = {
+                                navController.navigate(NavRoutes.VoiceAssistant) {
+                                    popUpTo(NavRoutes.Dashboard) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
                         )
+                    }
+
+                    item {
+                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                            FarmingAssistantCallCard(
+                                onCallClick = { dialKisanHelpline(context) },
+                                onVoiceClick = {
+                                    navController.navigate(NavRoutes.VoiceAssistant) {
+                                        popUpTo(NavRoutes.Dashboard) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                }
+                            )
+                        }
                     }
 
                     item {
@@ -776,17 +809,31 @@ private fun AnimatedHeaderLandscape(
     }
 }
 
+private fun dialKisanHelpline(context: Context, phoneNumber: String = "+918064265824") {
+    try {
+        val intent = Intent(Intent.ACTION_DIAL).apply {
+            data = Uri.parse("tel:$phoneNumber")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Helpline: $phoneNumber", Toast.LENGTH_SHORT).show()
+    }
+}
+
 @Composable
 private fun HeroPagerSection(
     weatherData: DisplayWeatherData?,
     suggestions: List<SuggestionPill>,
-    onWeatherClick: () -> Unit
+    onWeatherClick: () -> Unit,
+    onCallClick: () -> Unit,
+    onVoiceClick: () -> Unit
 ) {
-    val pageCount = 3
+    val pageCount = 4
     val pagerState = rememberPagerState(pageCount = { pageCount })
     var isForward by remember { mutableStateOf(true) }
 
-    // Auto-scrolls in a bouncing sequence (1 -> 2 -> 3 -> 2 -> 1)
+    // Auto-scrolls in a bouncing sequence (0 -> 1 -> 2 -> 3 -> 2 -> 1 -> 0)
     LaunchedEffect(pagerState.settledPage) {
         delay(6000)
         if (!pagerState.isScrollInProgress) {
@@ -841,8 +888,9 @@ private fun HeroPagerSection(
             ) {
                 when (page) {
                     0 -> WeatherHeroCard(weatherData, onWeatherClick)
-                    1 -> AlertsHeroCard()
-                    2 -> SuggestionsHeroCard(suggestions)
+                    1 -> FarmingAssistantHeroCard(onCallClick = onCallClick, onVoiceClick = onVoiceClick)
+                    2 -> AlertsHeroCard()
+                    3 -> SuggestionsHeroCard(suggestions = suggestions, onCallClick = onCallClick)
                 }
             }
         }
@@ -1162,7 +1210,401 @@ private fun AlertItem(title: String, desc: String) {
 }
 
 @Composable
-private fun SuggestionsHeroCard(suggestions: List<SuggestionPill>) {
+private fun FarmingAssistantHeroCard(
+    onCallClick: () -> Unit,
+    onVoiceClick: () -> Unit
+) {
+    val currentLang = LocalAppLanguage.current
+    val haptic = LocalHapticFeedback.current
+
+    Surface(
+        modifier = Modifier
+            .fillMaxSize()
+            .shadow(12.dp, RoundedCornerShape(32.dp)),
+        shape = RoundedCornerShape(32.dp),
+        color = Color.White
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF0F5132),
+                            Color(0xFF1E7E34),
+                            Color(0xFF0A3622)
+                        )
+                    )
+                )
+        ) {
+            // Decorative background circles and watermark icon
+            Box(
+                modifier = Modifier
+                    .size(170.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 35.dp, y = 35.dp)
+                    .background(Color.White.copy(alpha = 0.07f), CircleShape)
+            )
+            Icon(
+                imageVector = Icons.Rounded.PhoneInTalk,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.12f),
+                modifier = Modifier
+                    .size(160.dp)
+                    .align(Alignment.BottomEnd)
+                    .offset(x = 25.dp, y = 20.dp)
+            )
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // TOP HEADER ROW
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f, fill = false)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(0xFF00E676), CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = AppLocalizer.localizeDashboardPhrase("24/7 ai helpline", currentLang),
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.5.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = AppLocalizer.localizeDashboardPhrase("farming assistant", currentLang),
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 22.sp,
+                                lineHeight = 26.sp
+                            )
+                        )
+                    }
+
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.2f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        modifier = Modifier.size(38.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Rounded.SupportAgent,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+
+                // MIDDLE ADVISORY TEXT & PHONE PILL
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = AppLocalizer.localizeDashboardPhrase("call now desc", currentLang),
+                        color = Color.White.copy(alpha = 0.92f),
+                        fontSize = 12.5.sp,
+                        lineHeight = 16.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Black.copy(alpha = 0.25f),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Phone,
+                                contentDescription = null,
+                                tint = Color(0xFF69F0AE),
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Toll-Free: +91 8064265824",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                            )
+                        }
+                    }
+                }
+
+                // BOTTOM ACTION BUTTONS (Call Now + Voice Chat)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // CALL NOW BUTTON (Prominent primary)
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onCallClick()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color(0xFF0F5132)
+                        ),
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Call,
+                                contentDescription = null,
+                                tint = Color(0xFF0F5132),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = AppLocalizer.localizeDashboardPhrase("call now", currentLang),
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 14.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    // VOICE CHAT BUTTON (Secondary)
+                    Button(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onVoiceClick()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.22f),
+                            contentColor = Color.White
+                        ),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        shape = RoundedCornerShape(14.dp),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Mic,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = AppLocalizer.localizeDashboardPhrase("voice chat", currentLang),
+                                style = MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.5.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FarmingAssistantCallCard(
+    onCallClick: () -> Unit,
+    onVoiceClick: () -> Unit
+) {
+    val currentLang = LocalAppLanguage.current
+    val haptic = LocalHapticFeedback.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f),
+        label = "assistantCardScale"
+    )
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(24.dp),
+                spotColor = Color(0xFF1B5E20).copy(alpha = 0.15f),
+                ambientColor = Color.Black.copy(alpha = 0.05f)
+            ),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        border = BorderStroke(1.2.dp, Color(0xFFC8E6C9))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFF1F8F1),
+                            Color(0xFFE8F5E9),
+                            Color(0xFFF9FFF9)
+                        )
+                    )
+                )
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Left Avatar with online badge
+            Box(modifier = Modifier.size(52.dp)) {
+                Surface(
+                    modifier = Modifier.size(50.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF2E7D32),
+                    shadowElevation = 3.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Rounded.SupportAgent,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .align(Alignment.BottomEnd)
+                        .background(Color.White, CircleShape)
+                        .padding(2.dp)
+                        .background(Color(0xFF00E676), CircleShape)
+                )
+            }
+
+            // Center details
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "VOBIZ AI LIVE",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 10.sp,
+                            letterSpacing = 0.8.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "• +91 8064265824",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Color(0xFF616161),
+                            fontSize = 10.sp
+                        )
+                    )
+                }
+
+                Text(
+                    text = AppLocalizer.localizeDashboardPhrase("farming assistant", currentLang),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color(0xFF1B5E20),
+                        fontSize = 16.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Text(
+                    text = AppLocalizer.localizeDashboardPhrase("call now desc", currentLang),
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFF555555),
+                        fontSize = 11.5.sp,
+                        lineHeight = 14.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Right "Call Now" Button
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onCallClick()
+                },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1B5E20),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Call,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = AppLocalizer.localizeDashboardPhrase("call now", currentLang),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 13.sp
+                        ),
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SuggestionsHeroCard(
+    suggestions: List<SuggestionPill>,
+    onCallClick: (() -> Unit)? = null
+) {
     val currentLang = LocalAppLanguage.current
     Surface(
         modifier = Modifier.fillMaxSize().shadow(12.dp, RoundedCornerShape(32.dp)),
@@ -1223,14 +1665,45 @@ private fun SuggestionsHeroCard(suggestions: List<SuggestionPill>) {
                     }
                 }
 
-                Text(
-                    text = AppLocalizer.localizeDashboardPhrase("discover more tailored advice", currentLang),
-                    color = Color.White.copy(alpha = 0.8f),
-                    fontSize = 11.sp,
-                    lineHeight = 14.sp,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = AppLocalizer.localizeDashboardPhrase("discover more tailored advice", currentLang),
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+
+                    if (onCallClick != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = onCallClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White),
+                            shape = RoundedCornerShape(12.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Call,
+                                contentDescription = null,
+                                tint = Color(0xFF0288D1),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = AppLocalizer.localizeDashboardPhrase("call now", currentLang),
+                                color = Color(0xFF0288D1),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
             }
         }
     }
