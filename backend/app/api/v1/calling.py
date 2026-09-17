@@ -225,13 +225,18 @@ async def telephony_inbound_webhook(request: Request):
     else:
         base_ws = settings.base_ws_url or os.getenv("BASE_WS_URL", "wss://farmfusion-backend-production-0017.up.railway.app")
     ws_query = urllib.parse.urlencode(query_params)
-    stream_url = f"{base_ws.rstrip('/')}/ws/calling/stream?{ws_query}"
+    if ws_query:
+        escaped_query = ws_query.replace("&", "&amp;")
+        stream_url = f"{base_ws.rstrip('/')}/ws/calling/stream?{escaped_query}"
+    else:
+        stream_url = f"{base_ws.rstrip('/')}/ws/calling/stream"
 
     xml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
     <Stream bidirectional="true" keepCallAlive="true">{stream_url}</Stream>
 </Response>"""
     return Response(content=xml_response, media_type="application/xml")
+
 
 
 @router.api_route("/webhook/hangup", methods=["GET", "POST"])
