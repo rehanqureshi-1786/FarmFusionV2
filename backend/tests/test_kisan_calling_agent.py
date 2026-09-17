@@ -181,7 +181,8 @@ async def test_06_barge_in_state_machine():
 
     assert not orchestrator.is_interrupted
 
-    # Trigger speech started (barge-in event)
+    # Trigger speech started (barge-in event while AI is speaking)
+    orchestrator.is_speaking_outbound = True
     await orchestrator.on_speech_started()
 
     # 1. is_interrupted becomes True immediately

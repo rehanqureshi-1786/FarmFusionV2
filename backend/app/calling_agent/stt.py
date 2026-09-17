@@ -52,6 +52,7 @@ class TelephonySTT:
         self.is_speaking = False
         self.last_speech_time = 0.0
         self.speech_start_time = 0.0
+        self.ambient_noise = 120.0
         self.vad_task = None
         self.http_client = httpx.AsyncClient(timeout=10.0)
 
@@ -106,14 +107,20 @@ class TelephonySTT:
         avg_energy = total_energy / max(len(audio_data), 1)
 
         now = time.time()
-        # Energy threshold for speech vs background telephone line noise
-        is_speech_chunk = avg_energy > 1200
+        # Adaptively track background ambient noise floor when not speaking
+        if not self.is_speaking:
+            self.ambient_noise = 0.94 * self.ambient_noise + 0.06 * avg_energy
+
+        # Dynamic speech threshold: above ambient line noise, minimum 250 amplitude
+        speech_threshold = max(self.ambient_noise * 1.6, 250.0)
+        is_speech_chunk = avg_energy > speech_threshold
 
         if is_speech_chunk:
             self.last_speech_time = now
             if not self.is_speaking:
                 self.is_speaking = True
                 self.speech_start_time = now
+                logger.info("telephony_farmer_speech_started", energy=int(avg_energy), threshold=int(speech_threshold))
                 # Barge-in: immediately notify orchestrator to stop talking
                 if not self.barge_in_fired and self.on_speech_started_callback:
                     self.barge_in_fired = True
@@ -121,28 +128,28 @@ class TelephonySTT:
 
             self.audio_buffer.extend(audio_data)
         elif self.is_speaking:
-            # Add short trailing silence
+            # Capture trailing pause up to end-of-utterance trigger
             self.audio_buffer.extend(audio_data)
 
     async def _vad_silence_monitor(self):
-        """Monitors for end-of-utterance pauses (800ms silence) to trigger transcription."""
+        """Monitors for end-of-utterance pauses (650ms silence) to trigger transcription."""
         while self.running:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.08)
             now = time.time()
             if self.is_speaking and self.last_speech_time > 0:
                 silence_duration = now - self.last_speech_time
                 speech_duration = self.last_speech_time - self.speech_start_time
 
-                # End of speech detected if silence >= 0.8s and at least 0.4s of speech was spoken
-                if silence_duration >= 0.8:
-                    if speech_duration >= 0.4 and len(self.audio_buffer) >= 3200:
+                # End of speech detected if silence >= 0.65s and at least 0.25s of speech was spoken
+                if silence_duration >= 0.65:
+                    if speech_duration >= 0.25 and len(self.audio_buffer) >= 2000:
                         chunk_to_transcribe = bytes(self.audio_buffer)
                         self.audio_buffer.clear()
                         self.is_speaking = False
                         self.barge_in_fired = False
                         asyncio.create_task(self._transcribe_audio_buffer(chunk_to_transcribe))
                     else:
-                        # Too short (noise / click), reset buffer
+                        # Too short or line click, reset buffer
                         self.audio_buffer.clear()
                         self.is_speaking = False
                         self.barge_in_fired = False

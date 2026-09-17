@@ -64,6 +64,7 @@ class KisanVoiceOrchestrator:
         self.stream_id: Optional[str] = None
         self.stream_ready_event = asyncio.Event()
         self.greeting_started = False
+        self.is_speaking_outbound = False
 
         self.tts = TelephonyTTS(language_code=language)
         self.stt = TelephonySTT(self.on_transcript, self.on_speech_started, language=language)
@@ -100,7 +101,9 @@ class KisanVoiceOrchestrator:
         return t
 
     async def on_speech_started(self):
-        """Barge-in: fired the millisecond farmer begins speaking."""
+        """Barge-in: fired when farmer speaks while AI is actively speaking."""
+        if not self.is_speaking_outbound:
+            return
         self.is_interrupted = True
         logger.info("barge_in_detected", farmer=self.farmer_name)
         try:
@@ -227,6 +230,8 @@ class KisanVoiceOrchestrator:
         self.messages.append({"role": "assistant", "content": clean_final})
         self.transcript_history.append({"speaker": "Kisan Mitra", "text": clean_final})
 
+        # Reset interrupted state so newly generated answer plays completely
+        self.is_interrupted = False
         # Break into natural sentences and stream speech to telephone line
         sentences = [s.strip() for s in re.split(r'(?<=[.!?।\n])\s+', clean_final) if s.strip()]
         for sentence in sentences:
@@ -305,6 +310,7 @@ class KisanVoiceOrchestrator:
 
         mulaw_audio = await self.tts.synthesize_for_phone(text)
         if mulaw_audio and not self.is_interrupted:
+            self.is_speaking_outbound = True
             try:
                 # Plivo/Vobiz gateway enforces a 64KB maximum WebSocket frame size.
                 # Audio must be streamed in small 200ms frames (1600 bytes of 8000Hz 8-bit mulaw).
@@ -341,6 +347,8 @@ class KisanVoiceOrchestrator:
                 )
             except Exception as e:
                 logger.warning("telephony_audio_send_failed", error=str(e))
+            finally:
+                self.is_speaking_outbound = False
 
     async def generate_call_summary(self) -> str:
         """Generates concise call summary for database logging and webhook."""
