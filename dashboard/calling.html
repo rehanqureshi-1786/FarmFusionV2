@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmFusion Kisan Mitra - AI Voice Calling Agent & Orchestrator</title>
+    <link rel="stylesheet" href="calling.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="calling-container">
+        <!-- Header -->
+        <header class="calling-header">
+            <div class="brand">
+                <div class="brand-icon">📞</div>
+                <div class="brand-text">
+                    <h1>FarmFusion Kisan Mitra</h1>
+                    <span class="sub-title">Multilingual Voice Telephony Calling Agent & LangGraph Orchestrator</span>
+                </div>
+            </div>
+            
+            <div class="header-actions">
+                <div class="vobiz-badge" id="vobizStatusBadge">
+                    <span class="pulse-dot"></span>
+                    <span>VOBIZ LIVE: <strong id="headerPhoneNumber">+91 8064265824</strong></span>
+                </div>
+                <a href="/dashboard/index.html" class="btn-nav">
+                    <span>📡 IoT Sensors Matrix</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Metrics Ribbon -->
+        <section class="metrics-ribbon">
+            <div class="metric-card">
+                <div class="metric-icon">📲</div>
+                <div class="metric-data">
+                    <div class="label">Helpline Number</div>
+                    <div class="value" id="statPhoneNumber">+91 8064265824</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon">🧠</div>
+                <div class="metric-data">
+                    <div class="label">AI Orchestration</div>
+                    <div class="value">LangGraph Multi-Turn</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon">🎙️</div>
+                <div class="metric-data">
+                    <div class="label">Telephony Voice</div>
+                    <div class="value">8kHz Linear PCM</div>
+                </div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-icon">⚡</div>
+                <div class="metric-data">
+                    <div class="label">Barge-in Interruption</div>
+                    <div class="value">Zero-Lag clearAudio</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Calling Grid -->
+        <div class="calling-grid">
+            <!-- Left Column: Direct Outbound Calling Console -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><span>📞</span> Make Orchestrator Call Me</h2>
+                    <span class="badge-tag">Vobiz Outbound</span>
+                </div>
+
+                <form id="callForm" class="call-form">
+                    <div class="form-group">
+                        <label for="farmerPhone">Farmer Mobile Number (+91 E.164)</label>
+                        <div class="phone-input-wrapper">
+                            <input type="tel" id="farmerPhone" class="form-input" placeholder="+919876543210" required>
+                            <button type="button" class="btn-quick-fill" id="btnUseDemoPhone">Demo Phone</button>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="farmerName">Farmer Name</label>
+                            <input type="text" id="farmerName" class="form-input" value="सुरेश कुमार" placeholder="Farmer Name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="farmLocation">Location / District</label>
+                            <input type="text" id="farmLocation" class="form-input" value="Udaipur" placeholder="e.g. Udaipur, Kota">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="callLanguage">Spoken Language</label>
+                            <select id="callLanguage" class="form-select">
+                                <option value="hi" selected>Hindi (हिन्दी)</option>
+                                <option value="en">English</option>
+                                <option value="gu">Gujarati (ગુજરાતી)</option>
+                                <option value="mr">Marathi (मराठी)</option>
+                                <option value="pa">Punjabi (ਪੰਜਾਬੀ)</option>
+                                <option value="bn">Bengali (বাংলা)</option>
+                                <option value="ta">Tamil (தமிழ்)</option>
+                                <option value="te">Telugu (తెలుగు)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="callType">Call Advisory Type</label>
+                            <select id="callType" class="form-select">
+                                <option value="general_advisory" selected>🗣️ General Advisory (AI Dialog)</option>
+                                <option value="mandi_price_alert">🌾 Mandi Price Spike Alert</option>
+                                <option value="weather_warning">⛈️ Severe Weather Warning</option>
+                                <option value="pest_advisory">🧪 Crop Health & Pest Advisory</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="agentInstruction">Custom Focus Topic / Instruction (Optional)</label>
+                        <textarea id="agentInstruction" class="form-textarea" placeholder="e.g. Ask about wheat crop water requirement and inform about Kota mandi price."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="bypassCooldown" checked>
+                            <span>Bypass 5-minute cooldown (for rapid developer testing)</span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn-call-trigger" id="btnInitiateCall">
+                        <span>📞</span> Call Me Now
+                    </button>
+                </form>
+
+                <!-- Quick-Fire Scenario Triggers -->
+                <div class="scenario-section">
+                    <h3>⚡ Instant One-Click Alert Triggers</h3>
+                    <div class="scenario-buttons">
+                        <button type="button" class="btn-scenario" id="btnTriggerMandi">
+                            <span class="sc-title">🌾 Kota Wheat Alert</span>
+                            <span class="sc-desc">Rate crosses ₹2,500/qtl</span>
+                        </button>
+                        <button type="button" class="btn-scenario" id="btnTriggerWeather">
+                            <span class="sc-title">⛈️ Udaipur Rain Warning</span>
+                            <span class="sc-desc">Heavy shower alert</span>
+                        </button>
+                        <button type="button" class="btn-scenario" id="btnTriggerAdvisory">
+                            <span class="sc-title">💧 Irrigation Advice</span>
+                            <span class="sc-desc">Soil moisture consultation</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Live Call Monitor & Conversation Console -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2><span>🎙️</span> Live Telephony & Conversation Console</h2>
+                    <div class="audio-wave" id="audioWaveVisualizer">
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                        <div class="wave-bar"></div>
+                    </div>
+                </div>
+
+                <!-- Active Call Status Bar -->
+                <div class="active-call-card">
+                    <div class="call-status-indicator">
+                        <span class="call-state-pill state-idle" id="callStatePill">IDLE / STANDBY</span>
+                        <span class="call-timer" id="callTimer">00:00</span>
+                    </div>
+                    <button type="button" class="btn-small" id="btnEndCall" style="display: none;">Hang Up</button>
+                </div>
+
+                <!-- Live Transcript Box -->
+                <div class="transcript-wrapper">
+                    <div class="transcript-header">
+                        <h3>💬 Real-Time Orchestrator Transcript</h3>
+                        <div class="transcript-actions">
+                            <button type="button" class="btn-small" id="btnClearTranscript">Clear</button>
+                        </div>
+                    </div>
+                    <div class="transcript-container" id="transcriptContainer">
+                        <div class="transcript-turn turn-ai">
+                            <div class="speaker-avatar">🤖</div>
+                            <div class="turn-content">
+                                <span class="speaker-name">Kisan Mitra (LangGraph Orchestrator)</span>
+                                <div class="bubble">नमस्ते किसान भाई! फार्मफ्यूजन किसान मित्र में आपका स्वागत है। आप मौसम, मंडी भाव या फसल की जानकारी के लिए कभी भी बात कर सकते हैं।</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Browser Simulation Query Bar -->
+                <div class="simulator-box">
+                    <h4>
+                        <span>🧪 Live Web Dialogue Simulator</span>
+                        <span style="font-size: 11px; text-transform: none; color: #6EE7B7;">Direct LangGraph Pipeline</span>
+                    </h4>
+                    <div class="sim-input-row">
+                        <input type="text" id="simUserInput" class="form-input" placeholder="Ask a question as farmer (e.g. आज का मौसम कैसा रहेगा?)...">
+                        <button type="button" id="btnSendSimQuery" class="btn-sim-send">Send</button>
+                    </div>
+                    <div class="quick-prompts">
+                        <button type="button" class="btn-chip" data-query="उदयपुर का आज का मौसम कैसा रहेगा?">🌤️ उदयपुर मौसम</button>
+                        <button type="button" class="btn-chip" data-query="कोटा मंडी में गेहूं का भाव क्या चल रहा है?">🌾 गेहूं का भाव</button>
+                        <button type="button" class="btn-chip" data-query="क्या आज चने की फसल में पानी देने की जरूरत है?">💧 सिंचाई सलाह</button>
+                        <button type="button" class="btn-chip" data-query="मुझे कॉल करो 9876543210 पर">📞 मुझे कॉल करो</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inbound AI Helpline Callout Banner -->
+        <section class="helpline-banner">
+            <div class="helpline-content">
+                <h3>🌾 Call Our AI Helpline Directly Anytime</h3>
+                <p>Dial from any landline or mobile phone. Our LangGraph Orchestrator answers instantly in Hindi and regional dialects with real-time weather and mandi intelligence.</p>
+            </div>
+            <div class="helpline-number-box">
+                <span>📞</span>
+                <span class="phone-number" id="bannerPhoneNumber">+91 8064265824</span>
+            </div>
+        </section>
+
+        <!-- Recent Calls History Table -->
+        <section class="panel">
+            <div class="panel-header">
+                <h2><span>📋</span> Recent Telephony Call Logs</h2>
+                <button type="button" class="btn-small" id="btnRefreshCalls">🔄 Refresh</button>
+            </div>
+            <div class="recent-calls-table-wrapper">
+                <table class="calls-table">
+                    <thead>
+                        <tr>
+                            <th>Call ID</th>
+                            <th>Time</th>
+                            <th>Farmer</th>
+                            <th>Phone</th>
+                            <th>Call Type</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="callsTableBody">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading recent calls...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="calling.js"></script>
+</body>
+</html>

@@ -195,7 +195,10 @@ def extract_semantic_frame_deterministic(
         "कॉल करो", "कॉल कर दो", "फोन करो", "फोन कर दो", "कॉल करें", "फोन करें", "फोन लगाओ", "फोन मिलाओ",
         "call", "phone karo", "call karo", "call the farmer", "phone kar do", "phone mila do",
         "call kijiye", "phone milao", "कॉल मिलाओ", "फोन लगाओ", "call lagao", "outbound call",
-        "farmer ko call", "किसान को फोन", "किसान को कॉल", "phone laga do", "call laga do", "phone lagao", "laga do"
+        "farmer ko call", "किसान को फोन", "किसान को कॉल", "phone laga do", "call laga do", "phone lagao",
+        "call me", "call me now", "please call me", "give me a call", "can you call me", "call me please",
+        "mujhe call karo", "mujhe call kar do", "mujhe phone karo", "mujhe phone lagao", "call back",
+        "call me back", "कॉल बैक", "मुझे कॉल करो", "मुझे फोन करो", "मुझे कॉल", "मुझे फोन", "फोन कर"
     ])
     is_weather_kw = any(w in lower_text for w in [
         "मौसम", "weather", "बारिश", "rain", "तापमान", "temperature", "वर्षा",

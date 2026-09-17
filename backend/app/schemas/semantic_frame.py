@@ -74,6 +74,7 @@ class RequiredInput(str, Enum):
     CROP_NAME = "CROP_NAME"
     MANDI_LOCATION = "MANDI_LOCATION"
     FARM_SIZE = "FARM_SIZE"
+    PHONE_NUMBER = "PHONE_NUMBER"
     OTHER = "OTHER"
 
 

@@ -27,13 +27,101 @@ async def initiate_kisan_call(request: KisanCallRequest):
     Validates E.164 phone numbers and enforces 5-minute duplicate-call cooldown.
     """
     try:
-        return await kisan_calling_service.trigger_call(request)
+        return await kisan_calling_service.trigger_call(request, bypass_cooldown=request.bypass_cooldown)
     except ValueError as e:
         status_code = 429 if "cooldown active" in str(e).lower() else 400
         raise HTTPException(status_code=status_code, detail=str(e))
     except Exception as e:
         logger.error("call_initiation_unexpected_error", error=str(e))
         raise HTTPException(status_code=500, detail=f"Failed to initiate call: {str(e)}")
+
+@router.get("/recent")
+async def get_recent_kisan_calls():
+    """Returns real-time list of recent calls for the Calling Agent Dashboard UI."""
+    return {
+        "calls": kisan_calling_service.get_recent_calls(),
+        "vobiz_number": os.getenv("VOBIZ_PHONE_NUMBER", "+918064265824"),
+        "status": "ready"
+    }
+
+@router.post("/simulate-turn")
+async def simulate_calling_turn(payload: dict):
+    """
+    Simulates an interactive voice turn with the LangGraph Orchestrator for the Calling UI.
+    Enables live testing and validation directly in the web browser.
+    """
+    from app.orchestrator.graph import run_orchestrator_pipeline
+    from app.calling_agent.orchestrator import KisanVoiceOrchestrator
+
+    user_input = payload.get("user_input", "").strip()
+    if not user_input:
+        raise HTTPException(status_code=400, detail="user_input is required")
+
+    farmer_name = payload.get("farmer_name", "Kisan")
+    language = payload.get("language", "hi")
+    location = payload.get("location", "India")
+    crop_name = payload.get("crop_name") or None
+    mandi_name = payload.get("mandi_name") or None
+    session_id = payload.get("session_id") or f"sim_{farmer_name}"
+
+    farmer_ctx = {
+        "farmer_name": farmer_name,
+        "name": farmer_name,
+        "location_name": location,
+        "city": location,
+        "active_crop": crop_name,
+        "active_market": mandi_name,
+        "session_type": "telephony",
+    }
+
+    try:
+        res = await run_orchestrator_pipeline(
+            user_input=user_input,
+            detected_language=language,
+            session_id=session_id,
+            farmer_context=farmer_ctx,
+            active_crop=crop_name,
+        )
+
+        raw_resp = (
+            res.get("final_response")
+            or (res.get("response_envelope") or {}).get("response_text")
+            or ""
+        )
+        clean_resp = KisanVoiceOrchestrator._clean_for_telephony(raw_resp)
+        if not clean_resp:
+            clean_resp = (
+                f"जी {farmer_name} जी, आपकी बात समझ आ गई है।"
+                if language == "hi"
+                else f"Understood {farmer_name}. FarmFusion is here to assist you."
+            )
+
+        return {
+            "user_input": user_input,
+            "response_text": clean_resp,
+            "intent": res.get("intent"),
+            "completed_tasks": res.get("completed_tasks", []),
+            "session_id": session_id,
+            "active_crop": res.get("active_crop") or crop_name,
+            "active_market": res.get("active_market") or mandi_name,
+        }
+    except Exception as e:
+        logger.error("simulation_turn_error", error=str(e))
+        raise HTTPException(status_code=500, detail=f"Simulation error: {str(e)}")
+
+@router.get("/ui")
+async def serve_calling_agent_ui():
+    """Serves the interactive Calling Agent Web UI."""
+    from fastapi.responses import FileResponse
+    _backend_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    _repo_root = os.path.dirname(_backend_dir)
+    _calling_html = os.path.join(_repo_root, "dashboard", "calling.html")
+    if not os.path.exists(_calling_html):
+        _calling_html = os.path.join(_backend_dir, "dashboard", "calling.html")
+
+    if os.path.exists(_calling_html):
+        return FileResponse(_calling_html, media_type="text/html")
+    raise HTTPException(status_code=404, detail="Calling UI HTML file not found")
 
 @router.post("/trigger-mandi-alert", response_model=KisanCallResponse)
 async def trigger_mandi_alert_call(

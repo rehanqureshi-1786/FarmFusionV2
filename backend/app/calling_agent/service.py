@@ -10,7 +10,7 @@ import uuid
 import urllib.parse
 import httpx
 import structlog
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from app.schemas.calling import KisanCallRequest, KisanCallResponse
 
 logger = structlog.get_logger()
@@ -24,6 +24,7 @@ class KisanCallingService:
         self.base_url = os.getenv("BASE_URL", "http://localhost:8000")
         self.active_calls: Dict[str, Any] = {}
         self.recent_calls: Dict[str, float] = {}  # phone -> timestamp
+        self.call_history: List[Dict[str, Any]] = []
 
     def validate_and_normalize_phone(self, phone: str) -> str:
         """
@@ -73,12 +74,15 @@ class KisanCallingService:
         Verified endpoint: https://api.vobiz.ai/api/v1/Account/{auth_id}/Call/
         Verified headers: X-Auth-ID and X-Auth-Token
         """
+        # Allow request.bypass_cooldown to override parameter
+        bypass = bypass_cooldown or getattr(request, "bypass_cooldown", False)
+
         # 1. E.164 Phone Validation
         normalized_phone = self.validate_and_normalize_phone(request.phone)
         request.phone = normalized_phone
 
         # 2. 5-Minute Duplicate Cooldown Check
-        self.check_duplicate_cooldown(normalized_phone, bypass_cooldown=bypass_cooldown)
+        self.check_duplicate_cooldown(normalized_phone, bypass_cooldown=bypass)
 
         call_id = str(uuid.uuid4())
 
@@ -124,7 +128,7 @@ class KisanCallingService:
                 }
                 payload = {
                     "to": request.phone,
-                    "from": os.getenv("VOBIZ_PHONE_NUMBER", "+918000000000"),
+                    "from": os.getenv("VOBIZ_PHONE_NUMBER", "+918064265824"),
                     "answer_url": answer_url,
                     "answer_method": "POST"
                 }
@@ -138,13 +142,26 @@ class KisanCallingService:
 
         # 5. Record call in memory and update cooldown timestamp
         self.recent_calls[normalized_phone] = time.time()
-        self.active_calls[call_id] = {
-            "request": request,
-            "timestamp": time.time(),
-            "status": "initiated",
+        call_entry = {
+            "call_id": call_id,
             "phone": normalized_phone,
-            "farmer_name": request.farmer_name
+            "farmer_name": request.farmer_name,
+            "call_type": request.call_type,
+            "language": request.language,
+            "location": request.location or "India",
+            "timestamp": time.time(),
+            "formatted_time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+            "status": "initiated",
+            "crop_name": request.crop_name,
+            "mandi_name": request.mandi_name,
+            "current_price": request.current_price,
+            "weather_summary": request.weather_summary,
         }
+        self.call_history.insert(0, call_entry)
+        if len(self.call_history) > 50:
+            self.call_history = self.call_history[:50]
+
+        self.active_calls[call_id] = call_entry
 
         return KisanCallResponse(
             status="initiated",
@@ -154,6 +171,23 @@ class KisanCallingService:
             farmer_name=request.farmer_name,
             call_type=request.call_type
         )
+
+    def get_recent_calls(self) -> List[Dict[str, Any]]:
+        """Returns the list of recent call records for the Calling UI."""
+        return list(self.call_history)
+
+    def update_call_status(self, call_id: str, status: str, summary: Optional[str] = None):
+        """Updates the status of an existing call record."""
+        if call_id in self.active_calls:
+            self.active_calls[call_id]["status"] = status
+            if summary:
+                self.active_calls[call_id]["summary"] = summary
+        for c in self.call_history:
+            if c.get("call_id") == call_id:
+                c["status"] = status
+                if summary:
+                    c["summary"] = summary
+                break
 
     # Alias for FarmFusion ToolRegistry compatibility
     initiate_outbound_call = trigger_call

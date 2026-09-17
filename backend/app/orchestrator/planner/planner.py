@@ -495,8 +495,35 @@ def generate_task_plan(
     # 6.13 Calling Tool Task
     if CapabilityType.CALLING in caps:
         extracted_phone = entities.additional_entities.get("phone") if hasattr(entities, "additional_entities") and entities.additional_entities else None
-        target_phone = extracted_phone or f_ctx.get("phone") or "+919876543210"
-        target_name = f_ctx.get("name") or "Farmer"
+        target_phone = extracted_phone or f_ctx.get("phone")
+        target_name = f_ctx.get("farmer_name") or f_ctx.get("name") or "Farmer"
+        target_location = f_ctx.get("location_name") or f_ctx.get("city") or entities.city or "India"
+
+        # Determine call purpose / call_type
+        call_type = "general_advisory"
+        raw_text_lower = semantic_frame.raw_text.lower()
+        if any(w in raw_text_lower for w in ["मौसम", "weather", "barish", "rain", "storm", "fog"]):
+            call_type = "weather_warning"
+        elif any(w in raw_text_lower for w in ["भाव", "price", "mandi", "मंडी", "bhav", "rate"]):
+            call_type = "mandi_price_alert"
+        elif any(w in raw_text_lower for w in ["रोग", "कीट", "pest", "disease", "kida"]):
+            call_type = "pest_advisory"
+
+        if not target_phone:
+            clarif_msg = (
+                "कृपया अपना 10 अंकों का मोबाइल नंबर बताएं जिस पर मैं आपको कॉल करूं।"
+                if (semantic_frame.language or "hi") == "hi"
+                else "Please provide your 10-digit mobile phone number so I can call you."
+            )
+            return TaskPlan(
+                session_id=semantic_frame.session_id,
+                objective="Farmer requested telephone call but phone number is not available. Requesting phone number.",
+                action_type=ActionType.REQUEST_INPUT,
+                required_input=RequiredInput.PHONE_NUMBER,
+                clarification_message=clarif_msg,
+                status=PlanStatus.READY,
+            )
+
         tasks.append(
             PlannedTask(
                 task_id="calling_1",
@@ -507,9 +534,11 @@ def generate_task_plan(
                 static_inputs={
                     "phone": target_phone,
                     "farmer_name": target_name,
+                    "location": target_location,
                     "language": semantic_frame.language or "hi",
                     "crop_name": crop,
                     "mandi_name": market,
+                    "call_type": call_type,
                 },
                 is_blocking=True,
             )

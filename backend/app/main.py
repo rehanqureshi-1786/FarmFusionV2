@@ -156,4 +156,14 @@ if not os.path.exists(_dashboard_dir):
 if os.path.exists(_dashboard_dir):
     app.mount("/dashboard", StaticFiles(directory=_dashboard_dir, html=True), name="dashboard")
 
+from fastapi.responses import FileResponse, RedirectResponse
+
+@app.get("/calling")
+@app.get("/calling-agent")
+async def get_calling_ui():
+    calling_html = os.path.join(_dashboard_dir, "calling.html")
+    if os.path.exists(calling_html):
+        return FileResponse(calling_html, media_type="text/html")
+    return RedirectResponse(url="/dashboard/calling.html")
+
 

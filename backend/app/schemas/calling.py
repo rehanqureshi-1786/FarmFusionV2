@@ -17,6 +17,7 @@ class KisanCallRequest(BaseModel):
         description="Custom dynamic prompt instruction injected directly into the LLM conversation."
     )
     callback_url: Optional[str] = Field(None, description="Webhook URL to receive post-call transcript and AI summary")
+    bypass_cooldown: bool = Field(False, description="Optionally bypass 5-minute cooldown for testing or urgent triggers")
 
 class KisanCallResponse(BaseModel):
     status: str = "success"

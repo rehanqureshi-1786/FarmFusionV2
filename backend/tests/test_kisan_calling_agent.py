@@ -357,3 +357,69 @@ def test_11_clean_for_telephony():
     # Numbers and units preserved
     assert "80%" in clean
 
+@pytest.mark.asyncio
+async def test_12_calling_ui_and_recent_endpoints():
+    """Verify /calling/recent, /calling/ui, and /calling/simulate-turn endpoints."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        # 1. Recent calls endpoint
+        res_recent = await client.get("/api/v1/calling/recent")
+        assert res_recent.status_code == 200
+        data = res_recent.json()
+        assert "calls" in data
+        assert "vobiz_number" in data
+
+        # 2. UI endpoint
+        res_ui = await client.get("/api/v1/calling/ui")
+        assert res_ui.status_code == 200
+        assert "text/html" in res_ui.headers["content-type"]
+        assert "FarmFusion Kisan Mitra" in res_ui.text
+
+        # 3. Simulate turn endpoint
+        mock_sim_state = {
+            "final_response": "आज मौसम साफ रहेगा और तापमान 25°C है।",
+            "intent": "weather",
+            "completed_tasks": ["weather_1"],
+            "active_crop": "Wheat",
+            "active_market": "Jaipur"
+        }
+        with patch("app.orchestrator.graph.run_orchestrator_pipeline", new=AsyncMock(return_value=mock_sim_state)):
+            res_sim = await client.post("/api/v1/calling/simulate-turn", json={
+                "user_input": "आज का मौसम बताओ",
+                "farmer_name": "रामेश्वर",
+                "location": "Jaipur",
+                "language": "hi"
+            })
+            assert res_sim.status_code == 200
+            sim_data = res_sim.json()
+            assert "मौसम साफ रहेगा" in sim_data["response_text"]
+            assert sim_data["intent"] == "weather"
+
+@pytest.mark.asyncio
+async def test_13_orchestrator_call_me_intent_and_task():
+    """Verify that asking the orchestrator to call me invokes calling_tool with user phone."""
+    from app.orchestrator.semantic_extractor import extract_semantic_frame
+    from app.orchestrator.planner.planner import generate_task_plan, ActionType
+    from app.schemas.semantic_frame import CanonicalIntent, CapabilityType, RequiredInput
+
+    # 1. Extract call-me intent with explicit phone number in query
+    frame = await extract_semantic_frame("मुझे 9876543210 पर तुरंत कॉल करो")
+    assert frame.intent == CanonicalIntent.CALLING
+    assert CapabilityType.CALLING in frame.required_capabilities
+
+    plan = generate_task_plan(frame, farmer_context={"farmer_name": "Rohan"})
+    assert any(t.tool_name == "calling_tool" for t in plan.tasks)
+    calling_task = next(t for t in plan.tasks if t.tool_name == "calling_tool")
+    assert "9876543210" in calling_task.static_inputs["phone"]
+    assert calling_task.static_inputs["farmer_name"] == "Rohan"
+
+    # 2. Extract call-me intent WITHOUT phone number asks farmer for phone
+    frame_no_phone = await extract_semantic_frame("मुझे कॉल करो")
+    assert frame_no_phone.intent == CanonicalIntent.CALLING
+
+    plan_no_phone = generate_task_plan(frame_no_phone, farmer_context={})
+    assert plan_no_phone.action_type == ActionType.REQUEST_INPUT
+    assert plan_no_phone.required_input == RequiredInput.PHONE_NUMBER
+    assert "मोबाइल नंबर बताएं" in plan_no_phone.clarification_message
+
+

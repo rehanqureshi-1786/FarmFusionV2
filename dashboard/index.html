@@ -19,7 +19,10 @@
                 </div>
             </div>
             
-            <div class="server-config">
+            <div class="server-config" style="display: flex; gap: 12px; align-items: center;">
+                <a href="/calling" style="display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); color: #6EE7B7; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 13px;">
+                    <span>📞</span> AI Calling Agent
+                </a>
                 <label for="serverIpInput">Backend IP:</label>
                 <input type="text" id="serverIpInput" value="localhost:8000" placeholder="192.168.1.x:8000">
                 <button id="reconnectBtn" class="btn-connect">Connect</button>
