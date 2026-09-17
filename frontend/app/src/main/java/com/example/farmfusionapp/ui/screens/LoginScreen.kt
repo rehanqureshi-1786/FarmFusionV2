@@ -93,7 +93,8 @@ fun LoginScreen(navController: NavController) {
             AuthStore.saveLoginSession(context, "user_${phone.ifBlank { role.key }}")
             AuthStore.saveUserRole(context, role.key)
             AuthStore.saveUserPhone(context, phone)
-            navController.navigate(NavRoutes.Dashboard) {
+            val dest = if (role == UserRole.BUYER) NavRoutes.BuyerDashboard else NavRoutes.Dashboard
+            navController.navigate(dest) {
                 popUpTo(NavRoutes.Login) { inclusive = true }
                 launchSingleTop = true
             }
@@ -492,397 +493,390 @@ private fun LoginScreenContent(
             }
 
             // Main Form Content - Smooth and fluid animated transition between Phone and OTP steps
-            AnimatedContent(
-                targetState = currentStep,
-                transitionSpec = {
-                    if (targetState == LoginStep.OTP) {
-                        (slideInHorizontally(
-                            animationSpec = tween(320, easing = FastOutSlowInEasing),
-                            initialOffsetX = { fullWidth -> fullWidth / 4 }
-                        ) + fadeIn(
-                            animationSpec = tween(260)
-                        )).togetherWith(
-                            slideOutHorizontally(
-                                animationSpec = tween(260, easing = FastOutSlowInEasing),
-                                targetOffsetX = { fullWidth -> -fullWidth / 4 }
-                            ) + fadeOut(
-                                animationSpec = tween(200)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            ) {
+                AnimatedContent(
+                    targetState = currentStep,
+                    transitionSpec = {
+                        if (targetState == LoginStep.OTP) {
+                            (slideInHorizontally(
+                                animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                initialOffsetX = { fullWidth -> fullWidth / 4 }
+                            ) + fadeIn(
+                                animationSpec = tween(260)
+                            )).togetherWith(
+                                slideOutHorizontally(
+                                    animationSpec = tween(260, easing = FastOutSlowInEasing),
+                                    targetOffsetX = { fullWidth -> -fullWidth / 4 }
+                                ) + fadeOut(
+                                    animationSpec = tween(200)
+                                )
                             )
-                        )
-                    } else {
-                        (slideInHorizontally(
-                            animationSpec = tween(320, easing = FastOutSlowInEasing),
-                            initialOffsetX = { fullWidth -> -fullWidth / 4 }
-                        ) + fadeIn(
-                            animationSpec = tween(260)
-                        )).togetherWith(
-                            slideOutHorizontally(
-                                animationSpec = tween(260, easing = FastOutSlowInEasing),
-                                targetOffsetX = { fullWidth -> fullWidth / 4 }
-                            ) + fadeOut(
-                                animationSpec = tween(200)
+                        } else {
+                            (slideInHorizontally(
+                                animationSpec = tween(320, easing = FastOutSlowInEasing),
+                                initialOffsetX = { fullWidth -> -fullWidth / 4 }
+                            ) + fadeIn(
+                                animationSpec = tween(260)
+                            )).togetherWith(
+                                slideOutHorizontally(
+                                    animationSpec = tween(260, easing = FastOutSlowInEasing),
+                                    targetOffsetX = { fullWidth -> fullWidth / 4 }
+                                ) + fadeOut(
+                                    animationSpec = tween(200)
+                                )
                             )
-                        )
-                    }
-                },
-                label = "login_step_transition",
-                modifier = Modifier.fillMaxWidth()
-            ) { step ->
-                when (step) {
-                    LoginStep.PHONE -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                                .padding(top = 0.dp, bottom = 12.dp)
-                        ) {
-                            // "Who are you?" Section
-                            Text(
-                                text = "Who are you?",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1E293B)
-                            )
-
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            Text(
-                                text = "Choose the option that best describes you.",
-                                fontSize = 13.5.sp,
-                                color = Color(0xFF64748B)
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Role Selection Capsules: Farmer on left, Buyer on right
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        }
+                    },
+                    label = "login_step_transition",
+                    modifier = Modifier.fillMaxSize()
+                ) { step ->
+                    when (step) {
+                        LoginStep.PHONE -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 24.dp)
+                                    .padding(top = 0.dp, bottom = 54.dp)
                             ) {
-                                RoleCapsuleOption(
-                                    role = UserRole.FARMER,
-                                    isSelected = selectedRole == UserRole.FARMER,
-                                    onClick = { selectedRole = UserRole.FARMER },
-                                    modifier = Modifier.weight(1f)
+                                // "Who are you?" Section
+                                Text(
+                                    text = "Who are you?",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E293B)
                                 )
-                                RoleCapsuleOption(
-                                    role = UserRole.BUYER,
-                                    isSelected = selectedRole == UserRole.BUYER,
-                                    onClick = { selectedRole = UserRole.BUYER },
-                                    modifier = Modifier.weight(1f)
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                Text(
+                                    text = "Choose the option that best describes you.",
+                                    fontSize = 13.5.sp,
+                                    color = Color(0xFF64748B)
                                 )
-                            }
 
-                            // Clear, prominent contrast spacing between 'Who are you?' and 'Enter your phone number'
-                            Spacer(modifier = Modifier.height(42.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
 
-                            Text(
-                                text = "Enter your phone number",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1F2937)
-                            )
+                                // Role Selection Capsules: Farmer on left, Buyer on right
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    RoleCapsuleOption(
+                                        role = UserRole.FARMER,
+                                        isSelected = selectedRole == UserRole.FARMER,
+                                        onClick = { selectedRole = UserRole.FARMER },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    RoleCapsuleOption(
+                                        role = UserRole.BUYER,
+                                        isSelected = selectedRole == UserRole.BUYER,
+                                        onClick = { selectedRole = UserRole.BUYER },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
 
-                            Spacer(modifier = Modifier.height(2.dp))
+                                // Clear, prominent contrast spacing between 'Who are you?' and 'Enter your phone number'
+                                Spacer(modifier = Modifier.height(36.dp))
 
-                            Text(
-                                text = "We'll send you an OTP to continue.",
-                                fontSize = 13.5.sp,
-                                color = Color(0xFF6B7280)
-                            )
+                                Text(
+                                    text = "Enter your phone number",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1F2937)
+                                )
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
 
-                            // Phone Input Field
-                            OutlinedTextField(
-                                value = phoneNumber,
-                                onValueChange = { input ->
-                                    if (input.length <= 10 && input.all { it.isDigit() }) {
-                                        phoneNumber = input
-                                        isPhoneError = false
-                                        phoneErrorCount = 0
-                                    }
-                                },
-                                isError = isPhoneError,
-                                supportingText = if (isPhoneError) {
-                                    {
+                                Text(
+                                    text = "We'll send you an OTP to continue.",
+                                    fontSize = 13.5.sp,
+                                    color = Color(0xFF6B7280)
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Phone Input Field
+                                OutlinedTextField(
+                                    value = phoneNumber,
+                                    onValueChange = { input ->
+                                        if (input.length <= 10 && input.all { it.isDigit() }) {
+                                            phoneNumber = input
+                                            isPhoneError = false
+                                            phoneErrorCount = 0
+                                        }
+                                    },
+                                    isError = isPhoneError,
+                                    supportingText = if (isPhoneError) {
+                                        {
+                                            Text(
+                                                text = "Please enter a valid 10-digit mobile number",
+                                                color = MaterialTheme.colorScheme.error,
+                                                fontSize = 12.sp
+                                            )
+                                        }
+                                    } else null,
+                                    placeholder = {
                                         Text(
-                                            text = "Please enter a valid 10-digit mobile number",
-                                            color = MaterialTheme.colorScheme.error,
-                                            fontSize = 12.sp
+                                            text = "Enter Your Phone Number",
+                                            color = Color(0xFF9CA3AF),
+                                            fontSize = 15.sp
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Phone,
+                                            contentDescription = null,
+                                            tint = if (isPhoneError) MaterialTheme.colorScheme.error else Color(0xFF9CA3AF),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Phone,
+                                        imeAction = ImeAction.Done
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onDone = { handleGetOtp() }
+                                    ),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = Color.White,
+                                        unfocusedContainerColor = Color.White,
+                                        focusedBorderColor = SolidGreenPrimary,
+                                        unfocusedBorderColor = InputBorderColor,
+                                        focusedTextColor = Color(0xFF1F2937),
+                                        unfocusedTextColor = Color(0xFF1F2937)
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .defaultMinSize(minHeight = 50.dp)
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Primary Button: Single colored green filled with white text
+                                Button(
+                                    onClick = { handleGetOtp() },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = SolidGreenPrimary,
+                                        contentColor = Color.White
+                                    ),
+                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "Get OTP",
+                                            color = Color.White,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
                                         )
                                     }
-                                } else null,
-                                placeholder = {
-                                    Text(
-                                        text = "Enter Your Phone Number",
-                                        color = Color(0xFF9CA3AF),
-                                        fontSize = 15.sp
-                                    )
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Phone,
-                                        contentDescription = null,
-                                        tint = if (isPhoneError) MaterialTheme.colorScheme.error else Color(0xFF9CA3AF),
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Phone,
-                                    imeAction = ImeAction.Done
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onDone = { handleGetOtp() }
-                                ),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = Color.White,
-                                    unfocusedContainerColor = Color.White,
-                                    focusedBorderColor = SolidGreenPrimary,
-                                    unfocusedBorderColor = InputBorderColor,
-                                    focusedTextColor = Color(0xFF1F2937),
-                                    unfocusedTextColor = Color(0xFF1F2937)
-                                ),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .defaultMinSize(minHeight = 50.dp)
-                            )
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            // Primary Button: Single colored green filled with white text
-                            Button(
-                                onClick = { handleGetOtp() },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = SolidGreenPrimary,
-                                    contentColor = Color.White
-                                ),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Text(
-                                        text = "Get OTP",
-                                        color = Color.White,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
                                 }
                             }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Security / Trust Footer
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                SecurityTrustBadge()
-                            }
                         }
-                    }
 
-                    LoginStep.OTP -> {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 24.dp)
-                                .padding(top = 0.dp, bottom = 12.dp)
-                        ) {
-                            Text(
-                                text = "Enter the OTP",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1E293B)
-                            )
-
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            Text(
-                                text = "We've sent a 6-digit code to",
-                                fontSize = 13.5.sp,
-                                color = Color(0xFF6B7280)
-                            )
-
-                            Spacer(modifier = Modifier.height(2.dp))
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically
+                        LoginStep.OTP -> {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(horizontal = 24.dp)
+                                    .padding(top = 0.dp, bottom = 54.dp)
                             ) {
-                                val enteredDigits = phoneNumber.filter { it.isDigit() }
-                                val formattedPhone = remember(phoneNumber, currentStep) {
-                                    if (enteredDigits.length == 10) {
-                                        "+91 ${enteredDigits.substring(0, 5)} ${enteredDigits.substring(5)}"
-                                    } else {
-                                        val saved = AuthStore.getUserPhone(context)?.filter { it.isDigit() }
-                                        if (!saved.isNullOrBlank() && saved.length == 10) {
-                                            "+91 ${saved.substring(0, 5)} ${saved.substring(5)}"
+                                Text(
+                                    text = "Enter the OTP",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF1E293B)
+                                )
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                Text(
+                                    text = "We've sent a 6-digit code to",
+                                    fontSize = 13.5.sp,
+                                    color = Color(0xFF6B7280)
+                                )
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    val enteredDigits = phoneNumber.filter { it.isDigit() }
+                                    val formattedPhone = remember(phoneNumber, currentStep) {
+                                        if (enteredDigits.length == 10) {
+                                            "+91 ${enteredDigits.substring(0, 5)} ${enteredDigits.substring(5)}"
                                         } else {
-                                            val fbPhone = try {
-                                                FirebaseAuth.getInstance().currentUser?.phoneNumber
-                                            } catch (e: Exception) {
-                                                null
-                                            }
-                                            if (!fbPhone.isNullOrBlank()) {
-                                                val fbDigits = fbPhone.filter { it.isDigit() }
-                                                val last10 = if (fbDigits.length >= 10) fbDigits.takeLast(10) else fbDigits
-                                                if (last10.length == 10) {
-                                                    "+91 ${last10.substring(0, 5)} ${last10.substring(5)}"
-                                                } else {
-                                                    fbPhone
-                                                }
+                                            val saved = AuthStore.getUserPhone(context)?.filter { it.isDigit() }
+                                            if (!saved.isNullOrBlank() && saved.length == 10) {
+                                                "+91 ${saved.substring(0, 5)} ${saved.substring(5)}"
                                             } else {
-                                                "+91 98765 43210"
+                                                val fbPhone = try {
+                                                    FirebaseAuth.getInstance().currentUser?.phoneNumber
+                                                } catch (e: Exception) {
+                                                    null
+                                                }
+                                                if (!fbPhone.isNullOrBlank()) {
+                                                    val fbDigits = fbPhone.filter { it.isDigit() }
+                                                    val last10 = if (fbDigits.length >= 10) fbDigits.takeLast(10) else fbDigits
+                                                    if (last10.length == 10) {
+                                                        "+91 ${last10.substring(0, 5)} ${last10.substring(5)}"
+                                                    } else {
+                                                        fbPhone
+                                                    }
+                                                } else {
+                                                    "+91 98765 43210"
+                                                }
                                             }
                                         }
                                     }
-                                }
-                                Text(
-                                    text = formattedPhone,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = SolidGreenPrimary
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Edit",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF64748B),
-                                    modifier = Modifier.clickable {
-                                        currentStep = LoginStep.PHONE
-                                    }
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // 6-digit OTP Input Boxes
-                            OtpCodeInputRow(
-                                otpCode = otpCode,
-                                onOtpChange = {
-                                    otpCode = it
-                                    isOtpError = false
-                                    otpErrorCount = 0
-                                },
-                                isError = isOtpError,
-                                onDone = { handleVerifyOtp() }
-                            )
-
-                            if (isOtpError) {
-                                Text(
-                                    text = otpErrorMessage,
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontSize = 12.sp,
-                                    modifier = Modifier.padding(top = 4.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Resend Code Section
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "Didn't receive the code?",
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF6B7280),
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(3.dp))
-                                if (!canResend) {
-                                    val timerText = String.format(Locale.getDefault(), "00:%02d", resendTimer)
                                     Text(
-                                        text = "Resend OTP in $timerText",
-                                        fontSize = 13.5.sp,
+                                        text = formattedPhone,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = SolidGreenPrimary,
+                                        color = SolidGreenPrimary
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Edit",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF64748B),
+                                        modifier = Modifier.clickable {
+                                            currentStep = LoginStep.PHONE
+                                        }
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // 6-digit OTP Input Boxes
+                                OtpCodeInputRow(
+                                    otpCode = otpCode,
+                                    onOtpChange = {
+                                        otpCode = it
+                                        isOtpError = false
+                                        otpErrorCount = 0
+                                    },
+                                    isError = isOtpError,
+                                    onDone = { handleVerifyOtp() }
+                                )
+
+                                if (isOtpError) {
+                                    Text(
+                                        text = otpErrorMessage,
+                                        color = MaterialTheme.colorScheme.error,
+                                        fontSize = 12.sp,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Resend Code Section
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text(
+                                        text = "Didn't receive the code?",
+                                        fontSize = 13.sp,
+                                        color = Color(0xFF6B7280),
                                         textAlign = TextAlign.Center
                                     )
-                                } else {
-                                    Text(
-                                        text = "Resend OTP",
-                                        fontSize = 13.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = SolidGreenPrimary,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier.clickable {
-                                            resendTimer = 30
-                                            canResend = false
-                                            otpCode = ""
-                                            isOtpError = false
-                                        }
-                                    )
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    if (!canResend) {
+                                        val timerText = String.format(Locale.getDefault(), "00:%02d", resendTimer)
+                                        Text(
+                                            text = "Resend OTP in $timerText",
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SolidGreenPrimary,
+                                            textAlign = TextAlign.Center
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "Resend OTP",
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = SolidGreenPrimary,
+                                            textAlign = TextAlign.Center,
+                                            modifier = Modifier.clickable {
+                                                resendTimer = 30
+                                                canResend = false
+                                                otpCode = ""
+                                                isOtpError = false
+                                            }
+                                        )
+                                    }
                                 }
-                            }
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
 
-                            // Primary Button: Verify OTP
-                            Button(
-                                onClick = { handleVerifyOtp() },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = SolidGreenPrimary,
-                                    contentColor = Color.White
-                                ),
-                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
+                                // Primary Button: Verify OTP
+                                Button(
+                                    onClick = { handleVerifyOtp() },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(50.dp),
+                                    shape = RoundedCornerShape(16.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = SolidGreenPrimary,
+                                        contentColor = Color.White
+                                    ),
+                                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                                 ) {
-                                    Text(
-                                        text = "Verify OTP",
-                                        color = Color.White,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = "Verify OTP",
+                                            color = Color.White,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Security / Trust Footer
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                SecurityTrustBadge()
                             }
                         }
                     }
+                }
+
+                // Security / Trust Footer - Locked at the bottom center for BOTH screens
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 6.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SecurityTrustBadge()
                 }
             }
         }
@@ -943,25 +937,27 @@ private fun SecurityTrustBadge(modifier: Modifier = Modifier) {
                         .background(Color(0xFFDCFCE7), CircleShape)
                 )
 
-                // Shield Icon
+                // Shield Icon - larger size without altering card bounds
                 Icon(
                     imageVector = Icons.Rounded.GppGood,
                     contentDescription = "Data Security Verified",
                     tint = SolidGreenPrimary,
-                    modifier = Modifier.size(19.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(10.dp))
 
             Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "Your data is safe with us.",
+                    text = "Your Data Is Safe With Us.",
                     fontSize = 11.5.sp,
                     fontWeight = FontWeight.Bold,
-                    color = BrandDarkGreen
+                    color = BrandDarkGreen,
+                    textAlign = TextAlign.Center
                 )
 
                 Spacer(modifier = Modifier.height(1.dp))
@@ -969,7 +965,8 @@ private fun SecurityTrustBadge(modifier: Modifier = Modifier) {
                 Text(
                     text = "We never share your personal information.",
                     fontSize = 10.sp,
-                    color = BrandTextMuted
+                    color = BrandTextMuted,
+                    textAlign = TextAlign.Center
                 )
             }
         }
@@ -993,7 +990,7 @@ private fun RoleCapsuleOption(
     Surface(
         onClick = onClick,
         modifier = modifier.height(54.dp),
-        shape = RoundedCornerShape(32.dp),
+        shape = RoundedCornerShape(10.dp),
         color = backgroundColor,
         border = BorderStroke(borderWidth, borderColor)
     ) {

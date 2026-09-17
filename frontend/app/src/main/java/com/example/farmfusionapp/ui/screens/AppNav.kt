@@ -54,6 +54,11 @@ object NavRoutes {
     const val CropHarvesting = "crop_harvesting"
     const val CropStorage = "crop_storage"
     const val CropSelling = "crop_selling"
+    const val ListMyCrop = "list_my_crop"
+    const val MySales = "my_sales"
+    const val BuyerDashboard = "buyer_dashboard"
+    const val BuyerPriceTrends = "buyer_price_trends"
+    const val AvailableListings = "available_listings"
     const val AnimalDetection = "animal_detection"
     const val LabourServices = "labour_services"
     const val MandiPrices = "mandi_prices"
@@ -76,15 +81,17 @@ fun AppNav() {
 
     val mainRoutes = listOf(
         NavRoutes.Dashboard,
+        NavRoutes.BuyerDashboard,
         NavRoutes.MandiPrices,
+        NavRoutes.BuyerPriceTrends,
         NavRoutes.Weather,
         NavRoutes.Profile
     )
 
     val showBottomBar = currentRoute in mainRoutes
 
-    // Mic only appears on the Dashboard (Home Screen)
-    val showMicButton = currentRoute == NavRoutes.Dashboard
+    // Mic only appears on Dashboard (Farmer or Buyer Home Screen)
+    val showMicButton = currentRoute == NavRoutes.Dashboard || currentRoute == NavRoutes.BuyerDashboard
 
     val savedLanguage = AuthStore.getLanguage(context)
     val startDestination = if (savedLanguage == null) {
@@ -94,7 +101,7 @@ fun AppNav() {
     }
 
     // Permanent enlarge on Dashboard, permanent shrink everywhere else
-    val forceShrink = currentRoute != NavRoutes.Dashboard
+    val forceShrink = currentRoute != NavRoutes.Dashboard && currentRoute != NavRoutes.BuyerDashboard
 
     val hazeState = remember { HazeState() }
     val globalBlurState = remember { mutableStateOf(false) }
@@ -177,6 +184,9 @@ fun AppNav() {
 
                     composable(NavRoutes.Register) { RegisterScreen(navController) }
                     composable(NavRoutes.Dashboard) { DashboardScreen(navController) }
+                    composable(NavRoutes.BuyerDashboard) { BuyerDashboardScreen(navController) }
+                    composable(NavRoutes.BuyerPriceTrends) { BuyerPriceTrendsScreen(navController) }
+                    composable(NavRoutes.AvailableListings) { AvailableListingsScreen(navController) }
                     composable(NavRoutes.CropServices) { CropServicesScreen(navController) }
                     composable(NavRoutes.CropRecommendation) { CropRecommendationScreen(navController) }
                     composable(NavRoutes.CropSowing) { CropSowingScreen(navController) }
@@ -185,6 +195,8 @@ fun AppNav() {
                     composable(NavRoutes.CropHarvesting) { CropHarvestingScreen(navController) }
                     composable(NavRoutes.CropStorage) { CropStorageScreen(navController) }
                     composable(NavRoutes.CropSelling) { CropSellingScreen(navController) }
+                    composable(NavRoutes.ListMyCrop) { ListMyCropScreen(navController) }
+                    composable(NavRoutes.MySales) { MySalesScreen(navController) }
                     composable(NavRoutes.AnimalDetection) { AnimalDetectionScreen(navController) }
                     composable(NavRoutes.LabourServices) { LabourServicesScreen(navController) }
                     composable(NavRoutes.MandiPrices) { MandiPricesScreen(navController) }

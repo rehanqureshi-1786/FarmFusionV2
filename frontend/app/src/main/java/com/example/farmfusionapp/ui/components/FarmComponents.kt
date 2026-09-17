@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -1475,10 +1476,16 @@ fun HomeBottomBar(
     isShrunk: Boolean = false,
     hazeState: HazeState // Keeping the HazeState for your frosted glass!
 ) {
+    val context = LocalContext.current
+    val isBuyer = remember { com.example.farmfusionapp.utils.AuthStore.getUserRole(context) == "buyer" }
+    val homeRoute = if (isBuyer) NavRoutes.BuyerDashboard else NavRoutes.Dashboard
+    val mandiRoute = if (isBuyer) NavRoutes.BuyerPriceTrends else NavRoutes.MandiPrices
+    val rootRoute = if (isBuyer) NavRoutes.BuyerDashboard else NavRoutes.Dashboard
+
     val strings = com.example.farmfusionapp.ui.screens.LocalStrings.current
     val items = listOf(
-        BottomNavItem(strings.nav.home, NavRoutes.Dashboard, iconDrawable = R.drawable.nav_home),
-        BottomNavItem(strings.nav.mandi, NavRoutes.MandiPrices, iconDrawable = R.drawable.nav_rates),
+        BottomNavItem(strings.nav.home, homeRoute, iconDrawable = R.drawable.nav_home),
+        BottomNavItem(strings.nav.mandi, mandiRoute, iconDrawable = R.drawable.nav_rates),
         BottomNavItem(strings.nav.diseaseScan, NavRoutes.CropDisease, iconVector = Icons.Rounded.CropFree, isPrimaryAction = true),
         BottomNavItem(strings.nav.weather, NavRoutes.Weather, iconDrawable = R.drawable.nav_weather),
         BottomNavItem(strings.nav.profile, NavRoutes.Profile, iconDrawable = R.drawable.nav_profile)
@@ -1566,7 +1573,9 @@ fun HomeBottomBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             items.forEach { item ->
-                val selected = currentRoute == item.route
+                val selected = currentRoute == item.route ||
+                        (item.route == homeRoute && (currentRoute == NavRoutes.Dashboard || currentRoute == NavRoutes.BuyerDashboard)) ||
+                        (item.route == mandiRoute && (currentRoute == NavRoutes.MandiPrices || currentRoute == NavRoutes.BuyerPriceTrends))
                 val primaryColor = Color(0xFF2E7D32)
                 val unselectedColor = Color.DarkGray
 
@@ -1579,7 +1588,7 @@ fun HomeBottomBar(
                         ) {
                             if (!selected) {
                                 navController.navigate(item.route) {
-                                    popUpTo(NavRoutes.Dashboard) {
+                                    popUpTo(rootRoute) {
                                         saveState = true
                                     }
                                     launchSingleTop = true

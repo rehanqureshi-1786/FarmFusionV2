@@ -21,7 +21,9 @@ fun SplashScreen(navController: NavController, viewModel: AuthViewModel) {
 
     LaunchedEffect(Unit) {
         if (AuthStore.isLoggedIn(context)) {
-            navController.navigate(NavRoutes.Dashboard) {
+            val role = AuthStore.getUserRole(context)
+            val dest = if (role == "buyer") NavRoutes.BuyerDashboard else NavRoutes.Dashboard
+            navController.navigate(dest) {
                 popUpTo(NavRoutes.Splash) { inclusive = true }
             }
         } else {
