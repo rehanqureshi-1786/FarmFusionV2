@@ -153,7 +153,6 @@ fun ProfileLanguageDialog(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.22f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -260,11 +259,11 @@ fun ProfileLanguageDialog(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Scrollable List showing exactly 6 language cards at once (~412.dp)
+                    // Scrollable List showing exactly 5 language cards at once (~336.dp)
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(412.dp),
+                            .height(336.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         contentPadding = PaddingValues(vertical = 2.dp)
                     ) {
