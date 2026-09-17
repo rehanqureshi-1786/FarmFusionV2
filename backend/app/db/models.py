@@ -117,16 +117,17 @@ class MarketListing(Base):
     __tablename__ = "market_listings"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     crop_name = Column(String(100), index=True)
     quantity = Column(Float)
     unit = Column(String(20), default="Quintal")  # kg, quintal, tons
-    price_per_unit = Column(Float)
-    image_url = Column(String(500))
-    latitude = Column(Float)
-    longitude = Column(Float)
-    location_name = Column(String(200))
-    description = Column(Text)
+    price_per_unit = Column(Float, nullable=True)
+    image_url = Column(String(500), nullable=True)
+    media_urls = Column(JSON, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    location_name = Column(String(200), nullable=True)
+    description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 

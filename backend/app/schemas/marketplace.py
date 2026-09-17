@@ -6,10 +6,11 @@ class MarketListingBase(BaseModel):
     crop_name: str
     quantity: float
     unit: str = "Quintal"
-    price_per_unit: float
+    price_per_unit: Optional[float] = None
     image_url: Optional[str] = None
-    latitude: float
-    longitude: float
+    media_urls: Optional[List[str]] = Field(default_factory=list)
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     location_name: Optional[str] = None
     description: Optional[str] = None
 
@@ -30,7 +31,7 @@ class MarketListingUpdate(BaseModel):
 
 class MarketListingResponse(MarketListingBase):
     id: int
-    user_id: int
+    user_id: Optional[int] = None
     is_active: bool
     created_at: datetime
 
