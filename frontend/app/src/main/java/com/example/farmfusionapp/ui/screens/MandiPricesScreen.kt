@@ -128,13 +128,18 @@ fun MandiPricesScreen(
     var alertError by remember { mutableStateOf<String?>(null) }
     var isAlertLoading by remember { mutableStateOf(false) }
 
-    // Dynamic blur based on any dialog open state
+    // Dynamic blur based on any dialog open state across all four tabs
     val isAnyDialogOpen = showNearbyDialog || showCompareDialog || showAdvisoryDialog || showAlertModal
-    val blurRadius by animateDpAsState(
-        targetValue = if (isAnyDialogOpen) 16.dp else 0.dp,
-        animationSpec = tween(durationMillis = 300),
-        label = "dialog_blur"
-    )
+    val globalBlur = LocalGlobalBlur.current
+
+    LaunchedEffect(isAnyDialogOpen) {
+        globalBlur.value = isAnyDialogOpen
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            globalBlur.value = false
+        }
+    }
 
     val onNavigateBackToHome = {
         if (!navController.popBackStack(NavRoutes.Dashboard, inclusive = false)) {
@@ -171,7 +176,6 @@ fun MandiPricesScreen(
     NeoScaffoldBackground(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             containerColor = Color.Transparent,
-            modifier = Modifier.blur(radius = blurRadius), // Applies true blur to the screen content
             topBar = {
                 CenterAlignedTopAppBar(
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
