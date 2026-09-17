@@ -43,7 +43,7 @@ class Settings(BaseSettings):
     openai_api_key: Optional[str] = Field(None, validation_alias="OPENAI_API_KEY")
     openai_model: Optional[str] = Field("gpt-3.5-turbo", validation_alias="OPENAI_MODEL")
     groq_api_key: Optional[str] = Field(_DEF_GROQ, validation_alias="GROQ_API_KEY")
-    groq_model: Optional[str] = Field("llama3-8b-8192", validation_alias="GROQ_MODEL")
+    groq_model: Optional[str] = Field("qwen/qwen3.8-27b", validation_alias="GROQ_MODEL")
     groq_vision_model: Optional[str] = Field("llama-3.2-11b-vision-preview", validation_alias="GROQ_VISION_MODEL")
     gemini_api_key: Optional[str] = Field(None, validation_alias="GEMINI_API_KEY")
     gemini_model: Optional[str] = Field("gemini-1.5-flash", validation_alias="GEMINI_MODEL")

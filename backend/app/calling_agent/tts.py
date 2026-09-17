@@ -6,6 +6,7 @@ Supports Sarvam AI Bulbul V3, Google TTS fallback, and local FarmFusion Neural V
 
 import os
 import base64
+import asyncio
 import subprocess
 import httpx
 import structlog
@@ -52,7 +53,7 @@ class TelephonyTTS:
                     audios = data.get("audios", [])
                     if audios:
                         raw_bytes = base64.b64decode(audios[0])
-                        mulaw_bytes = self._convert_to_8khz_mulaw(raw_bytes)
+                        mulaw_bytes = await self._convert_to_8khz_mulaw(raw_bytes)
                         if mulaw_bytes:
                             return mulaw_bytes
                 else:
@@ -73,7 +74,7 @@ class TelephonyTTS:
             headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
             res = await self.client.get(url, params=params, headers=headers, timeout=6.0)
             if res.status_code == 200 and len(res.content) > 100:
-                mulaw_bytes = self._convert_to_8khz_mulaw(res.content)
+                mulaw_bytes = await self._convert_to_8khz_mulaw(res.content)
                 if mulaw_bytes:
                     return mulaw_bytes
         except Exception as e:
@@ -84,16 +85,16 @@ class TelephonyTTS:
             from app.voice.local.tts.local_tts import local_tts_engine
             vits_res = await local_tts_engine.synthesize(clean_text, language=self.language_code[:2])
             if vits_res and vits_res.audio_bytes:
-                return self._convert_to_8khz_mulaw(vits_res.audio_bytes)
+                return await self._convert_to_8khz_mulaw(vits_res.audio_bytes)
         except Exception as e:
             logger.error("local_vits_phone_synthesis_failed", error=str(e))
 
         return b""
 
-    def _convert_to_8khz_mulaw(self, input_audio_bytes: bytes) -> bytes:
+    async def _convert_to_8khz_mulaw(self, input_audio_bytes: bytes) -> bytes:
         """Converts any audio byte stream (WAV, MP3, PCM) into raw 8000Hz mono G.711 mu-law for Vobiz PCMU."""
-        try:
-            process = subprocess.run(
+        def _run_ffmpeg():
+            return subprocess.run(
                 [
                     "ffmpeg", "-y", "-i", "pipe:0",
                     "-f", "mulaw",
@@ -106,6 +107,8 @@ class TelephonyTTS:
                 capture_output=True,
                 check=False
             )
+        try:
+            process = await asyncio.to_thread(_run_ffmpeg)
             if process.returncode == 0 and process.stdout:
                 return process.stdout
             logger.warning("ffmpeg_mulaw_conversion_nonzero", returncode=process.returncode, stderr=process.stderr.decode(errors="ignore")[:150])

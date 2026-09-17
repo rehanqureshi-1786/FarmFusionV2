@@ -653,7 +653,20 @@ async def extract_semantic_frame_llm(
 
     candidate_providers: List[Dict[str, Any]] = []
 
-    # 1. Primary: OpenRouter
+    # 1. Primary: Groq (ultra-low latency, ~250ms)
+    if settings.groq_api_key and not settings.groq_api_key.startswith("gsk_placeholder"):
+        candidate_providers.append({
+            "name": "groq",
+            "url": "https://api.groq.com/openai/v1/chat/completions",
+            "key": settings.groq_api_key,
+            "model": settings.groq_model or "llama-3.3-70b-versatile",
+            "headers": {
+                "Authorization": f"Bearer {settings.groq_api_key}",
+                "Content-Type": "application/json",
+            }
+        })
+
+    # 2. Secondary: OpenRouter
     if settings.openrouter_api_key and not settings.openrouter_api_key.startswith("placeholder"):
         candidate_providers.append({
             "name": "openrouter",
@@ -665,19 +678,6 @@ async def extract_semantic_frame_llm(
                 "Content-Type": "application/json",
                 "HTTP-Referer": "https://farmfusion.app",
                 "X-Title": "FarmFusion",
-            }
-        })
-
-    # 2. Fallback: Groq
-    if settings.groq_api_key and not settings.groq_api_key.startswith("gsk_placeholder"):
-        candidate_providers.append({
-            "name": "groq",
-            "url": "https://api.groq.com/openai/v1/chat/completions",
-            "key": settings.groq_api_key,
-            "model": settings.groq_model or "llama-3.3-70b-versatile",
-            "headers": {
-                "Authorization": f"Bearer {settings.groq_api_key}",
-                "Content-Type": "application/json",
             }
         })
 

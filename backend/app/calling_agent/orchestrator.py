@@ -235,13 +235,8 @@ class KisanVoiceOrchestrator:
 
         # Reset interrupted state so newly generated answer plays completely
         self.is_interrupted = False
-        # Break into natural sentences and stream speech to telephone line
-        sentences = [s.strip() for s in re.split(r'(?<=[.!?।\n])\s+', clean_final) if s.strip()]
-        for sentence in sentences:
-            if self.is_interrupted:
-                logger.info("ai_response_interrupted", farmer=self.farmer_name)
-                break
-            await self.speak(sentence)
+        # Synthesize and speak the response smoothly in one coherent delivery
+        await self.speak(clean_final)
 
     async def _generate_stream(self, latest_input: str):
         """Generates stream chunks from LLM with agricultural persona prompt."""
@@ -317,8 +312,8 @@ class KisanVoiceOrchestrator:
             self.is_speaking_outbound = True
             self.stt.set_outbound_speaking(True)
             try:
-                # Stream in 1600-byte frames (200ms of 8000Hz mono 8-bit mulaw).
-                CHUNK_SIZE = 1600
+                # Stream into Vobiz buffer in 8000-byte blocks (~1.0s of audio, ~10.6KB base64, well within 64KB limit).
+                CHUNK_SIZE = 8000
                 total_len = len(mulaw_audio)
 
                 for offset in range(0, total_len, CHUNK_SIZE):
@@ -340,10 +335,8 @@ class KisanVoiceOrchestrator:
                         payload["streamId"] = self.stream_id
 
                     await self.websocket.send_text(json.dumps(payload))
-                    # Real-time pacing: 1600 bytes = 200ms. Sleep 175ms so packets stream smoothly
-                    # without overflowing Vobiz carrier buffer or starving WebSocket receiver.
-                    chunk_duration = len(chunk) / 8000.0
-                    await asyncio.sleep(chunk_duration * 0.88)
+                    # Micro-yield (25ms) so Vobiz fills its native RTP audio buffer without network starvation or glitches
+                    await asyncio.sleep(0.025)
 
                 logger.info(
                     "telephony_audio_played",

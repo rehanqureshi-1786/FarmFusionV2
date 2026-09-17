@@ -235,7 +235,57 @@ async def call_llm_synthesizer(
 
     last_error = "llm_unavailable_no_api_key"
 
-    # 1. Attempt OpenRouter
+    # 1. Primary: Groq (ultra-low latency, ~250ms)
+    if groq_key and not groq_key.startswith("gsk_placeholder"):
+        api_url = "https://api.groq.com/openai/v1/chat/completions"
+        model_name = settings.groq_model or "llama-3.3-70b-versatile"
+        headers = {
+            "Authorization": f"Bearer {groq_key}",
+            "Content-Type": "application/json",
+        }
+        payload = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
+                resp = await client.post(api_url, headers=headers, json=payload)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    content = (data["choices"][0]["message"].get("content") or "").strip()
+                    if not content:
+                        logger.warning("groq_synthesis_empty_content")
+                    else:
+                        try:
+                            raw_c = content
+                            if raw_c.startswith("```json"):
+                                raw_c = raw_c[7:]
+                            elif raw_c.startswith("```"):
+                                raw_c = raw_c[3:]
+                            if raw_c.endswith("```"):
+                                raw_c = raw_c[:-3]
+                            parsed = json.loads(raw_c.strip())
+                            return parsed, "success_groq"
+                        except json.JSONDecodeError:
+                            last_error = "groq_malformed_json"
+                            logger.warning("groq_synthesis_json_decode_error")
+                else:
+                    last_error = f"groq_http_error_{resp.status_code}"
+                    logger.warning("groq_synthesis_http_error", status_code=resp.status_code)
+        except httpx.TimeoutException:
+            last_error = "groq_timeout"
+            logger.warning("groq_synthesis_timeout")
+        except Exception as exc:
+            last_error = f"groq_error_{type(exc).__name__}"
+            logger.warning("groq_synthesis_failed", error=str(exc))
+
+    # 2. Secondary: OpenRouter Fallback
     if openrouter_key and not openrouter_key.startswith("placeholder"):
         api_url = f"{settings.openrouter_base_url.rstrip('/')}/chat/completions"
         model_name = settings.openrouter_model
@@ -287,56 +337,6 @@ async def call_llm_synthesizer(
         except Exception as exc:
             last_error = f"openrouter_error_{type(exc).__name__}"
             logger.warning("openrouter_synthesis_failed", error=str(exc))
-
-    # 2. Fallback to Groq
-    if groq_key and not groq_key.startswith("gsk_placeholder"):
-        api_url = "https://api.groq.com/openai/v1/chat/completions"
-        model_name = settings.groq_model or "llama-3.3-70b-versatile"
-        headers = {
-            "Authorization": f"Bearer {groq_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": model_name,
-            "messages": [
-                {"role": "system", "content": SYNTHESIS_SYSTEM_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"},
-        }
-
-        try:
-            async with httpx.AsyncClient(timeout=timeout_seconds) as client:
-                resp = await client.post(api_url, headers=headers, json=payload)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    content = (data["choices"][0]["message"].get("content") or "").strip()
-                    if not content:
-                        logger.warning("groq_synthesis_empty_content")
-                        return None, "groq_empty_content"
-                    try:
-                        raw_c = content
-                        if raw_c.startswith("```json"):
-                            raw_c = raw_c[7:]
-                        elif raw_c.startswith("```"):
-                            raw_c = raw_c[3:]
-                        if raw_c.endswith("```"):
-                            raw_c = raw_c[:-3]
-                        parsed = json.loads(raw_c.strip())
-                        return parsed, "success_groq"
-                    except json.JSONDecodeError:
-                        last_error = "groq_malformed_json"
-                        logger.warning("groq_synthesis_json_decode_error")
-                else:
-                    last_error = f"groq_http_error_{resp.status_code}"
-                    logger.warning("groq_synthesis_http_error", status_code=resp.status_code)
-        except httpx.TimeoutException:
-            last_error = "groq_timeout"
-            logger.warning("groq_synthesis_timeout")
-        except Exception as exc:
-            last_error = f"groq_error_{type(exc).__name__}"
-            logger.warning("groq_synthesis_failed", error=str(exc))
 
     return None, last_error
 
