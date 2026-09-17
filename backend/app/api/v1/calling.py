@@ -219,16 +219,20 @@ async def telephony_inbound_webhook(request: Request):
         except Exception as e:
             logger.warning("inbound_farmer_db_lookup_error", error=str(e))
 
-    base_ws = settings.base_ws_url or os.getenv("BASE_WS_URL", "wss://farmfusion.app")
+    req_host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.hostname
+    if req_host and ("railway.app" in req_host or "trycloudflare.com" in req_host or "ngrok" in req_host):
+        base_ws = f"wss://{req_host}"
+    else:
+        base_ws = settings.base_ws_url or os.getenv("BASE_WS_URL", "wss://farmfusion-backend-production-0017.up.railway.app")
     ws_query = urllib.parse.urlencode(query_params)
     stream_url = f"{base_ws.rstrip('/')}/ws/calling/stream?{ws_query}"
 
     xml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Speak>Connecting to Kisan Mitra.</Speak>
     <Stream bidirectional="true" keepCallAlive="true">{stream_url}</Stream>
 </Response>"""
     return Response(content=xml_response, media_type="application/xml")
+
 
 @router.api_route("/webhook/hangup", methods=["GET", "POST"])
 async def telephony_hangup_webhook(request: Request):

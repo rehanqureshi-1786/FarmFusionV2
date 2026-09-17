@@ -21,7 +21,7 @@ class KisanCallingService:
     def __init__(self):
         self.vobiz_api_key = os.getenv("VOBIZ_API_KEY")
         self.vobiz_account_id = os.getenv("VOBIZ_ACCOUNT_ID")
-        self.base_url = os.getenv("BASE_URL", "http://localhost:8000")
+        self.base_url = os.getenv("BASE_URL") or "https://farmfusion-backend-production-0017.up.railway.app"
         self.active_calls: Dict[str, Any] = {}
         self.recent_calls: Dict[str, float] = {}  # phone -> timestamp
         self.call_history: List[Dict[str, Any]] = []
