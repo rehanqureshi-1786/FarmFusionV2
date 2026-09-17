@@ -308,6 +308,35 @@ interface FarmFusionApi {
         @Query("category") category: String? = null
     ): Response<StoreRecommendationsResponse>
 
+    // ============ MARKETPLACE ============
+
+    @POST("api/v1/marketplace/listings")
+    suspend fun createMarketListing(
+        @Body request: CreateMarketListingRequest,
+        @Query("user_id") userId: Int? = null
+    ): Response<MarketListingDto>
+
+    @GET("api/v1/marketplace/listings")
+    suspend fun getMarketListings(
+        @Query("crop") crop: String? = null,
+        @Query("lat") lat: Double? = null,
+        @Query("lon") lon: Double? = null,
+        @Query("radius") radius: Double = 5000.0,
+        @Query("user_id") userId: Int? = null,
+        @Query("active_only") activeOnly: Boolean = false
+    ): Response<List<MarketListingDto>>
+
+    @DELETE("api/v1/marketplace/listings/{listing_id}")
+    suspend fun deleteMarketListing(
+        @Path("listing_id") listingId: Int
+    ): Response<Map<String, Any>>
+
+    @PATCH("api/v1/marketplace/listings/{listing_id}/status")
+    suspend fun updateMarketListingStatus(
+        @Path("listing_id") listingId: Int,
+        @Query("is_active") isActive: Boolean
+    ): Response<MarketListingDto>
+
     // ============ HEALTH & TEST ============
 
     @GET("api/v1/crop/test")
