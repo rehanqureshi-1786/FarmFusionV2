@@ -427,20 +427,25 @@ fun OtpVerificationScreen(navController: NavController) {
                         imageVector = Icons.Rounded.GppGood,
                         contentDescription = null,
                         tint = SolidGreenPrimary,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Column {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
                         Text(
-                            text = "Your data is safe with us.",
+                            text = "Your Data Is Safe With Us.",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
-                            color = BrandDarkGreen
+                            color = BrandDarkGreen,
+                            textAlign = TextAlign.Center
                         )
                         Text(
                             text = "We never share your information.",
                             fontSize = 11.sp,
-                            color = BrandTextMuted
+                            color = BrandTextMuted,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
