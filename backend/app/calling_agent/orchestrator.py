@@ -315,9 +315,9 @@ class KisanVoiceOrchestrator:
         mulaw_audio = await self.tts.synthesize_for_phone(text)
         if mulaw_audio and not self.is_interrupted:
             self.is_speaking_outbound = True
+            self.stt.set_outbound_speaking(True)
             try:
-                # Plivo/Vobiz gateway enforces a 64KB maximum WebSocket frame size.
-                # Audio must be streamed in small 200ms frames (1600 bytes of 8000Hz 8-bit mulaw).
+                # Stream in 1600-byte frames (200ms of 8000Hz mono 8-bit mulaw).
                 CHUNK_SIZE = 1600
                 total_len = len(mulaw_audio)
 
@@ -340,8 +340,10 @@ class KisanVoiceOrchestrator:
                         payload["streamId"] = self.stream_id
 
                     await self.websocket.send_text(json.dumps(payload))
-                    # Brief yield to ensure packets stream smoothly into carrier buffer
-                    await asyncio.sleep(0.015)
+                    # Real-time pacing: 1600 bytes = 200ms. Sleep 175ms so packets stream smoothly
+                    # without overflowing Vobiz carrier buffer or starving WebSocket receiver.
+                    chunk_duration = len(chunk) / 8000.0
+                    await asyncio.sleep(chunk_duration * 0.88)
 
                 logger.info(
                     "telephony_audio_played",
@@ -353,6 +355,7 @@ class KisanVoiceOrchestrator:
                 logger.warning("telephony_audio_send_failed", error=str(e))
             finally:
                 self.is_speaking_outbound = False
+                self.stt.set_outbound_speaking(False)
 
     async def generate_call_summary(self) -> str:
         """Generates concise call summary for database logging and webhook."""

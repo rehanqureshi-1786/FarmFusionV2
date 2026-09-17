@@ -50,6 +50,7 @@ class TelephonySTT:
         # VAD & Audio Buffer for Groq Whisper / Sarvam
         self.audio_buffer = bytearray()
         self.is_speaking = False
+        self.is_outbound_speaking = False
         self.last_speech_time = 0.0
         self.speech_start_time = 0.0
         self.ambient_noise = 120.0
@@ -61,6 +62,21 @@ class TelephonySTT:
         self.deepgram_key = settings.deepgram_api_key or os.getenv("DEEPGRAM_API_KEY")
         self.groq_key = settings.groq_api_key or os.getenv("GROQ_API_KEY")
         self.sarvam_key = settings.sarvam_api_key or os.getenv("SARVAM_API_KEY")
+
+    def set_outbound_speaking(self, is_speaking: bool):
+        """Notifies STT whether bot is currently playing audio through the phone speaker."""
+        self.is_outbound_speaking = is_speaking
+        if not is_speaking:
+            # Flushes any residual speakerphone echo when bot stops speaking
+            self.clear_buffer()
+
+    def clear_buffer(self):
+        """Clears audio buffer and resets speech tracking state."""
+        self.audio_buffer.clear()
+        self.is_speaking = False
+        self.barge_in_fired = False
+        self.consecutive_speech_chunks = 0
+        self.last_speech_time = 0.0
 
     async def start(self):
         """Starts real-time STT engine."""
@@ -110,12 +126,28 @@ class TelephonySTT:
         avg_energy = total_energy / max(len(audio_data), 1)
 
         now = time.time()
-        # Adaptively track background ambient noise floor when not speaking, capped at 350
-        if not self.is_speaking:
-            self.ambient_noise = min(0.94 * self.ambient_noise + 0.06 * avg_energy, 350.0)
 
-        # Dynamic speech threshold: sensitive enough to catch Indian phone audio, capped at 400
-        speech_threshold = min(max(self.ambient_noise * 1.35, 180.0), 400.0)
+        # If bot is currently speaking outbound audio:
+        # Ignore normal phone line / speakerphone bleed to prevent self-interruption.
+        # Only trigger barge-in if the caller speaks loudly over the bot (>1200 energy for ~300ms).
+        if self.is_outbound_speaking:
+            if avg_energy > 1200.0:
+                self.consecutive_speech_chunks += 1
+                if self.consecutive_speech_chunks >= 15 and not self.barge_in_fired:
+                    self.barge_in_fired = True
+                    logger.info("telephony_loud_barge_in_triggered", energy=int(avg_energy))
+                    if self.on_speech_started_callback:
+                        asyncio.create_task(self.on_speech_started_callback())
+            else:
+                self.consecutive_speech_chunks = 0
+            return
+
+        # When bot is silent and listening to the caller:
+        if not self.is_speaking:
+            self.ambient_noise = min(0.94 * self.ambient_noise + 0.06 * avg_energy, 300.0)
+
+        # Dynamic speech threshold: sensitive to farmer voice (min 150, max 350)
+        speech_threshold = min(max(self.ambient_noise * 1.3, 150.0), 350.0)
         is_speech_chunk = avg_energy > speech_threshold
 
         if is_speech_chunk:
@@ -125,11 +157,6 @@ class TelephonySTT:
                 self.is_speaking = True
                 self.speech_start_time = now
                 logger.info("telephony_farmer_speech_started", energy=int(avg_energy), threshold=int(speech_threshold))
-
-            # Debounced barge-in: require at least 5 consecutive speech frames (~100ms) before cutting outbound audio
-            if self.consecutive_speech_chunks >= 5 and not self.barge_in_fired and self.on_speech_started_callback:
-                self.barge_in_fired = True
-                asyncio.create_task(self.on_speech_started_callback())
 
             self.audio_buffer.extend(audio_data)
         elif self.is_speaking:
@@ -144,41 +171,37 @@ class TelephonySTT:
         while self.running:
             await asyncio.sleep(0.08)
             now = time.time()
-            if self.is_speaking and self.last_speech_time > 0:
+            if not self.is_outbound_speaking and self.is_speaking and self.last_speech_time > 0:
                 silence_duration = now - self.last_speech_time
 
-                # End of speech detected if silence >= 0.65s and buffer has >= 1600 bytes (200ms)
+                # End of speech detected if silence >= 0.65s and buffer has >= 2400 bytes (300ms)
                 if silence_duration >= 0.65:
-                    if len(self.audio_buffer) >= 1600:
+                    if len(self.audio_buffer) >= 2400:
                         chunk_to_transcribe = bytes(self.audio_buffer)
-                        self.audio_buffer.clear()
-                        self.is_speaking = False
-                        self.barge_in_fired = False
-                        self.consecutive_speech_chunks = 0
+                        self.clear_buffer()
                         logger.info("telephony_utterance_ready_for_transcription", bytes_len=len(chunk_to_transcribe))
                         asyncio.create_task(self._transcribe_audio_buffer(chunk_to_transcribe))
                     else:
-                        # Too short (line click), reset buffer
-                        self.audio_buffer.clear()
-                        self.is_speaking = False
-                        self.barge_in_fired = False
-                        self.consecutive_speech_chunks = 0
+                        self.clear_buffer()
 
     async def _transcribe_audio_buffer(self, mulaw_bytes: bytes):
         """Transcribes accumulated mu-law audio via Groq Whisper or Sarvam STT."""
         try:
-            # Convert 8kHz mu-law to 16kHz WAV in memory using ffmpeg
-            process = subprocess.run(
-                [
-                    "ffmpeg", "-y",
-                    "-f", "mulaw", "-ar", "8000", "-i", "pipe:0",
-                    "-ar", "16000", "-ac", "1",
-                    "-f", "wav", "pipe:1"
-                ],
-                input=mulaw_bytes,
-                capture_output=True,
-                check=False
-            )
+            # Convert 8kHz mu-law to 16kHz WAV in non-blocking thread using ffmpeg
+            def _convert():
+                return subprocess.run(
+                    [
+                        "ffmpeg", "-y",
+                        "-f", "mulaw", "-ar", "8000", "-i", "pipe:0",
+                        "-ar", "16000", "-ac", "1",
+                        "-f", "wav", "pipe:1"
+                    ],
+                    input=mulaw_bytes,
+                    capture_output=True,
+                    check=False
+                )
+
+            process = await asyncio.to_thread(_convert)
             wav_bytes = process.stdout
             if not wav_bytes or process.returncode != 0:
                 logger.warning("stt_ffmpeg_conversion_failed", returncode=process.returncode)
@@ -188,14 +211,16 @@ class TelephonySTT:
             groq_k = self.groq_key or settings.groq_api_key or os.getenv("GROQ_API_KEY")
             sarvam_k = self.sarvam_key or settings.sarvam_api_key or os.getenv("SARVAM_API_KEY")
 
-            # 1. Groq Whisper Large V3 (fastest response, ~300ms)
+            # 1. Groq Whisper Large V3 with Indian agricultural vocabulary prompt (~300ms)
             if groq_k:
                 try:
                     url = "https://api.groq.com/openai/v1/audio/transcriptions"
                     headers = {"Authorization": f"Bearer {groq_k}"}
                     files = {"file": ("speech.wav", wav_bytes, "audio/wav")}
-                    lang_code = self.language[:2] if self.language else "hi"
-                    data = {"model": "whisper-large-v3", "language": lang_code}
+                    data = {
+                        "model": "whisper-large-v3",
+                        "prompt": "किसान खेती मौसम मंडी भाव फसल बारिश गेहूं सरसों कीट रोग खाद Hindi Hinglish"
+                    }
                     res = await self.http_client.post(url, headers=headers, files=files, data=data)
                     if res.status_code == 200:
                         transcript = res.json().get("text", "").strip()

@@ -326,46 +326,57 @@ async def telephony_audio_stream_endpoint(websocket: WebSocket):
         asyncio.create_task(orchestrator.start())
 
         while True:
-            raw_text = await websocket.receive_text()
-            data = json.loads(raw_text)
-            event = data.get("event")
-
-            # 1. Connection initiation metadata event from Vobiz
-            if event == "start":
-                stream_id = (
-                    data.get("start", {}).get("streamId")
-                    or data.get("streamId")
-                    or data.get("start", {}).get("callId")
-                    or call_id
-                )
-                if stream_id:
-                    orchestrator.set_stream_id(stream_id)
-                logger.info(
-                    "telephony_stream_metadata_received",
-                    call_id=call_id,
-                    stream_id=stream_id,
-                    format=data.get("start", {}).get("mediaFormat") or data.get("mediaFormat")
-                )
-
-            # 2. Inbound audio chunk from phone (supports both "media" and "playAudio" frame envelopes)
-            elif event in ("media", "playAudio"):
-                stream_id = data.get("streamId") or data.get("media", {}).get("streamId")
-                if stream_id and not orchestrator.stream_id:
-                    orchestrator.set_stream_id(stream_id)
-
-                media_payload = data.get("media", {}).get("payload") or data.get("payload")
-                if media_payload:
-                    audio_bytes = base64.b64decode(media_payload)
-                    await orchestrator.process_inbound_audio(audio_bytes)
-
-            # 3. Barge-in playback queue flush acknowledgement from Vobiz
-            elif event == "clearedAudio":
-                logger.info("telephony_audio_cleared_ack", farmer=farmer_name, call_id=call_id)
-
-            # 4. Call hung up or terminated
-            elif event in ("stop", "close"):
-                logger.info("telephony_call_hangup_received", farmer=farmer_name, call_id=call_id)
+            try:
+                raw_text = await websocket.receive_text()
+            except WebSocketDisconnect:
                 break
+            except Exception as e:
+                logger.warning("telephony_websocket_read_error", error=str(e))
+                break
+
+            try:
+                data = json.loads(raw_text)
+                event = data.get("event")
+
+                # 1. Connection initiation metadata event from Vobiz
+                if event == "start":
+                    stream_id = (
+                        data.get("start", {}).get("streamId")
+                        or data.get("streamId")
+                        or data.get("start", {}).get("callId")
+                        or call_id
+                    )
+                    if stream_id:
+                        orchestrator.set_stream_id(stream_id)
+                    logger.info(
+                        "telephony_stream_metadata_received",
+                        call_id=call_id,
+                        stream_id=stream_id,
+                        format=data.get("start", {}).get("mediaFormat") or data.get("mediaFormat")
+                    )
+
+                # 2. Inbound audio chunk from phone (supports both "media" and "playAudio" frame envelopes)
+                elif event in ("media", "playAudio"):
+                    stream_id = data.get("streamId") or data.get("media", {}).get("streamId")
+                    if stream_id and not orchestrator.stream_id:
+                        orchestrator.set_stream_id(stream_id)
+
+                    media_payload = data.get("media", {}).get("payload") or data.get("payload")
+                    if media_payload:
+                        audio_bytes = base64.b64decode(media_payload)
+                        await orchestrator.process_inbound_audio(audio_bytes)
+
+                # 3. Barge-in playback queue flush acknowledgement from Vobiz
+                elif event == "clearedAudio":
+                    logger.info("telephony_audio_cleared_ack", farmer=farmer_name, call_id=call_id)
+
+                # 4. Call hung up or terminated
+                elif event in ("stop", "close"):
+                    logger.info("telephony_call_hangup_received", farmer=farmer_name, call_id=call_id)
+                    break
+
+            except Exception as packet_err:
+                logger.warning("telephony_packet_decode_error", error=str(packet_err))
 
     except WebSocketDisconnect:
         logger.info("telephony_websocket_disconnected", farmer=farmer_name)
