@@ -114,3 +114,7 @@ class TelephonyTTS:
             logger.error("ffmpeg_telephony_mulaw_conversion_error", error=str(e))
             return b""
 
+    # Backward compatibility alias
+    def _convert_to_8khz_pcm(self, input_audio_bytes: bytes) -> bytes:
+        return self._convert_to_8khz_mulaw(input_audio_bytes)
+

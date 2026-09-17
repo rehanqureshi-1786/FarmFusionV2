@@ -233,7 +233,7 @@ async def telephony_inbound_webhook(request: Request):
 
     xml_response = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Stream bidirectional="true" keepCallAlive="true">{stream_url}</Stream>
+    <Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000">{stream_url}</Stream>
 </Response>"""
     return Response(content=xml_response, media_type="application/xml")
 

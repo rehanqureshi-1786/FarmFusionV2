@@ -141,18 +141,19 @@ async def test_04_play_audio_event_and_base64_roundtrip():
 
     await orchestrator.speak("नमस्ते किसान भाई")
 
-    # Verify websocket sent playAudio event format
+    # Verify websocket sent playAudio event format across chunked frames
     assert mock_ws.send_text.called
-    sent_raw = mock_ws.send_text.call_args[0][0]
-    sent_json = json.loads(sent_raw)
-
-    assert sent_json["event"] == "playAudio"
-    b64_payload = sent_json["media"]["payload"]
-    decoded_bytes = base64.b64decode(b64_payload)
+    total_decoded = bytearray()
+    for call_obj in mock_ws.send_text.call_args_list:
+        sent_raw = call_obj[0][0]
+        sent_json = json.loads(sent_raw)
+        assert sent_json["event"] == "playAudio"
+        b64_payload = sent_json["media"]["payload"]
+        total_decoded.extend(base64.b64decode(b64_payload))
 
     # Audio roundtrip integrity verification
-    assert decoded_bytes == sample_pcm
-    assert len(decoded_bytes) == len(sample_pcm)
+    assert bytes(total_decoded) == sample_pcm
+    assert len(total_decoded) == len(sample_pcm)
 
 # =============================================================================
 # 4. 8kHz MONO PCM CONVERSION
@@ -280,7 +281,7 @@ async def test_09_calling_api_endpoints_integration():
         assert res_xml.status_code == 200
         assert "application/xml" in res_xml.headers["content-type"]
         assert "<Response>" in res_xml.text
-        assert '<Stream bidirectional="true" keepCallAlive="true">' in res_xml.text
+        assert '<Stream bidirectional="true" keepCallAlive="true" contentType="audio/x-mulaw;rate=8000">' in res_xml.text
         assert "ws/calling/stream" in res_xml.text
 
         # 3. Duplicate call prevention returns HTTP 429

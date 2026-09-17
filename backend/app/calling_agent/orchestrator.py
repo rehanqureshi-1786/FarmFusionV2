@@ -306,25 +306,38 @@ class KisanVoiceOrchestrator:
         mulaw_audio = await self.tts.synthesize_for_phone(text)
         if mulaw_audio and not self.is_interrupted:
             try:
-                b64_audio = base64.b64encode(mulaw_audio).decode("utf-8")
-                # Official Vobiz WebSocket audio streaming protocol specification
-                payload = {
-                    "event": "playAudio",
-                    "media": {
-                        "contentType": "audio/x-mulaw",
-                        "sampleRate": 8000,
-                        "payload": b64_audio
-                    }
-                }
-                if self.stream_id:
-                    payload["streamId"] = self.stream_id
+                # Plivo/Vobiz gateway enforces a 64KB maximum WebSocket frame size.
+                # Audio must be streamed in small 200ms frames (1600 bytes of 8000Hz 8-bit mulaw).
+                CHUNK_SIZE = 1600
+                total_len = len(mulaw_audio)
 
-                await self.websocket.send_text(json.dumps(payload))
+                for offset in range(0, total_len, CHUNK_SIZE):
+                    if self.is_interrupted:
+                        logger.info("telephony_playback_barge_in_interrupted", farmer=self.farmer_name)
+                        break
+
+                    chunk = mulaw_audio[offset:offset + CHUNK_SIZE]
+                    b64_chunk = base64.b64encode(chunk).decode("utf-8")
+                    payload = {
+                        "event": "playAudio",
+                        "media": {
+                            "contentType": "audio/x-mulaw",
+                            "sampleRate": 8000,
+                            "payload": b64_chunk
+                        }
+                    }
+                    if self.stream_id:
+                        payload["streamId"] = self.stream_id
+
+                    await self.websocket.send_text(json.dumps(payload))
+                    # Brief yield to ensure packets stream smoothly into carrier buffer
+                    await asyncio.sleep(0.015)
+
                 logger.info(
                     "telephony_audio_played",
                     farmer=self.farmer_name,
                     stream_id=self.stream_id,
-                    bytes_len=len(mulaw_audio)
+                    total_bytes=total_len
                 )
             except Exception as e:
                 logger.warning("telephony_audio_send_failed", error=str(e))
