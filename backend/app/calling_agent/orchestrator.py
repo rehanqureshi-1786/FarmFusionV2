@@ -15,13 +15,16 @@ from fastapi import WebSocket
 from app.calling_agent.prompts import get_kisan_call_prompt, get_initial_kisan_greeting
 from app.calling_agent.stt import TelephonySTT
 from app.calling_agent.tts import TelephonyTTS
+from app.core.config import settings
 
 from app.orchestrator.graph import run_orchestrator_pipeline
 
 logger = structlog.get_logger()
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+def _get_llm_keys():
+    openrouter_k = settings.openrouter_api_key or os.getenv("OPENROUTER_API_KEY")
+    groq_k = settings.groq_api_key or os.getenv("GROQ_API_KEY")
+    return openrouter_k, groq_k
 
 class KisanVoiceOrchestrator:
     def __init__(
@@ -258,10 +261,11 @@ class KisanVoiceOrchestrator:
         all_msgs = [{"role": "system", "content": system_prompt}] + self.messages
 
         # 1. Try Groq or OpenRouter if available
-        if GROQ_API_KEY or OPENROUTER_API_KEY:
-            api_url = "https://api.groq.com/openai/v1/chat/completions" if GROQ_API_KEY else "https://openrouter.ai/api/v1/chat/completions"
-            api_key = GROQ_API_KEY or OPENROUTER_API_KEY
-            model_name = "llama-3.3-70b-versatile" if GROQ_API_KEY else "google/gemma-3-12b-it"
+        openrouter_k, groq_k = _get_llm_keys()
+        if groq_k or openrouter_k:
+            api_url = "https://api.groq.com/openai/v1/chat/completions" if groq_k else "https://openrouter.ai/api/v1/chat/completions"
+            api_key = groq_k or openrouter_k
+            model_name = "llama-3.3-70b-versatile" if groq_k else "google/gemma-3-12b-it"
 
             headers = {
                 "Authorization": f"Bearer {api_key}",
