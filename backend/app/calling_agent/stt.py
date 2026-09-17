@@ -132,24 +132,24 @@ class TelephonySTT:
             self.audio_buffer.extend(audio_data)
 
     async def _vad_silence_monitor(self):
-        """Monitors for end-of-utterance pauses (650ms silence) to trigger transcription."""
+        """Monitors for end-of-utterance pauses (600ms silence) to trigger transcription."""
         while self.running:
             await asyncio.sleep(0.08)
             now = time.time()
             if self.is_speaking and self.last_speech_time > 0:
                 silence_duration = now - self.last_speech_time
-                speech_duration = self.last_speech_time - self.speech_start_time
 
-                # End of speech detected if silence >= 0.65s and at least 0.25s of speech was spoken
-                if silence_duration >= 0.65:
-                    if speech_duration >= 0.25 and len(self.audio_buffer) >= 2000:
+                # End of speech detected if silence >= 0.6s and buffer has >= 1600 bytes (200ms)
+                if silence_duration >= 0.6:
+                    if len(self.audio_buffer) >= 1600:
                         chunk_to_transcribe = bytes(self.audio_buffer)
                         self.audio_buffer.clear()
                         self.is_speaking = False
                         self.barge_in_fired = False
+                        logger.info("telephony_utterance_ready_for_transcription", bytes_len=len(chunk_to_transcribe))
                         asyncio.create_task(self._transcribe_audio_buffer(chunk_to_transcribe))
                     else:
-                        # Too short or line click, reset buffer
+                        # Too short (line click), reset buffer
                         self.audio_buffer.clear()
                         self.is_speaking = False
                         self.barge_in_fired = False

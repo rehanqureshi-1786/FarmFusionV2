@@ -41,6 +41,11 @@ async def get_recent_kisan_calls():
     return {
         "calls": kisan_calling_service.get_recent_calls(),
         "vobiz_number": os.getenv("VOBIZ_PHONE_NUMBER", "+918064265824"),
+        "env_diagnostics": {
+            "has_groq": bool(os.getenv("GROQ_API_KEY") or settings.groq_api_key),
+            "has_sarvam": bool(os.getenv("SARVAM_API_KEY") or settings.sarvam_api_key),
+            "has_openrouter": bool(os.getenv("OPENROUTER_API_KEY") or settings.openrouter_api_key),
+        },
         "status": "ready"
     }
 
