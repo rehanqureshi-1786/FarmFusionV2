@@ -95,7 +95,11 @@ import kotlin.math.absoluteValue
 import kotlin.math.sin
 import kotlin.math.cos
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 
 // Explicitly importing the R class to resolve drawable and string reference errors
 import com.example.farmfusionapp.R
@@ -105,7 +109,7 @@ import com.example.farmfusionapp.viewmodel.AuthViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private data class HomeAction(
+internal data class HomeAction(
     val title: String,
     val subtitle: String,
     val iconVector: ImageVector? = null,
@@ -116,7 +120,7 @@ private data class HomeAction(
     val illustration: Int
 )
 
-private data class SuggestionPill(
+internal data class SuggestionPill(
     val title: String,
     val note: String,
     val icon: ImageVector,
@@ -469,7 +473,7 @@ fun DashboardScreen(navController: NavController) {
 }
 
 @Composable
-private fun HomeHeroHeader(location: String) {
+internal fun HomeHeroHeader(location: String) {
     val currentLang = LocalAppLanguage.current
     val strings = LocalStrings.current
     val localizedCity = remember(location, currentLang) {
@@ -577,7 +581,7 @@ private data class BirdSpec(
 )
 
 @Composable
-private fun AnimatedHeaderLandscape(
+internal fun AnimatedHeaderLandscape(
     modifier: Modifier = Modifier,
     headerOpacity: () -> Float,
     parallaxOffset: () -> Float
@@ -809,7 +813,7 @@ private fun AnimatedHeaderLandscape(
     }
 }
 
-private fun dialKisanHelpline(context: Context, phoneNumber: String = "+918064265824") {
+internal fun dialKisanHelpline(context: Context, phoneNumber: String = "+918064265824") {
     try {
         val intent = Intent(Intent.ACTION_DIAL).apply {
             data = Uri.parse("tel:$phoneNumber")
@@ -822,7 +826,7 @@ private fun dialKisanHelpline(context: Context, phoneNumber: String = "+91806426
 }
 
 @Composable
-private fun HeroPagerSection(
+internal fun HeroPagerSection(
     weatherData: DisplayWeatherData?,
     suggestions: List<SuggestionPill>,
     onWeatherClick: () -> Unit,
@@ -1222,20 +1226,12 @@ private fun FarmingAssistantHeroCard(
             .fillMaxSize()
             .shadow(12.dp, RoundedCornerShape(32.dp)),
         shape = RoundedCornerShape(32.dp),
-        color = Color.White
+        color = Color(0xFFCEE7D4)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFF0F5132),
-                            Color(0xFF1E7E34),
-                            Color(0xFF0A3622)
-                        )
-                    )
-                )
+                .background(Color(0xFFCEE7D4))
         ) {
             // Decorative background circles and watermark icon
             Box(
@@ -1243,12 +1239,12 @@ private fun FarmingAssistantHeroCard(
                     .size(170.dp)
                     .align(Alignment.BottomEnd)
                     .offset(x = 35.dp, y = 35.dp)
-                    .background(Color.White.copy(alpha = 0.07f), CircleShape)
+                    .background(Color.White.copy(alpha = 0.35f), CircleShape)
             )
             Icon(
                 imageVector = Icons.Rounded.PhoneInTalk,
                 contentDescription = null,
-                tint = Color.White.copy(alpha = 0.12f),
+                tint = Color(0xFF1B5E20).copy(alpha = 0.10f),
                 modifier = Modifier
                     .size(160.dp)
                     .align(Alignment.BottomEnd)
@@ -1272,13 +1268,13 @@ private fun FarmingAssistantHeroCard(
                             Box(
                                 modifier = Modifier
                                     .size(8.dp)
-                                    .background(Color(0xFF00E676), CircleShape)
+                                    .background(Color(0xFF16A34A), CircleShape)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = AppLocalizer.localizeDashboardPhrase("24/7 ai helpline", currentLang),
                                 style = MaterialTheme.typography.labelMedium.copy(
-                                    color = Color.White.copy(alpha = 0.9f),
+                                    color = Color(0xFF1B5E20),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.5.sp,
                                     letterSpacing = 0.5.sp
@@ -1289,7 +1285,7 @@ private fun FarmingAssistantHeroCard(
                         Text(
                             text = AppLocalizer.localizeDashboardPhrase("farming assistant", currentLang),
                             style = MaterialTheme.typography.titleLarge.copy(
-                                color = Color.White,
+                                color = Color(0xFF111827),
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 22.sp,
                                 lineHeight = 26.sp
@@ -1299,15 +1295,15 @@ private fun FarmingAssistantHeroCard(
 
                     Surface(
                         shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.2f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFB5DEC0)),
                         modifier = Modifier.size(38.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Rounded.SupportAgent,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = Color(0xFF1B5E20),
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -1318,7 +1314,7 @@ private fun FarmingAssistantHeroCard(
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = AppLocalizer.localizeDashboardPhrase("call now desc", currentLang),
-                        color = Color.White.copy(alpha = 0.92f),
+                        color = Color(0xFF2D5038),
                         fontSize = 12.5.sp,
                         lineHeight = 16.sp,
                         maxLines = 2,
@@ -1327,8 +1323,8 @@ private fun FarmingAssistantHeroCard(
 
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.25f),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.2f))
+                        color = Color.White.copy(alpha = 0.85f),
+                        border = BorderStroke(1.dp, Color(0xFFB5DEC0))
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -1337,14 +1333,14 @@ private fun FarmingAssistantHeroCard(
                             Icon(
                                 imageVector = Icons.Rounded.Phone,
                                 contentDescription = null,
-                                tint = Color(0xFF69F0AE),
+                                tint = Color(0xFF1B5E20),
                                 modifier = Modifier.size(13.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Toll-Free: +91 8064265824",
                                 style = MaterialTheme.typography.labelSmall.copy(
-                                    color = Color.White,
+                                    color = Color(0xFF1B5E20),
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.5.sp
                                 )
@@ -1366,12 +1362,12 @@ private fun FarmingAssistantHeroCard(
                             onCallClick()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White,
-                            contentColor = Color(0xFF0F5132)
+                            containerColor = Color(0xFF1B5E20),
+                            contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(14.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Row(
@@ -1381,7 +1377,7 @@ private fun FarmingAssistantHeroCard(
                             Icon(
                                 imageVector = Icons.Rounded.Call,
                                 contentDescription = null,
-                                tint = Color(0xFF0F5132),
+                                tint = Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -1404,12 +1400,13 @@ private fun FarmingAssistantHeroCard(
                             onVoiceClick()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White.copy(alpha = 0.22f),
-                            contentColor = Color.White
+                            containerColor = Color.White,
+                            contentColor = Color(0xFF1B5E20)
                         ),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.35f)),
+                        border = BorderStroke(1.dp, Color(0xFFB5DEC0)),
                         shape = RoundedCornerShape(14.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                         modifier = Modifier.weight(1f)
                     ) {
                         Row(
@@ -1419,7 +1416,7 @@ private fun FarmingAssistantHeroCard(
                             Icon(
                                 imageVector = Icons.Rounded.Mic,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = Color(0xFF1B5E20),
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -1441,17 +1438,222 @@ private fun FarmingAssistantHeroCard(
 }
 
 @Composable
-private fun FarmingAssistantCallCard(
+internal fun BotHeadsetIcon(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val sx = w / 30f
+        val sy = h / 30f
+
+        // 1. Headphone Arch over the head
+        val archPath = Path().apply {
+            moveTo(4.5f * sx, 13.5f * sy)
+            cubicTo(
+                4.5f * sx, 3.8f * sy,
+                25.5f * sx, 3.8f * sy,
+                25.5f * sx, 13.5f * sy
+            )
+        }
+        drawPath(
+            path = archPath,
+            color = Color.White,
+            style = Stroke(width = 2.4f * sx, cap = StrokeCap.Round)
+        )
+
+        // 2. Ear pads (left and right rounded cushions)
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(2.2f * sx, 9.5f * sy),
+            size = Size(4f * sx, 9.5f * sy),
+            cornerRadius = CornerRadius(2f * sx, 2f * sy)
+        )
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(23.8f * sx, 9.5f * sy),
+            size = Size(4f * sx, 9.5f * sy),
+            cornerRadius = CornerRadius(2f * sx, 2f * sy)
+        )
+
+        // 3. Bot Face (rounded rectangle)
+        drawRoundRect(
+            color = Color.White,
+            topLeft = Offset(7.2f * sx, 7.8f * sy),
+            size = Size(15.6f * sx, 13.5f * sy),
+            cornerRadius = CornerRadius(4.8f * sx, 4.8f * sy)
+        )
+
+        // 4. Face Features (eyes and happy smile in background green)
+        val faceFeatureColor = Color(0xFF237234)
+        // Left eye
+        drawRoundRect(
+            color = faceFeatureColor,
+            topLeft = Offset(10.8f * sx, 11.8f * sy),
+            size = Size(1.9f * sx, 2.8f * sy),
+            cornerRadius = CornerRadius(0.95f * sx, 0.95f * sy)
+        )
+        // Right eye
+        drawRoundRect(
+            color = faceFeatureColor,
+            topLeft = Offset(17.3f * sx, 11.8f * sy),
+            size = Size(1.9f * sx, 2.8f * sy),
+            cornerRadius = CornerRadius(0.95f * sx, 0.95f * sy)
+        )
+        // Smile curve
+        val smilePath = Path().apply {
+            moveTo(12.5f * sx, 16.5f * sy)
+            quadraticTo(
+                15f * sx, 18.8f * sy,
+                17.5f * sx, 16.5f * sy
+            )
+        }
+        drawPath(
+            path = smilePath,
+            color = faceFeatureColor,
+            style = Stroke(width = 1.35f * sx, cap = StrokeCap.Round)
+        )
+
+        // 5. Microphone boom curving down toward the mouth
+        val micPath = Path().apply {
+            moveTo(4.2f * sx, 17f * sy)
+            quadraticTo(
+                5.8f * sx, 21.8f * sy,
+                11f * sx, 21.8f * sy
+            )
+        }
+        drawPath(
+            path = micPath,
+            color = Color.White,
+            style = Stroke(width = 1.5f * sx, cap = StrokeCap.Round)
+        )
+        // Microphone tip dot
+        drawCircle(
+            color = Color.White,
+            radius = 1.5f * sx,
+            center = Offset(11f * sx, 21.8f * sy)
+        )
+    }
+}
+
+@Composable
+internal fun LeafAdviceIcon(modifier: Modifier = Modifier, tint: Color = Color(0xFF16A34A)) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        // Organic Leaf outline
+        val leafPath = Path().apply {
+            moveTo(w * 0.92f, h * 0.08f)
+            cubicTo(w * 0.40f, h * 0.02f, w * 0.08f, h * 0.42f, w * 0.12f, h * 0.88f)
+            cubicTo(w * 0.58f, h * 0.92f, w * 0.98f, h * 0.60f, w * 0.92f, h * 0.08f)
+            close()
+        }
+        drawPath(path = leafPath, color = tint)
+
+        // Central vein
+        drawLine(
+            color = Color.White.copy(alpha = 0.85f),
+            start = Offset(w * 0.20f, h * 0.80f),
+            end = Offset(w * 0.82f, h * 0.18f),
+            strokeWidth = 1.1.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+internal fun BarChartPricesIcon(modifier: Modifier = Modifier, tint: Color = Color(0xFF16A34A)) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val barW = w * 0.22f
+        val radius = barW / 2f
+
+        // Bar 1 (Left - Lowest)
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.06f, h * 0.58f),
+            size = Size(barW, h * 0.42f),
+            cornerRadius = CornerRadius(radius, radius)
+        )
+        // Bar 2 (Middle - Medium)
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.39f, h * 0.32f),
+            size = Size(barW, h * 0.68f),
+            cornerRadius = CornerRadius(radius, radius)
+        )
+        // Bar 3 (Right - Highest)
+        drawRoundRect(
+            color = tint,
+            topLeft = Offset(w * 0.72f, h * 0.06f),
+            size = Size(barW, h * 0.94f),
+            cornerRadius = CornerRadius(radius, radius)
+        )
+    }
+}
+
+@Composable
+internal fun SunCloudWeatherIcon(modifier: Modifier = Modifier, tint: Color = Color(0xFF16A34A)) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        // Sun in upper left
+        val sunCenter = Offset(w * 0.38f, h * 0.36f)
+        val sunR = w * 0.22f
+        drawCircle(
+            color = Color(0xFFEAB308),
+            radius = sunR,
+            center = sunCenter,
+            style = Stroke(width = 1.2.dp.toPx())
+        )
+        // Sun rays
+        val rays = listOf(
+            Offset(w * 0.38f, h * 0.04f) to Offset(w * 0.38f, h * 0.12f),
+            Offset(w * 0.12f, h * 0.20f) to Offset(w * 0.18f, h * 0.25f),
+            Offset(w * 0.64f, h * 0.20f) to Offset(w * 0.58f, h * 0.25f)
+        )
+        for ((start, end) in rays) {
+            drawLine(
+                color = Color(0xFFEAB308),
+                start = start,
+                end = end,
+                strokeWidth = 1.2.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        }
+
+        // Puffy cloud in foreground
+        val cloudPath = Path().apply {
+            moveTo(w * 0.26f, h * 0.88f)
+            lineTo(w * 0.82f, h * 0.88f)
+            cubicTo(w * 0.96f, h * 0.88f, w * 0.96f, h * 0.68f, w * 0.84f, h * 0.66f)
+            cubicTo(w * 0.84f, h * 0.48f, w * 0.66f, h * 0.46f, w * 0.58f, h * 0.54f)
+            cubicTo(w * 0.50f, h * 0.46f, w * 0.36f, h * 0.52f, w * 0.34f, h * 0.64f)
+            cubicTo(w * 0.20f, h * 0.66f, w * 0.18f, h * 0.88f, w * 0.26f, h * 0.88f)
+            close()
+        }
+        drawPath(
+            path = cloudPath,
+            color = tint,
+            style = Stroke(width = 1.25.dp.toPx(), cap = StrokeCap.Round)
+        )
+    }
+}
+
+@Composable
+internal fun FarmingAssistantCallCard(
     onCallClick: () -> Unit,
-    onVoiceClick: () -> Unit
+    onVoiceClick: () -> Unit,
+    title: String = "AI Farming Assistant",
+    description: String = "Speak directly to your AI assistant for crop advice, weather, market prices and more."
 ) {
-    val currentLang = LocalAppLanguage.current
     val haptic = LocalHapticFeedback.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1f,
+        targetValue = if (isPressed) 0.98f else 1f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f),
         label = "assistantCardScale"
     )
@@ -1464,136 +1666,284 @@ private fun FarmingAssistantCallCard(
                 scaleY = scale
             }
             .shadow(
-                elevation = 6.dp,
-                shape = RoundedCornerShape(24.dp),
-                spotColor = Color(0xFF1B5E20).copy(alpha = 0.15f),
-                ambientColor = Color.Black.copy(alpha = 0.05f)
+                elevation = 4.dp,
+                shape = RoundedCornerShape(20.dp),
+                spotColor = Color(0xFF1B5E20).copy(alpha = 0.08f),
+                ambientColor = Color.Black.copy(alpha = 0.03f)
             ),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         color = Color.White,
-        border = BorderStroke(1.2.dp, Color(0xFFC8E6C9))
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(
-                            Color(0xFFF1F8F1),
-                            Color(0xFFE8F5E9),
-                            Color(0xFFF9FFF9)
-                        )
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Subtle pastel green decorative waves at bottom-left
+            Canvas(modifier = Modifier.matchParentSize()) {
+                val wave1 = Path().apply {
+                    moveTo(0f, size.height * 0.38f)
+                    cubicTo(
+                        size.width * 0.10f, size.height * 0.48f,
+                        size.width * 0.15f, size.height * 0.82f,
+                        size.width * 0.32f, size.height
                     )
-                )
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Left Avatar with online badge
-            Box(modifier = Modifier.size(52.dp)) {
-                Surface(
-                    modifier = Modifier.size(50.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFF2E7D32),
-                    shadowElevation = 3.dp
+                    lineTo(0f, size.height)
+                    close()
+                }
+                drawPath(wave1, color = Color(0xFFE8F5E9).copy(alpha = 0.70f))
+
+                val wave2 = Path().apply {
+                    moveTo(0f, size.height * 0.62f)
+                    cubicTo(
+                        size.width * 0.06f, size.height * 0.70f,
+                        size.width * 0.10f, size.height * 0.88f,
+                        size.width * 0.20f, size.height
+                    )
+                    lineTo(0f, size.height)
+                    close()
+                }
+                drawPath(wave2, color = Color(0xFFD1FAE5).copy(alpha = 0.65f))
+            }
+
+            // Foreground Content Layout
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 12.dp)
+            ) {
+                // Tier 1: Avatar | Info Details | Call Action
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Rounded.SupportAgent,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(28.dp)
+                    // Left Avatar Squircle with Online Green Dot
+                    Box(
+                        modifier = Modifier.size(52.dp),
+                        contentAlignment = Alignment.TopStart
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            color = Color(0xFF237234),
+                            shadowElevation = 2.dp
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                BotHeadsetIcon(modifier = Modifier.size(30.dp))
+                            }
+                        }
+                        // Active Green Status Indicator Badge with pure white border
+                        Box(
+                            modifier = Modifier
+                                .size(13.dp)
+                                .align(Alignment.BottomEnd)
+                                .offset(x = (-2).dp, y = (-2).dp)
+                                .background(Color.White, CircleShape)
+                                .padding(2.dp)
+                                .background(Color(0xFF22C55E), CircleShape)
                         )
                     }
-                }
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .align(Alignment.BottomEnd)
-                        .background(Color.White, CircleShape)
-                        .padding(2.dp)
-                        .background(Color(0xFF00E676), CircleShape)
-                )
-            }
 
-            // Center details
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "VOBIZ AI LIVE",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF2E7D32),
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 10.sp,
-                            letterSpacing = 0.8.sp
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    // Center Details Column
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // Header Row: VOBIZ AI LIVE + • Live Badge
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "VOBIZ AI LIVE",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = Color(0xFF166534),
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 0.4.sp
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(50),
+                                color = Color(0xFFDCFCE7)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(4.5.dp)
+                                            .background(Color(0xFF16A34A), CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "Live",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = Color(0xFF15803D),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 9.5.sp
+                                        )
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(3.dp))
+
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF143B29),
+                                fontSize = 15.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "• +91 8064265824",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = Color(0xFF616161),
-                            fontSize = 10.sp
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = description,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF6B7280),
+                                fontSize = 10.5.sp,
+                                lineHeight = 13.5.sp
+                            ),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
                         )
-                    )
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // Right Column: Phone Number + Call Now Button
+                    Column(
+                        horizontalAlignment = Alignment.End,
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "+91 8064265824",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF6B7280),
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 10.5.sp
+                            )
+                        )
+
+                        Button(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onCallClick()
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF165928),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 7.dp),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 1.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Call,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Call Now",
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = Color.White
+                                    ),
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
                 }
 
-                Text(
-                    text = AppLocalizer.localizeDashboardPhrase("farming assistant", currentLang),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF1B5E20),
-                        fontSize = 16.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Spacer(modifier = Modifier.height(11.dp))
 
-                Text(
-                    text = AppLocalizer.localizeDashboardPhrase("call now desc", currentLang),
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFF555555),
-                        fontSize = 11.5.sp,
-                        lineHeight = 14.sp
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            // Right "Call Now" Button
-            Button(
-                onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onCallClick()
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1B5E20),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(14.dp),
-                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-            ) {
+                // Tier 2: Bottom Feature Row: Get Advice | Check Prices | Weather Info
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Call,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(15.dp)
+                    // Feature 1: Get Advice
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        LeafAdviceIcon(modifier = Modifier.size(13.dp), tint = Color(0xFF16A34A))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Get Advice",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF4B5563),
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
+
+                    // Vertical Divider 1
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(13.dp)
+                            .background(Color(0xFFE5E7EB))
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = AppLocalizer.localizeDashboardPhrase("call now", currentLang),
-                        style = MaterialTheme.typography.labelLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            fontSize = 13.sp
-                        ),
-                        maxLines = 1
+
+                    // Feature 2: Check Prices
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        BarChartPricesIcon(modifier = Modifier.size(13.dp), tint = Color(0xFF16A34A))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Check Prices",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF4B5563),
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
+
+                    // Vertical Divider 2
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(13.dp)
+                            .background(Color(0xFFE5E7EB))
                     )
+
+                    // Feature 3: Weather Info
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        SunCloudWeatherIcon(modifier = Modifier.size(14.dp), tint = Color(0xFF16A34A))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Weather Info",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = Color(0xFF4B5563),
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -1876,7 +2226,7 @@ private fun ActionGroup(
 }
 
 @Composable
-private fun ModernActionCard(
+internal fun ModernActionCard(
     modifier: Modifier = Modifier,
     action: HomeAction,
     onClick: () -> Unit
