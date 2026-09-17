@@ -13,6 +13,8 @@ object AuthStore {
     private const val KEY_AUTH_TOKEN = "auth_token"
     private const val KEY_LANGUAGE = "selected_language"
     private const val KEY_DIALECT = "selected_dialect"
+    private const val KEY_USER_ROLE = "user_role"
+    private const val KEY_USER_PHONE = "user_phone"
 
     @Volatile
     var activeLanguage: String = "en"
@@ -23,6 +25,42 @@ object AuthStore {
 
     private val _activeLanguageState = mutableStateOf("en")
     val activeLanguageState: State<String> = _activeLanguageState
+
+    /**
+     * Save user phone number
+     */
+    fun saveUserPhone(context: Context, phone: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_USER_PHONE, phone)
+            .apply()
+    }
+
+    /**
+     * Get saved user phone number
+     */
+    fun getUserPhone(context: Context): String? {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_USER_PHONE, null)
+    }
+
+    /**
+     * Save selected user role ('farmer' or 'buyer')
+     */
+    fun saveUserRole(context: Context, role: String) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_USER_ROLE, role)
+            .apply()
+    }
+
+    /**
+     * Get saved user role (defaults to 'farmer')
+     */
+    fun getUserRole(context: Context): String {
+        return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_USER_ROLE, "farmer") ?: "farmer"
+    }
 
     /**
      * Save login state and token
@@ -84,6 +122,7 @@ object AuthStore {
         with(prefs.edit()) {
             putBoolean(KEY_IS_LOGGED_IN, false)
             remove(KEY_AUTH_TOKEN)
+            remove(KEY_USER_PHONE)
             apply()
         }
     }
