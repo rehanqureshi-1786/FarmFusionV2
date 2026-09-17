@@ -399,7 +399,10 @@ fun LanguageGridCard(
     val targetScale = if (isSelected) 1.15f else 1.0f
     val animatedScale by animateFloatAsState(
         targetValue = targetScale,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "IllustrationScale"
     )
 
@@ -411,17 +414,22 @@ fun LanguageGridCard(
     )
 
     val animatedBgColor by animateColorAsState(
-        targetValue = if (isSelected) language.baseColor.copy(alpha = 0.20f) else language.baseColor.copy(alpha = 0.05f),
+        targetValue = if (isSelected)
+            language.baseColor.copy(alpha = 0.20f)
+        else
+            language.baseColor.copy(alpha = 0.05f),
         animationSpec = tween(durationMillis = 300),
         label = "CardBackgroundColor"
     )
 
-    val borderColor = if (isSelected) language.baseColor.copy(alpha = 0.8f) else Color.Transparent
+    val borderColor =
+        if (isSelected) language.baseColor.copy(alpha = 0.8f)
+        else Color.Transparent
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(1.05f) // Slightly reduced height
+            .aspectRatio(1.05f)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -433,7 +441,7 @@ fun LanguageGridCard(
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
 
-            // Background Illustration (Restored to original size, touching bottom & right edges)
+            // Background Illustration
             Image(
                 painter = painterResource(id = language.illustration),
                 contentDescription = null,
@@ -443,6 +451,22 @@ fun LanguageGridCard(
                     .align(Alignment.BottomEnd)
                     .fillMaxWidth(0.65f)
                     .fillMaxHeight(0.75f)
+                    .offset(
+                        y = when (language.code) {
+                            "hi" -> 10.dp      // Hindi
+                            "mr" -> 10.dp      // Marathi
+                            "bn" -> 10.dp      // Bengali
+                            "ta" -> 10.dp      // Tamil
+                            "te" -> 10.dp      // Telugu
+                            "kn" -> 10.dp      // Kannada
+                            "ml" -> 10.dp      // Malayalam
+                            "or" -> 10.dp      // Odia
+                            "as" -> 10.dp      // Assamese
+                            "ur" -> 10.dp      // Urdu
+                            "mai" -> 10.dp     // Maithili
+                            else -> 0.dp
+                        }
+                    )
                     .graphicsLayer {
                         transformOrigin = TransformOrigin(1f, 1f)
                         scaleX = animatedScale
@@ -468,7 +492,9 @@ fun LanguageGridCard(
                             color = Color(0xFF1B1B1B)
                         )
                     )
+
                     Spacer(modifier = Modifier.height(2.dp))
+
                     Text(
                         text = language.englishName,
                         style = MaterialTheme.typography.labelMedium.copy(
@@ -480,9 +506,18 @@ fun LanguageGridCard(
 
                 // Color-Matched Radio Button Indicator
                 Icon(
-                    imageVector = if (isSelected) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked,
-                    contentDescription = if (isSelected) "Selected" else "Unselected",
-                    tint = if (isSelected) language.baseColor else Color(0xFF9E9E9E),
+                    imageVector = if (isSelected)
+                        Icons.Rounded.CheckCircle
+                    else
+                        Icons.Rounded.RadioButtonUnchecked,
+                    contentDescription = if (isSelected)
+                        "Selected"
+                    else
+                        "Unselected",
+                    tint = if (isSelected)
+                        language.baseColor
+                    else
+                        Color(0xFF9E9E9E),
                     modifier = Modifier.size(24.dp)
                 )
             }
