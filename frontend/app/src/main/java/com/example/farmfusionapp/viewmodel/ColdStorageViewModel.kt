@@ -1,11 +1,12 @@
 package com.example.farmfusionapp.viewmodel
 
+import android.app.Application
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.farmfusionapp.data.model.ColdStorageItem
-import com.example.farmfusionapp.network.RetrofitInstance
+import com.example.farmfusionapp.data.repository.ColdStorageRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -20,8 +21,7 @@ sealed class ColdStorageUiState {
     data class Error(val message: String) : ColdStorageUiState()
 }
 
-class ColdStorageViewModel : ViewModel() {
-    private val api = RetrofitInstance.api
+class ColdStorageViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = mutableStateOf<ColdStorageUiState>(ColdStorageUiState.Loading)
     val uiState: State<ColdStorageUiState> = _uiState
@@ -63,7 +63,8 @@ class ColdStorageViewModel : ViewModel() {
         currentJob = viewModelScope.launch {
             _uiState.value = ColdStorageUiState.Loading
             try {
-                val response = api.searchColdStorages(
+                val response = ColdStorageRepository.search(
+                    context = getApplication(),
                     query = queryToUse.ifBlank { null },
                     latitude = lat,
                     longitude = lng,
@@ -71,23 +72,16 @@ class ColdStorageViewModel : ViewModel() {
                     crop = cropToUse,
                     limit = 50
                 )
-                if (response.isSuccessful && response.body() != null) {
-                    val body = response.body()!!
-                    activeSearchedArea.value = body.searchedArea
-                    _uiState.value = ColdStorageUiState.Success(
-                        items = body.results,
-                        searchRadiusKm = body.searchRadiusKm,
-                        searchedArea = body.searchedArea,
-                        autoExpanded = body.autoExpanded
-                    )
-                } else {
-                    _uiState.value = ColdStorageUiState.Error(
-                        "Unable to load cold storage facilities (${response.code()})"
-                    )
-                }
+                activeSearchedArea.value = response.searchedArea
+                _uiState.value = ColdStorageUiState.Success(
+                    items = response.results,
+                    searchRadiusKm = response.searchRadiusKm,
+                    searchedArea = response.searchedArea,
+                    autoExpanded = response.autoExpanded
+                )
             } catch (e: Exception) {
                 _uiState.value = ColdStorageUiState.Error(
-                    e.message ?: "Unable to connect to cold storage service"
+                    e.message ?: "Unable to load cold storage facilities"
                 )
             }
         }
