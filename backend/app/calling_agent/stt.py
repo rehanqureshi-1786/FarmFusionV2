@@ -144,21 +144,21 @@ class TelephonySTT:
 
         # When bot is silent and listening to the caller:
         if not self.is_speaking:
-            self.ambient_noise = min(0.94 * self.ambient_noise + 0.06 * avg_energy, 300.0)
+            self.ambient_noise = min(0.92 * self.ambient_noise + 0.08 * avg_energy, 400.0)
 
-        # Dynamic speech threshold: sensitive to farmer voice (min 150, max 350)
-        speech_threshold = min(max(self.ambient_noise * 1.3, 150.0), 350.0)
+        # Dynamic speech threshold: min 280, max 500
+        speech_threshold = min(max(self.ambient_noise * 1.5, 280.0), 500.0)
         is_speech_chunk = avg_energy > speech_threshold
 
         if is_speech_chunk:
             self.consecutive_speech_chunks += 1
-            self.last_speech_time = now
-            if not self.is_speaking:
-                self.is_speaking = True
-                self.speech_start_time = now
-                logger.info("telephony_farmer_speech_started", energy=int(avg_energy), threshold=int(speech_threshold))
-
-            self.audio_buffer.extend(audio_data)
+            if self.consecutive_speech_chunks >= 3:
+                self.last_speech_time = now
+                if not self.is_speaking:
+                    self.is_speaking = True
+                    self.speech_start_time = now
+                    logger.info("telephony_farmer_speech_started", energy=int(avg_energy), threshold=int(speech_threshold))
+                self.audio_buffer.extend(audio_data)
         elif self.is_speaking:
             self.consecutive_speech_chunks = 0
             # Capture trailing pause up to end-of-utterance trigger
@@ -174,22 +174,26 @@ class TelephonySTT:
             if not self.is_outbound_speaking and self.is_speaking and self.last_speech_time > 0:
                 silence_duration = now - self.last_speech_time
 
-                # End of speech detected if silence >= 0.65s and buffer has >= 1600 bytes (200ms)
+                # End of speech detected if silence >= 0.65s and buffer has >= 2400 bytes (300ms)
                 if silence_duration >= 0.65:
-                    if len(self.audio_buffer) >= 1600:
-                        chunk_to_transcribe = bytes(self.audio_buffer)
-                        self.clear_buffer()
-                        logger.info("telephony_utterance_ready_for_transcription", bytes_len=len(chunk_to_transcribe))
-                        asyncio.create_task(self._transcribe_audio_buffer(chunk_to_transcribe))
+                    if len(self.audio_buffer) >= 2400:
+                        # Check average energy of buffer to reject static hiss
+                        total_e = sum(abs(MULAW_DECODE_TABLE[b]) for b in self.audio_buffer)
+                        avg_buf_e = total_e / max(len(self.audio_buffer), 1)
+                        if avg_buf_e >= 250.0:
+                            chunk_to_transcribe = bytes(self.audio_buffer)
+                            self.clear_buffer()
+                            logger.info("telephony_utterance_ready_for_transcription", bytes_len=len(chunk_to_transcribe), energy=int(avg_buf_e))
+                            asyncio.create_task(self._transcribe_audio_buffer(chunk_to_transcribe))
+                        else:
+                            self.clear_buffer()
                     else:
                         self.clear_buffer()
 
     async def _transcribe_audio_buffer(self, mulaw_bytes: bytes):
-        """Transcribes accumulated mu-law audio via Groq Whisper or Sarvam STT."""
+        """Transcribes accumulated mu-law audio via Sarvam Saaras V3 or Groq Whisper."""
         try:
             # Convert 8kHz mu-law to standard 16kHz seekable RIFF WAV in RAM disk
-            # Using a seekable output file ensures ffmpeg writes standard RIFF ChunkSize & Subchunk2Size,
-            # avoiding the 0xFFFFFFFF unseekable pipe header that caused Sarvam 400 errors and Whisper hallucinations.
             import uuid
             ram_dir = "/dev/shm" if os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK) else None
             temp_wav = f"{ram_dir}/stt_{uuid.uuid4().hex[:8]}.wav" if ram_dir else None
@@ -248,31 +252,11 @@ class TelephonySTT:
                 return
 
             transcript = ""
-            groq_k = self.groq_key or settings.groq_api_key or os.getenv("GROQ_API_KEY")
             sarvam_k = self.sarvam_key or settings.sarvam_api_key or os.getenv("SARVAM_API_KEY")
+            groq_k = self.groq_key or settings.groq_api_key or os.getenv("GROQ_API_KEY")
 
-            # 1. Groq Whisper Large V3 with explicit Hindi language parameter (~250ms)
-            if groq_k:
-                try:
-                    url = "https://api.groq.com/openai/v1/audio/transcriptions"
-                    headers = {"Authorization": f"Bearer {groq_k}"}
-                    files = {"file": ("speech.wav", wav_bytes, "audio/wav")}
-                    lang_code = self.language[:2] if self.language else "hi"
-                    data = {
-                        "model": "whisper-large-v3",
-                        "language": lang_code,
-                        "prompt": "किसान खेती मौसम मंडी भाव फसल बारिश गेहूं सरसों कीट रोग खाद"
-                    }
-                    res = await self.http_client.post(url, headers=headers, files=files, data=data)
-                    if res.status_code == 200:
-                        transcript = res.json().get("text", "").strip()
-                    else:
-                        logger.warning("groq_whisper_non_200", status=res.status_code, text=res.text[:100])
-                except Exception as ex:
-                    logger.warning("groq_whisper_failed", error=str(ex))
-
-            # 2. Sarvam Saaras V3 fallback (specialized Indian ASR)
-            if not transcript and sarvam_k:
+            # 1. Primary: Sarvam Saaras V3 (Accurate Indian regional ASR, zero hallucinations on silence)
+            if sarvam_k:
                 try:
                     url = "https://api.sarvam.ai/speech-to-text"
                     headers = {"api-subscription-key": sarvam_k}
@@ -285,11 +269,42 @@ class TelephonySTT:
                 except Exception as ex:
                     logger.warning("sarvam_stt_failed", error=str(ex))
 
+            # 2. Fallback: Groq Whisper Large V3 with temperature 0.0 and hallucination filter
+            if not transcript and groq_k:
+                try:
+                    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+                    headers = {"Authorization": f"Bearer {groq_k}"}
+                    files = {"file": ("speech.wav", wav_bytes, "audio/wav")}
+                    lang_code = self.language[:2] if self.language else "hi"
+                    data = {
+                        "model": "whisper-large-v3",
+                        "language": lang_code,
+                        "temperature": 0.0,
+                        "prompt": "किसान खेती मौसम मंडी भाव फसल बारिश गेहूं सरसों कीट रोग खाद"
+                    }
+                    res = await self.http_client.post(url, headers=headers, files=files, data=data)
+                    if res.status_code == 200:
+                        raw_t = res.json().get("text", "").strip()
+                        cleaned_t = raw_t.rstrip(".").strip().lower()
+                        hallucinations = {"झाल", "thank you", "thanks for watching", "subtitles by", "amara", "you", "bye", "bye bye", "hello", "goodbye"}
+                        if cleaned_t not in hallucinations and len(cleaned_t) >= 3:
+                            transcript = raw_t
+                    else:
+                        logger.warning("groq_whisper_non_200", status=res.status_code, text=res.text[:100])
+                except Exception as ex:
+                    logger.warning("groq_whisper_failed", error=str(ex))
+
+            # Discard any noise residue
             if transcript:
+                clean_check = transcript.rstrip(".").strip().lower()
+                if clean_check in {"झाल", "thank you", "you", "bye"} or len(clean_check) < 2:
+                    logger.info("telephony_discarded_noise_transcript", transcript=transcript)
+                    return
+
                 logger.info("telephony_caller_utterance_transcribed", transcript=transcript)
                 await self.on_transcript_callback(transcript)
             else:
-                logger.warning("telephony_no_transcript_produced", groq=bool(groq_k), sarvam=bool(sarvam_k))
+                logger.info("telephony_silence_or_noise_ignored")
 
         except Exception as e:
             logger.error("telephony_stt_transcription_error", error=str(e))

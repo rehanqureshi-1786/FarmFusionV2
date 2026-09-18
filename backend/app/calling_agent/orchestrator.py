@@ -76,6 +76,7 @@ class KisanVoiceOrchestrator:
         self.stt = TelephonySTT(self.on_transcript, self.on_speech_started, language=language)
 
         self.is_interrupted = False
+        self.clarification_turns = 0
         self.messages: List[Dict[str, str]] = []
         self.transcript_history: List[Dict[str, str]] = []
         self.http_client = httpx.AsyncClient(timeout=10.0)
@@ -154,14 +155,15 @@ class KisanVoiceOrchestrator:
         Fired when farmer's speech is transcribed via STT.
         Executes the FarmFusion Multilingual Orchestrator to route tools, verify facts, and synthesize grounded responses.
         """
-        if not transcript or not transcript.strip():
+        clean_transcript = transcript.rstrip(".").strip()
+        if not clean_transcript or len(clean_transcript) < 2 or clean_transcript.lower() in {"झाल", "thank you", "thanks", "bye", "you"}:
             return
 
         self.is_interrupted = False
-        logger.info("farmer_speech_transcribed", farmer=self.farmer_name, text=transcript)
+        logger.info("farmer_speech_transcribed", farmer=self.farmer_name, text=clean_transcript)
 
-        self.messages.append({"role": "user", "content": transcript})
-        self.transcript_history.append({"speaker": f"Farmer ({self.farmer_name})", "text": transcript})
+        self.messages.append({"role": "user", "content": clean_transcript})
+        self.transcript_history.append({"speaker": f"Farmer ({self.farmer_name})", "text": clean_transcript})
 
         full_response_text = ""
 
@@ -241,6 +243,18 @@ class KisanVoiceOrchestrator:
             return
 
         clean_final = self._clean_for_telephony(full_response_text)
+        if "स्पष्ट" in clean_final or "दोबारा" in clean_final:
+            self.clarification_turns += 1
+            if self.clarification_turns >= 2:
+                clean_final = (
+                    f"जी {self.farmer_name} जी, आप मुझसे मौसम का हाल या अपनी {self.crop_name or 'फसल'} के मंडी भाव के बारे में पूछ सकते हैं। बताइए क्या जानना चाहते हैं?"
+                    if self.language == "hi"
+                    else f"You can ask about the weather forecast or market prices for {self.crop_name or 'your crops'}."
+                )
+                self.clarification_turns = 0
+        else:
+            self.clarification_turns = 0
+
         self.messages.append({"role": "assistant", "content": clean_final})
         self.transcript_history.append({"speaker": "Kisan Mitra", "text": clean_final})
 
