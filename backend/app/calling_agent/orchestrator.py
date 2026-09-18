@@ -184,14 +184,22 @@ class KisanVoiceOrchestrator:
 
             session_id = self.call_id or f"vobiz_call_{self.farmer_name}"
 
-            # Execute full LangGraph Orchestrator pipeline
-            result_state = await run_orchestrator_pipeline(
-                user_input=transcript,
-                detected_language=self.language,
-                session_id=session_id,
-                farmer_context=farmer_ctx,
-                active_crop=self.crop_name,
-            )
+            # Execute LangGraph Orchestrator pipeline with 5.0s telephony timeout
+            # If the graph takes >5s, seamlessly falls back to 0.6s Groq LLM stream so the caller never hears dead silence.
+            try:
+                result_state = await asyncio.wait_for(
+                    run_orchestrator_pipeline(
+                        user_input=transcript,
+                        detected_language=self.language,
+                        session_id=session_id,
+                        farmer_context=farmer_ctx,
+                        active_crop=self.crop_name,
+                    ),
+                    timeout=5.0
+                )
+            except asyncio.TimeoutError:
+                logger.warning("orchestrator_pipeline_timed_out_switching_to_fast_stream", farmer=self.farmer_name)
+                result_state = {}
 
             # Update tracked active crop/market if orchestrator resolved them
             if result_state.get("active_crop"):
@@ -209,7 +217,7 @@ class KisanVoiceOrchestrator:
             if clean_resp:
                 full_response_text = clean_resp
             else:
-                # Fallback to direct stream generator if pipeline returned empty text
+                # Fallback to direct stream generator if pipeline returned empty text or timed out
                 async for chunk in self._generate_stream(transcript):
                     full_response_text += chunk
 
