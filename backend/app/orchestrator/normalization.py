@@ -19,6 +19,7 @@ CROP_SYNONYMS = {
     "wheat": "Wheat", "gehu": "Wheat", "gehun": "Wheat", "गेहूं": "Wheat", "गेहु": "Wheat",
     "kanak": "Wheat", "ਕਣਕ": "Wheat", "ghav": "Wheat", "ghau": "Wheat", "ઘઉં": "Wheat",
     "godhuma": "Wheat", "godhumai": "Wheat", "gothambu": "Wheat", "gandum": "Wheat", "گندم": "Wheat",
+    "anaaj": "Wheat", "anaj": "Wheat", "अनाज": "Wheat", "grain": "Wheat", "grains": "Wheat", "खाद्यान्न": "Wheat",
 
     # Paddy / Rice
     "rice": "Paddy", "paddy": "Paddy", "dhan": "Paddy", "धान": "Paddy", "chawal": "Paddy",

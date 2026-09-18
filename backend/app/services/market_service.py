@@ -26,7 +26,7 @@ def match_commodity_name(query_crop: Optional[str], record_crop: Optional[str]) 
     aliases = {
         "gram": ["bengal gram", "chana", "gram", "chickpea", "kabuli chana", "ચણા", "चना", "ছোলা", "ಕಡಲೆ", "శనగలు"],
         "chana": ["bengal gram", "chana", "gram", "chickpea", "kabuli chana", "ચણા", "चना", "ছোলা", "ಕಡಲೆ", "శనగలు"],
-        "wheat": ["wheat", "gehu", "kanak", "ghau", "ઘઉં", "गेहूं", "गेंहू", "கோதுமை", "గోధుమలు", "ಗೋಧಿ", "ഗോതമ്പ്"],
+        "wheat": ["wheat", "gehu", "kanak", "ghau", "ઘઉં", "गेहूं", "गेंहू", "கோதுமை", "గోధుమలు", "ಗೋಧಿ", "ഗോതമ്പ്", "grain", "grains", "anaaj", "anaj", "अनाज", "खाद्यान्न"],
         "mustard": ["mustard", "sarson", "sarso", "rai", "taramira", "સરસવ", "राई"],
         "soybean": ["soyabean", "soybean", "સોયાબીન", "सोयाबीन"],
         "cotton": ["cotton", "kapas", "paruthi", "કપાસ", "कापूस", "रूई"],

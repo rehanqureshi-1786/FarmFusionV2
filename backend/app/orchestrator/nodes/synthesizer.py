@@ -609,11 +609,21 @@ def deterministic_fallback_synthesizer(
         forecast_data = next((v for k, v in tool_results.items() if "forecast" in k), {})
         decision_data = next((v for k, v in tool_results.items() if "decision" in k or "sell" in k), tool_data.get("deterministic_action") or tool_data.get("advisory") or {})
 
+        # Resolve clean commodity name without false hardcoded fallback
+        resolved_crop = (
+            state.get("active_crop")
+            or (state.get("slots") or {}).get("commodity")
+            or (getattr(state.get("semantic_frame"), "entities", None) and getattr(state.get("semantic_frame").entities, "crop", None))
+            or (state.get("semantic_frame") if isinstance(state.get("semantic_frame"), dict) else {}).get("entities", {}).get("crop")
+        )
+        if resolved_crop and str(resolved_crop).lower() in ["grain", "grains", "crops", "crop", "anaaj", "anaj", "अनाज", "खाद्यान्न"]:
+            resolved_crop = "गेहूं (अनाज)" if lang == "hi" else "Wheat"
+
         comm = (
             (price_data.get("hindi_name") or tool_data.get("hindi_name"))
             if lang in ["hi", "rwr"] and not is_hinglish
             else None
-        ) or price_data.get("commodity") or tool_data.get("commodity", "सोयाबीन")
+        ) or price_data.get("commodity") or tool_data.get("commodity") or resolved_crop or ("फसल" if lang == "hi" else "crop")
         mandi = price_data.get("market") or tool_data.get("market")
         price = (
             price_data.get("modal_price")
@@ -623,6 +633,24 @@ def deterministic_fallback_synthesizer(
             or next((f.get("value") for f in state.get("verified_facts", []) if isinstance(f, dict) and f.get("key") == "mandi_current_price"), None)
             or "--"
         )
+
+        if price == "--" or not price:
+            if is_hinglish:
+                text = f"Maaf kijiye, {comm} ka aaj ka mandi bhav uplabdh nahi ho saka. Kripya kisi vishisht fasal (jaise Gehu, Sarson, Chana) ya mandi ka naam batayein."
+            elif is_marwari:
+                text = f"माफ करजो, {comm} रो आज रो ताजा मंडी भाव नी मिल सक्यो। किरपा कर'र फसल (जैसूं गेहूं, सरसों, चना) या मंडी रो नाम बताओ।"
+            elif lang == "hi":
+                text = f"माफ कीजिए, {comm} का आज का ताजा मंडी भाव उपलब्ध नहीं हो सका। कृपया किसी विशिष्ट फसल (जैसे गेहूं, सरसों, चना) या मंडी का नाम बताएं।"
+            elif lang == "gu":
+                text = f"માફ કરશો, {comm}નો આજનો ભાવ ઉપલબ્ધ નથી. કૃપા કરીને ચોક્કસ પાકનું નામ જણાવો."
+            elif lang == "mr":
+                text = f"माफ करा, {comm} चा आजचा बाजार भाव उपलब्ध नाही. कृपया विशिष्ट पिकाचे नाव सांगा."
+            elif lang == "pa":
+                text = f"ਮਾਫ਼ ਕਰਨਾ, {comm} ਦਾ ਅੱਜ ਦਾ ਮੰਡੀ ਭਾਅ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਫ਼ਸਲ ਦਾ ਨਾਂ ਦੱਸੋ।"
+            else:
+                text = f"Sorry, current market price for {comm} is not available. Please specify a crop (such as Wheat, Mustard, Gram) or market name."
+            return text, StructuredActionPayload(action="ANSWER")
+
         if isinstance(price, (int, float)):
             price_fmt = f"{int(price)}" if price == int(price) else f"{price:.2f}"
         else:
@@ -650,15 +678,24 @@ def deterministic_fallback_synthesizer(
             adv_snippet_hi = f" 7-दिवसीय रुझान: {exp_change}% संभावित बदलाव।"
             adv_snippet_en = f" 7-day trend indicates {exp_change}% expected movement."
 
+        crop_hindi_map = {
+            "Wheat": "गेहूं", "Paddy": "धान", "Rice": "चावल", "Mustard": "सरसों",
+            "Soybean": "सोयाबीन", "Cotton": "कपास", "Maize": "मक्का", "Gram": "चना",
+            "Bajra": "बाजरा", "Onion": "प्याज", "Potato": "आलू", "Tomato": "टमाटर",
+            "Garlic": "लहसुन", "Sugarcane": "गन्ना", "Groundnut": "मूंगफली"
+        }
+        comm_hi = crop_hindi_map.get(comm, comm)
+        comm_hinglish = f"{crop_hindi_map.get(comm, comm)} ({comm})" if comm in crop_hindi_map else comm
+
         mandi_suffix_hi = f" ({mandi} मंडी)" if mandi else ""
         mandi_suffix_en = f" at {mandi} market" if mandi else ""
 
         if is_hinglish:
-            text = f"Aaj {comm} ka mandi bhav ₹{price_fmt} per quintal hai{mandi_suffix_en}.{adv_snippet_en}"
+            text = f"Aaj {comm_hinglish} ka mandi bhav ₹{price_fmt} per quintal hai{mandi_suffix_en}.{adv_snippet_en}"
         elif is_marwari:
-            text = f"आज {comm} रो मंडी भाव ₹{price_fmt} प्रति क्विंटल चाल रैयो है{mandi_suffix_hi}।{adv_snippet_mrw}"
+            text = f"आज {comm_hi} रो मंडी भाव ₹{price_fmt} प्रति क्विंटल चाल रैयो है{mandi_suffix_hi}।{adv_snippet_mrw}"
         elif lang == "hi":
-            text = f"आज {comm} का ताजा मंडी भाव ₹{price_fmt} प्रति क्विंटल है{mandi_suffix_hi}।{adv_snippet_hi}"
+            text = f"आज {comm_hi} का ताजा मंडी भाव ₹{price_fmt} प्रति क्विंटल है{mandi_suffix_hi}।{adv_snippet_hi}"
         elif lang == "gu":
             text = f"આજે {comm}નો સરેરાશ ભાવ ₹{price_fmt} પ્રતિ ક્વિન્ટલ છે.{adv_snippet_en}"
         elif lang == "mr":

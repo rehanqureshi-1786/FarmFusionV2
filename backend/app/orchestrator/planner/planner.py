@@ -143,6 +143,8 @@ def generate_task_plan(
     from app.services.mandi_intelligence import MANDI_COORDINATES
 
     crop = entities.crop or s_state.get("active_crop")
+    if crop and str(crop).lower().strip() in ["grain", "grains", "anaaj", "anaj", "अनाज", "खाद्यान्न", "foodgrain", "foodgrains"]:
+        crop = "Wheat"
     market = entities.market or s_state.get("last_market")
     markets = entities.markets or ([market] if market else [])
 

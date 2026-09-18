@@ -445,7 +445,7 @@ async def intent_classification_node(state: OrchestratorState) -> OrchestratorSt
         if any(w in query for w in ["इसका", "इस फसल", "it", "this crop", "उसका भाव", "దీని ధర", "இதன் விலை"]) and last_recs:
             filled_slots["commodity"] = last_recs[0].get("crop_name", "Wheat")
         else:
-            for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "गन्ना", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "sugarcane", "onion", "potato", "garlic", "tomato", "gehu", "dhan", "chawal", "sarso", "kapas", "chana", "soyabean", "makka", "mungfali", "bajra", "lahsun", "pyaz", "tamatar", "ghau", "kanak", "vari", "paruthi", "ઘઉં", "ਕਣਕ", "వరి", "பருத்தி", "گندم"]:
+            for c_word in ["गेहूं", "धान", "चावल", "सरसों", "कपास", "चना", "सोयाबीन", "मक्का", "मूंगफली", "बाजरा", "लहसुन", "प्याज", "टमाटर", "गन्ना", "अनाज", "anaaj", "anaj", "खाद्यान्न", "wheat", "mustard", "cotton", "rice", "soybean", "gram", "maize", "groundnut", "bajra", "chana", "sugarcane", "onion", "potato", "garlic", "tomato", "gehu", "dhan", "chawal", "sarso", "kapas", "chana", "soyabean", "makka", "mungfali", "bajra", "lahsun", "pyaz", "tamatar", "ghau", "kanak", "vari", "paruthi", "ઘઉં", "ਕਣਕ", "వరి", "பருத்தி", "گندم"]:
                 if c_word in query:
                     filled_slots["commodity"] = normalize_crop_name(c_word) or "Wheat"
                     break
