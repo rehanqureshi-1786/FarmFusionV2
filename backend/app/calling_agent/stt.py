@@ -49,6 +49,7 @@ class TelephonySTT:
 
         # VAD & Audio Buffer for Groq Whisper / Sarvam
         self.audio_buffer = bytearray()
+        self.pre_speech_buffer = bytearray()  # Holds last 2 chunks before speech onset to prevent clipping
         self.is_speaking = False
         self.is_outbound_speaking = False
         self.last_speech_time = 0.0
@@ -56,6 +57,7 @@ class TelephonySTT:
         self.ambient_noise = 120.0
         self.consecutive_speech_chunks = 0
         self.vad_task = None
+        self._energy_log_time = 0.0  # Periodic energy telemetry
         self.http_client = httpx.AsyncClient(timeout=10.0)
 
         # Keys
@@ -73,6 +75,7 @@ class TelephonySTT:
     def clear_buffer(self):
         """Clears audio buffer and resets speech tracking state."""
         self.audio_buffer.clear()
+        self.pre_speech_buffer.clear()
         self.is_speaking = False
         self.barge_in_fired = False
         self.consecutive_speech_chunks = 0
@@ -127,6 +130,19 @@ class TelephonySTT:
 
         now = time.time()
 
+        # Periodic energy telemetry (every 5s) so we can see real Vobiz audio levels in logs
+        if now - self._energy_log_time >= 5.0:
+            self._energy_log_time = now
+            logger.info(
+                "telephony_vad_telemetry",
+                avg_energy=int(avg_energy),
+                ambient=int(self.ambient_noise),
+                threshold=int(min(max(self.ambient_noise * 1.3, 160.0), 380.0)),
+                is_speaking=self.is_speaking,
+                is_outbound=self.is_outbound_speaking,
+                buf_len=len(self.audio_buffer)
+            )
+
         # If bot is currently speaking outbound audio:
         # Ignore normal phone line / speakerphone bleed to prevent self-interruption.
         # Trigger barge-in if the caller speaks over the bot (>900 energy for ~160ms).
@@ -146,8 +162,8 @@ class TelephonySTT:
         if not self.is_speaking:
             self.ambient_noise = min(0.94 * self.ambient_noise + 0.06 * avg_energy, 300.0)
 
-        # Dynamic speech threshold: sensitive to natural phone voice (min 160, max 380)
-        speech_threshold = min(max(self.ambient_noise * 1.3, 160.0), 380.0)
+        # Dynamic speech threshold: sensitive to natural phone voice (min 120, max 380)
+        speech_threshold = min(max(self.ambient_noise * 1.3, 120.0), 380.0)
         is_speech_chunk = avg_energy > speech_threshold
 
         if is_speech_chunk:
@@ -156,7 +172,11 @@ class TelephonySTT:
             if not self.is_speaking and self.consecutive_speech_chunks >= 2:
                 self.is_speaking = True
                 self.speech_start_time = now
-                logger.info("telephony_farmer_speech_started", energy=int(avg_energy), threshold=int(speech_threshold))
+                # Prepend pre-speech buffer so we don't clip the first syllable
+                if self.pre_speech_buffer:
+                    self.audio_buffer.extend(self.pre_speech_buffer)
+                    self.pre_speech_buffer.clear()
+                logger.info("telephony_farmer_speech_started", energy=int(avg_energy), threshold=int(speech_threshold), ambient=int(self.ambient_noise))
             self.audio_buffer.extend(audio_data)
         elif self.is_speaking:
             self.consecutive_speech_chunks = 0
@@ -164,6 +184,10 @@ class TelephonySTT:
             self.audio_buffer.extend(audio_data)
         else:
             self.consecutive_speech_chunks = 0
+            # Keep a rolling pre-speech buffer of last 640 bytes (80ms) to prevent clipping onset
+            self.pre_speech_buffer.extend(audio_data)
+            if len(self.pre_speech_buffer) > 640:
+                self.pre_speech_buffer = self.pre_speech_buffer[-640:]
 
     async def _vad_silence_monitor(self):
         """Monitors for end-of-utterance pauses (650ms silence) to trigger transcription."""
@@ -175,12 +199,14 @@ class TelephonySTT:
 
                 # End of speech detected if silence >= 0.65s and buffer has >= 1600 bytes (200ms)
                 if silence_duration >= 0.65:
-                    if len(self.audio_buffer) >= 1600:
+                    buf_len = len(self.audio_buffer)
+                    if buf_len >= 1600:
                         chunk_to_transcribe = bytes(self.audio_buffer)
                         self.clear_buffer()
-                        logger.info("telephony_utterance_ready_for_transcription", bytes_len=len(chunk_to_transcribe))
+                        logger.info("telephony_utterance_ready_for_transcription", bytes_len=len(chunk_to_transcribe), duration_ms=int(len(chunk_to_transcribe) / 8))
                         asyncio.create_task(self._transcribe_audio_buffer(chunk_to_transcribe))
                     else:
+                        logger.info("telephony_utterance_too_short_discarded", bytes_len=buf_len)
                         self.clear_buffer()
 
     async def _transcribe_audio_buffer(self, mulaw_bytes: bytes):
@@ -298,10 +324,10 @@ class TelephonySTT:
                     logger.info("telephony_discarded_noise_transcript", transcript=transcript)
                     return
 
-                logger.info("telephony_caller_utterance_transcribed", transcript=transcript)
+                logger.info("telephony_caller_utterance_transcribed", transcript=transcript, sarvam=sarvam_success, length=len(transcript))
                 await self.on_transcript_callback(transcript)
             else:
-                logger.info("telephony_silence_or_noise_ignored")
+                logger.info("telephony_silence_or_noise_ignored", sarvam_tried=bool(sarvam_k), sarvam_success=sarvam_success, groq_tried=bool(not sarvam_success and groq_k))
 
         except Exception as e:
             logger.error("telephony_stt_transcription_error", error=str(e))
