@@ -68,6 +68,7 @@ object NavRoutes {
     const val VoiceAssistant = "voice_assistant"
     const val Alerts = "alerts"
     const val Profile = "profile"
+    const val BuyerProfile = "buyer_profile"
     const val Settings = "settings"
 }
 
@@ -81,17 +82,15 @@ fun AppNav() {
 
     val mainRoutes = listOf(
         NavRoutes.Dashboard,
-        NavRoutes.BuyerDashboard,
         NavRoutes.MandiPrices,
-        NavRoutes.BuyerPriceTrends,
         NavRoutes.Weather,
         NavRoutes.Profile
     )
 
     val showBottomBar = currentRoute in mainRoutes
 
-    // Mic only appears on Dashboard (Farmer or Buyer Home Screen)
-    val showMicButton = currentRoute == NavRoutes.Dashboard || currentRoute == NavRoutes.BuyerDashboard
+    // Mic only appears on Farmer Dashboard
+    val showMicButton = currentRoute == NavRoutes.Dashboard
 
     val savedLanguage = AuthStore.getLanguage(context)
     val startDestination = if (savedLanguage == null) {
@@ -206,6 +205,7 @@ fun AppNav() {
                     composable(NavRoutes.VoiceAssistant) { VoiceAssistantScreen(navController) }
                     composable(NavRoutes.Alerts) { AlertsScreen(navController) }
                     composable(NavRoutes.Profile) { ProfileScreen(navController) }
+                    composable(NavRoutes.BuyerProfile) { BuyerProfileScreen(navController) }
                 }
             }
 
