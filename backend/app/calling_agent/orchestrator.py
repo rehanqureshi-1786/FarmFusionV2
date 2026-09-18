@@ -4,6 +4,7 @@ Coordinates real-time telephone WebSocket audio, STT, LLM streaming via httpx, a
 """
 
 import os
+import time
 import json
 import base64
 import asyncio
@@ -64,8 +65,10 @@ class KisanVoiceOrchestrator:
         self.longitude = longitude
         self.phone = phone
         self.manager = manager
-        self.stream_id: Optional[str] = None
+        self.stream_id: Optional[str] = str(call_id) if call_id else None
         self.stream_ready_event = asyncio.Event()
+        if self.stream_id:
+            self.stream_ready_event.set()
         self.greeting_started = False
         self.is_speaking_outbound = False
 
