@@ -5,18 +5,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
-import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Storefront
-import androidx.compose.material.icons.rounded.TipsAndUpdates
-import androidx.compose.material.icons.rounded.WaterDrop
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -125,29 +129,6 @@ fun BuyerDashboardScreen(navController: NavController) {
         )
     }
 
-    val suggestions = remember(currentLang) {
-        listOf(
-            SuggestionPill(
-                title = AppLocalizer.localizeDashboardPhrase("rain watch", currentLang),
-                note = AppLocalizer.localizeDashboardPhrase("rain watch desc", currentLang),
-                icon = Icons.Rounded.NotificationsActive,
-                tint = Color(0xFFFF8E3B)
-            ),
-            SuggestionPill(
-                title = AppLocalizer.localizeDashboardPhrase("water check", currentLang),
-                note = AppLocalizer.localizeDashboardPhrase("water check desc", currentLang),
-                icon = Icons.Rounded.WaterDrop,
-                tint = Color(0xFF2B7FFF)
-            ),
-            SuggestionPill(
-                title = AppLocalizer.localizeDashboardPhrase("ai tip", currentLang),
-                note = AppLocalizer.localizeDashboardPhrase("ai tip desc", currentLang),
-                icon = Icons.Rounded.TipsAndUpdates,
-                tint = Color(0xFF1F9D63)
-            )
-        )
-    }
-
     fun refreshWeather(force: Boolean = false) {
         scope.launch {
             refreshWeatherSnapshotIfNeeded(context, force = force) { data, _ ->
@@ -206,104 +187,99 @@ fun BuyerDashboardScreen(navController: NavController) {
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
 
+                val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+                val statusBarTop = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+                // ill_header_bg is 1254x1254 (1:1), with the visual illustration artwork concluding at y ≈ 1160px
+                val illustrationEnd = screenWidth * (1160f / 1254f)
+                var headerHeightPx by remember { mutableIntStateOf(0) }
+                val headerHeightDp = if (density > 0f && headerHeightPx > 0) (headerHeightPx / density).dp else 115.dp
+                val totalHeaderBottom = statusBarTop + 14.dp + headerHeightDp
+                val spacerHeight = if (illustrationEnd > totalHeaderBottom) illustrationEnd - totalHeaderBottom else 16.dp
+
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = 0.dp,
                         end = 0.dp,
-                        top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 14.dp,
-                        bottom = 160.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(22.dp)
+                        top = statusBarTop + 14.dp,
+                        bottom = 36.dp
+                    )
                 ) {
                     item {
-                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            HomeHeroHeader(location = locationName)
-                        }
-                    }
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp)
+                                    .onGloballyPositioned { coords ->
+                                        headerHeightPx = coords.size.height
+                                    }
+                            ) {
+                                HomeHeroHeader(location = locationName)
 
-                    item {
-                        HeroPagerSection(
-                            weatherData = weatherData,
-                            suggestions = suggestions,
-                            onWeatherClick = {
-                                navController.navigate(NavRoutes.Weather) {
-                                    popUpTo(NavRoutes.BuyerDashboard) {
-                                        saveState = true
+                                // Round User Profile Icon
+                                Surface(
+                                    onClick = {
+                                        navController.navigate(NavRoutes.BuyerProfile)
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(44.dp),
+                                    shape = CircleShape,
+                                    color = Color.White.copy(alpha = 0.95f),
+                                    border = BorderStroke(1.5.dp, Color(0xFFC8E6C9)),
+                                    shadowElevation = 3.dp
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Person,
+                                            contentDescription = "Profile",
+                                            tint = Color(0xFF1B5E20),
+                                            modifier = Modifier.size(24.dp)
+                                        )
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            onCallClick = {
-                                dialKisanHelpline(context)
-                            },
-                            onVoiceClick = {
-                                navController.navigate(NavRoutes.VoiceAssistant) {
-                                    popUpTo(NavRoutes.BuyerDashboard) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
                                 }
                             }
-                        )
-                    }
 
-                    item {
-                        Box(modifier = Modifier.padding(horizontal = 20.dp)) {
-                            FarmingAssistantCallCard(
-                                onCallClick = { dialKisanHelpline(context) },
-                                onVoiceClick = {
-                                    navController.navigate(NavRoutes.VoiceAssistant) {
-                                        popUpTo(NavRoutes.BuyerDashboard) {
-                                            saveState = true
-                                        }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                },
-                                title = "AI Buying Assistant",
-                                description = "Speak directly to your AI assistant for mandi prices, crop arrivals, quality guidance, and more."
-                            )
-                        }
-                    }
+                            Spacer(modifier = Modifier.height(spacerHeight))
 
-                    // Two Feature Cards: Price Trends & Available Listings
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 20.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            Text(
-                                text = "Market & Sourcing",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color(0xFF1B5E20)
-                                )
-                            )
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            // Two Feature Cards: Price Trends & Available Listings
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
-                                buyerActions.forEach { action ->
-                                    ModernActionCard(
-                                        modifier = Modifier.weight(1f),
-                                        action = action,
-                                        onClick = {
-                                            navController.navigate(action.route) {
-                                                popUpTo(NavRoutes.BuyerDashboard) {
-                                                    saveState = true
-                                                }
-                                                launchSingleTop = true
-                                                restoreState = true
-                                            }
-                                        }
+                                Text(
+                                    text = "Market & Sourcing",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF1B5E20)
                                     )
+                                )
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    buyerActions.forEach { action ->
+                                        ModernActionCard(
+                                            modifier = Modifier.weight(1f),
+                                            action = action,
+                                            onClick = {
+                                                navController.navigate(action.route) {
+                                                    popUpTo(NavRoutes.BuyerDashboard) {
+                                                        saveState = true
+                                                    }
+                                                    launchSingleTop = true
+                                                    restoreState = true
+                                                }
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
