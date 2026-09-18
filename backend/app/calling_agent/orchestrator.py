@@ -156,7 +156,12 @@ class KisanVoiceOrchestrator:
         Executes the FarmFusion Multilingual Orchestrator to route tools, verify facts, and synthesize grounded responses.
         """
         clean_transcript = transcript.rstrip(".").strip()
-        if not clean_transcript or len(clean_transcript) < 2 or clean_transcript.lower() in {"झाल", "thank you", "thanks", "bye", "you"}:
+        NOISE_PHRASES = {
+            "झाल", "thank you", "thanks", "bye", "you", "hello", "hi", "ok", "okay",
+            "हम्म", "हम", "हां", "हाँ", "जी", "अच्छा", "अरे", "ओहो", "क", "क्या", "uh", "um", "ah", "hmm"
+        }
+        if not clean_transcript or len(clean_transcript) < 3 or clean_transcript.lower() in NOISE_PHRASES:
+            logger.info("telephony_ignoring_short_or_filler_speech", transcript=clean_transcript)
             return
 
         self.is_interrupted = False
@@ -243,15 +248,21 @@ class KisanVoiceOrchestrator:
             return
 
         clean_final = self._clean_for_telephony(full_response_text)
-        if "स्पष्ट" in clean_final or "दोबारा" in clean_final:
+        is_clarification = "स्पष्ट" in clean_final or "दोबारा" in clean_final or "बताइए क्या जानना चाहते हैं" in clean_final
+        if is_clarification:
             self.clarification_turns += 1
-            if self.clarification_turns >= 2:
+            if self.clarification_turns == 1:
+                pass
+            elif self.clarification_turns == 2:
                 clean_final = (
                     f"जी {self.farmer_name} जी, आप मुझसे मौसम का हाल या अपनी {self.crop_name or 'फसल'} के मंडी भाव के बारे में पूछ सकते हैं। बताइए क्या जानना चाहते हैं?"
                     if self.language == "hi"
                     else f"You can ask about the weather forecast or market prices for {self.crop_name or 'your crops'}."
                 )
-                self.clarification_turns = 0
+            else:
+                # Prevent looping: if caller doesn't respond or keeps producing unclear audio, stay silent and wait
+                logger.info("telephony_clarification_loop_silenced", farmer=self.farmer_name, turns=self.clarification_turns)
+                return
         else:
             self.clarification_turns = 0
 

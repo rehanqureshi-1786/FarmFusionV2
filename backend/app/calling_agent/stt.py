@@ -245,6 +245,7 @@ class TelephonySTT:
                 return
 
             transcript = ""
+            sarvam_success = False
             sarvam_k = self.sarvam_key or settings.sarvam_api_key or os.getenv("SARVAM_API_KEY")
             groq_k = self.groq_key or settings.groq_api_key or os.getenv("GROQ_API_KEY")
 
@@ -258,14 +259,15 @@ class TelephonySTT:
                     data = {"language_code": sarvam_lang, "model": "saaras:v3"}
                     res = await self.http_client.post(url, headers=headers, files=files, data=data)
                     if res.status_code == 200:
+                        sarvam_success = True
                         transcript = res.json().get("transcript", "").strip()
                     else:
                         logger.warning("sarvam_stt_non_200", status=res.status_code, text=res.text[:100])
                 except Exception as ex:
                     logger.warning("sarvam_stt_failed", error=str(ex))
 
-            # 2. Fallback: Groq Whisper Large V3 with temperature 0.0 and hallucination filter
-            if not transcript and groq_k:
+            # 2. Fallback: Only call Groq Whisper if Sarvam API failed/unavailable (prevents Whisper hallucinating on silence)
+            if not sarvam_success and groq_k:
                 try:
                     url = "https://api.groq.com/openai/v1/audio/transcriptions"
                     headers = {"Authorization": f"Bearer {groq_k}"}
