@@ -96,6 +96,7 @@ fun ListMyCropScreen(navController: NavController) {
     // Form inputs
     var cropName by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
+    var expectedPrice by remember { mutableStateOf("") }
     var selectedMediaUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var description by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
@@ -293,64 +294,106 @@ fun ListMyCropScreen(navController: NavController) {
                     )
                 }
 
-                // 3. FIELD 2: Quantity (in Quintals)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SackHeaderIcon(modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Quantity (in Quintals)",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.5.sp,
-                            color = Color(0xFF111827)
+                // 3. FIELD 2 & 3: Quantity & Expected Price (in Quintals)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Quantity
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            SackHeaderIcon(modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Quantity (Qtl)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFF111827)
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = quantity,
+                            onValueChange = {
+                                if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
+                                    quantity = it
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                disabledContainerColor = Color.White,
+                                focusedBorderColor = Color(0xFF2E7D32),
+                                unfocusedBorderColor = Color(0xFFD4E0D6),
+                                cursorColor = Color(0xFF2E7D32)
+                            ),
+                            placeholder = {
+                                Text(
+                                    text = "e.g. 50",
+                                    color = Color(0xFF9CA3AF),
+                                    fontSize = 13.sp
+                                )
+                            },
+                            singleLine = true
                         )
                     }
 
-                    OutlinedTextField(
-                        value = quantity,
-                        onValueChange = {
-                            if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
-                                quantity = it
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White,
-                            unfocusedContainerColor = Color.White,
-                            disabledContainerColor = Color.White,
-                            focusedBorderColor = Color(0xFF2E7D32),
-                            unfocusedBorderColor = Color(0xFFD4E0D6),
-                            cursorColor = Color(0xFF2E7D32)
-                        ),
-                        leadingIcon = {
-                            ScaleWeightIcon(modifier = Modifier.size(18.dp), tint = Color(0xFF6B7280))
-                        },
-                        placeholder = {
+                    // Expected Price
+                    Column(
+                        modifier = Modifier.weight(1.1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "Enter quantity",
-                                color = Color(0xFF9CA3AF),
-                                fontSize = 13.5.sp
+                                text = "₹",
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp,
+                                color = Color(0xFF2E7D32)
                             )
-                        },
-                        trailingIcon = {
-                            Box(
-                                modifier = Modifier
-                                    .padding(end = 8.dp)
-                                    .background(Color(0xFFEAF5EC), RoundedCornerShape(8.dp))
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Price (₹/Qtl)",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Color(0xFF111827)
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = expectedPrice,
+                            onValueChange = {
+                                if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
+                                    expectedPrice = it
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedContainerColor = Color.White,
+                                unfocusedContainerColor = Color.White,
+                                disabledContainerColor = Color.White,
+                                focusedBorderColor = Color(0xFF2E7D32),
+                                unfocusedBorderColor = Color(0xFFD4E0D6),
+                                cursorColor = Color(0xFF2E7D32)
+                            ),
+                            placeholder = {
+                                val autoPrice = if (cropName.isNotBlank()) getDefaultCropPrice(cropName).toInt() else 2200
                                 Text(
-                                    text = "Quintals",
-                                    color = Color(0xFF2E7D32),
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 12.5.sp
+                                    text = "₹$autoPrice",
+                                    color = Color(0xFF9CA3AF),
+                                    fontSize = 13.sp
                                 )
-                            }
-                        },
-                        singleLine = true
-                    )
+                            },
+                            singleLine = true
+                        )
+                    }
                 }
 
                 // 4. FIELD 3: Photos or Videos (0/5)
@@ -692,10 +735,14 @@ fun ListMyCropScreen(navController: NavController) {
 
                         isSubmitting = true
                         coroutineScope.launch {
+                            val defaultPrice = getDefaultCropPrice(cropName.trim())
+                            val finalPrice = expectedPrice.toDoubleOrNull() ?: defaultPrice
+
                             val request = CreateMarketListingRequest(
                                 cropName = cropName.trim(),
                                 quantity = parsedQty,
                                 unit = "Quintal",
+                                pricePerUnit = finalPrice,
                                 locationName = locationText.trim(),
                                 description = description.trim().ifEmpty { null },
                                 mediaUrls = selectedMediaUris.map { it.toString() },
@@ -703,33 +750,42 @@ fun ListMyCropScreen(navController: NavController) {
                                 longitude = detectedLongitude
                             )
                             try {
-                                val response = RetrofitInstance.api.createMarketListing(request)
-                                val savedItem = if (response.isSuccessful && response.body() != null) {
-                                    response.body()!!
+                                val response = withContext(Dispatchers.IO) {
+                                    RetrofitInstance.api.createMarketListing(request)
+                                }
+                                if (response.isSuccessful && response.body() != null) {
+                                    val savedItem = response.body()!!
+                                    MarketListingStore.addListing(savedItem)
+                                    android.util.Log.d("ListMyCrop", "Successfully listed crop ID: ${savedItem.id}")
+                                    Toast.makeText(context, "Crop listed live on Marketplace!", Toast.LENGTH_LONG).show()
+                                    navController.popBackStack()
                                 } else {
-                                    MarketListingDto(
+                                    val err = response.errorBody()?.string() ?: "Code: ${response.code()}"
+                                    android.util.Log.e("ListMyCrop", "Server error creating listing: $err")
+                                    val localFallback = MarketListingDto(
                                         id = (System.currentTimeMillis() % 100000).toInt(),
                                         cropName = request.cropName,
                                         quantity = request.quantity,
                                         unit = request.unit,
-                                        pricePerUnit = request.pricePerUnit ?: getDefaultCropPrice(request.cropName),
+                                        pricePerUnit = request.pricePerUnit ?: defaultPrice,
                                         locationName = request.locationName,
                                         description = request.description,
                                         mediaUrls = request.mediaUrls,
                                         createdAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).format(Date()),
                                         isActive = true
                                     )
+                                    MarketListingStore.addListing(localFallback)
+                                    Toast.makeText(context, "Crop saved (Offline sync mode).", Toast.LENGTH_LONG).show()
+                                    navController.popBackStack()
                                 }
-                                MarketListingStore.addListing(savedItem)
-                                Toast.makeText(context, "Crop listed successfully!", Toast.LENGTH_LONG).show()
-                                navController.popBackStack()
                             } catch (e: Exception) {
+                                android.util.Log.e("ListMyCrop", "Network error creating listing", e)
                                 val localFallback = MarketListingDto(
                                     id = (System.currentTimeMillis() % 100000).toInt(),
                                     cropName = request.cropName,
                                     quantity = request.quantity,
                                     unit = request.unit,
-                                    pricePerUnit = request.pricePerUnit ?: getDefaultCropPrice(request.cropName),
+                                    pricePerUnit = request.pricePerUnit ?: defaultPrice,
                                     locationName = request.locationName,
                                     description = request.description,
                                     mediaUrls = request.mediaUrls,
@@ -737,7 +793,7 @@ fun ListMyCropScreen(navController: NavController) {
                                     isActive = true
                                 )
                                 MarketListingStore.addListing(localFallback)
-                                Toast.makeText(context, "Crop listed successfully!", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Network error: saved locally. Will sync when online.", Toast.LENGTH_LONG).show()
                                 navController.popBackStack()
                             } finally {
                                 isSubmitting = false

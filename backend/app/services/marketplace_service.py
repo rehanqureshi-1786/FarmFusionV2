@@ -21,8 +21,33 @@ class MarketplaceService:
                 if u:
                     actual_user_id = u.id
 
+        data = listing.model_dump()
+        if "is_active" not in data or data["is_active"] is None:
+            data["is_active"] = True
+
+        if not data.get("price_per_unit"):
+            c = (data.get("crop_name") or "").lower()
+            if "wheat" in c:
+                data["price_per_unit"] = 2200.0
+            elif "rice" in c or "paddy" in c:
+                data["price_per_unit"] = 2800.0
+            elif "onion" in c:
+                data["price_per_unit"] = 1600.0
+            elif "soybean" in c or "soya" in c:
+                data["price_per_unit"] = 4300.0
+            elif "mustard" in c:
+                data["price_per_unit"] = 5400.0
+            elif "cotton" in c:
+                data["price_per_unit"] = 6800.0
+            elif "potato" in c:
+                data["price_per_unit"] = 1400.0
+            elif "tomato" in c:
+                data["price_per_unit"] = 1800.0
+            else:
+                data["price_per_unit"] = 2100.0
+
         db_listing = MarketListing(
-            **listing.model_dump(),
+            **data,
             user_id=actual_user_id
         )
         db.add(db_listing)

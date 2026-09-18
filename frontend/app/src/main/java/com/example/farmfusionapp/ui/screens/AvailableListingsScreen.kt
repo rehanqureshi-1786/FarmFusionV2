@@ -34,6 +34,10 @@ import com.example.farmfusionapp.data.model.MarketListingStore
 import com.example.farmfusionapp.data.model.getDefaultCropPrice
 import com.example.farmfusionapp.network.RetrofitInstance
 import com.example.farmfusionapp.ui.components.NeoScaffoldBackground
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -43,8 +47,10 @@ import kotlinx.coroutines.withContext
 fun AvailableListingsScreen(navController: NavController) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var isRefreshing by remember { mutableStateOf(false) }
+    var isInitialLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("ALL") }
     var selectedListingForDetails by remember { mutableStateOf<MarketListingDto?>(null) }
@@ -58,15 +64,43 @@ fun AvailableListingsScreen(navController: NavController) {
                 RetrofitInstance.api.getMarketListings(activeOnly = true)
             }
             if (response.isSuccessful && response.body() != null) {
-                backendListings = response.body()!!
+                val remote = response.body()!!
+                backendListings = remote
+                MarketListingStore.setListings(remote)
+                android.util.Log.d("AvailableListings", "Fetched ${remote.size} active listings from cloud")
+            } else {
+                android.util.Log.e("AvailableListings", "API failed with code: ${response.code()}")
             }
         } catch (e: Exception) {
+            android.util.Log.e("AvailableListings", "Network error fetching listings", e)
             // Fallback to active local store listings
+        } finally {
+            isInitialLoading = false
         }
     }
 
+    // Refresh immediately on resume (when app or screen comes into view)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                coroutineScope.launch {
+                    fetchActiveListings()
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    // Auto-polling: checks cloud for newly listed crops every 8 seconds while screen is open
     LaunchedEffect(Unit) {
         fetchActiveListings()
+        while (true) {
+            delay(8000L)
+            fetchActiveListings()
+        }
     }
 
     // Merge backend results with any active local store listings that aren't duplicates
@@ -235,7 +269,7 @@ fun AvailableListingsScreen(navController: NavController) {
                     }
                 }
 
-                // Results Summary
+                // Results Summary with Live Indicator
                 item {
                     Row(
                         modifier = Modifier
@@ -250,11 +284,50 @@ fun AvailableListingsScreen(navController: NavController) {
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF4B5563)
                         )
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .background(Color(0xFF16A34A), CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = "Live Updates",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF16A34A)
+                            )
+                        }
                     }
                 }
 
-                // Empty State
-                if (filteredListings.isEmpty()) {
+                // Initial Loading or Empty State
+                if (isInitialLoading && filteredListings.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp)
+                                .height(180.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFF1B5E20),
+                                    strokeWidth = 2.5.dp,
+                                    modifier = Modifier.size(30.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Fetching live listings from farmers...",
+                                    fontSize = 12.5.sp,
+                                    color = Color(0xFF6B7280)
+                                )
+                            }
+                        }
+                    }
+                } else if (filteredListings.isEmpty()) {
                     item {
                         Box(
                             modifier = Modifier

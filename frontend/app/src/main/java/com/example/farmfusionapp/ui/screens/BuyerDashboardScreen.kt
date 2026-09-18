@@ -272,10 +272,10 @@ fun BuyerDashboardScreen(navController: NavController) {
                                             onClick = {
                                                 navController.navigate(action.route) {
                                                     popUpTo(NavRoutes.BuyerDashboard) {
-                                                        saveState = true
+                                                        saveState = (action.route != NavRoutes.AvailableListings)
                                                     }
                                                     launchSingleTop = true
-                                                    restoreState = true
+                                                    restoreState = (action.route != NavRoutes.AvailableListings)
                                                 }
                                             }
                                         )

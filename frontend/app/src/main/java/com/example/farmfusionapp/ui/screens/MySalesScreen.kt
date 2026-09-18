@@ -527,13 +527,18 @@ internal fun CropThumbnailGraphic(
     mediaUrls: List<String>?
 ) {
     if (!mediaUrls.isNullOrEmpty()) {
-        AsyncImage(
-            model = mediaUrls.first(),
-            contentDescription = cropName,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
-        )
-        return
+        val firstUrl = mediaUrls.first()
+        var loadFailed by remember(firstUrl) { mutableStateOf(false) }
+        if (!loadFailed) {
+            AsyncImage(
+                model = firstUrl,
+                contentDescription = cropName,
+                contentScale = ContentScale.Crop,
+                onError = { loadFailed = true },
+                modifier = Modifier.fillMaxSize()
+            )
+            return
+        }
     }
 
     val lower = cropName.lowercase()
