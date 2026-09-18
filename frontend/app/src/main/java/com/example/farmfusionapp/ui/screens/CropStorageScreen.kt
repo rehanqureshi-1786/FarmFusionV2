@@ -364,10 +364,11 @@ fun CropStorageScreen(
                                     modifier = Modifier.fillMaxSize()
                                 ) {
                                     Text(
-                                        text = "${rad.toInt()} km",
-                                        fontSize = 12.sp,
+                                        text = if (rad >= 100.0) ">=100km" else "${rad.toInt()} km",
+                                        fontSize = if (rad >= 100.0) 11.sp else 12.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Color.White else Color(0xFF334155)
+                                        color = if (isSelected) Color.White else Color(0xFF334155),
+                                        maxLines = 1
                                     )
                                 }
                             }
@@ -519,7 +520,7 @@ fun CropStorageScreen(
                                                 onClick = { viewModel.selectRadius(100.0) },
                                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
                                             ) {
-                                                Text("Expand to 100 km")
+                                                Text("Expand to >=100km")
                                             }
                                         }
                                     }
@@ -548,11 +549,12 @@ fun CropStorageScreen(
                                             .fillMaxWidth()
                                             .padding(horizontal = 4.dp, vertical = 2.dp)
                                     ) {
+                                        val radiusLabel = if (state.searchRadiusKm >= 100.0) ">=100km" else "within ${state.searchRadiusKm.toInt()} km"
                                         Text(
                                             text = if (!state.searchedArea.isNullOrBlank()) {
-                                                "${state.items.size} Facilities in ${state.searchedArea} (within ${state.searchRadiusKm.toInt()} km)"
+                                                "${state.items.size} Facilities in ${state.searchedArea} ($radiusLabel)"
                                             } else {
-                                                "${state.items.size} Facilities Nearby (within ${state.searchRadiusKm.toInt()} km)"
+                                                "${state.items.size} Facilities Nearby ($radiusLabel)"
                                             },
                                             fontSize = 13.5.sp,
                                             fontWeight = FontWeight.SemiBold,
