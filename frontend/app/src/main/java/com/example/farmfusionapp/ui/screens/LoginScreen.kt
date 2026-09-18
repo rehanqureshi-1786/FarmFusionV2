@@ -9,10 +9,13 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -125,6 +128,7 @@ fun LoginScreen(
     LoginScreenContent(onLoginCompleted = onGetOtpWithRole)
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LoginScreenContent(
     onLoginCompleted: (String, UserRole) -> Unit
@@ -276,11 +280,23 @@ private fun LoginScreenContent(
         // Ratio = 912 / 853 ≈ 1.069f. This ensures 100% of the illustration is shown while snug with the form below.
         val illustrationHeight = screenWidth * (912f / 853f)
 
+        val scrollState = rememberScrollState()
+        val isImeVisible = WindowInsets.isImeVisible
+
+        // Auto-scroll down when keyboard opens so input field and Get OTP button are fully in view
+        LaunchedEffect(isImeVisible) {
+            if (isImeVisible) {
+                delay(120)
+                scrollState.animateScrollTo(scrollState.maxValue)
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .imePadding() // Handles the keyboard expansion
                 .navigationBarsPadding()
+                .verticalScroll(scrollState)
         ) {
             // Top Background Illustration with Header & Headline overlay
             Box(
@@ -288,6 +304,12 @@ private fun LoginScreenContent(
                     .fillMaxWidth()
                     .height(illustrationHeight)
                     .clipToBounds()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        focusManager.clearFocus()
+                    }
             ) {
                 // Fixed Base Layer: Landscape background
                 Image(
@@ -493,55 +515,50 @@ private fun LoginScreenContent(
             }
 
             // Main Form Content - Smooth and fluid animated transition between Phone and OTP steps
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-            ) {
-                AnimatedContent(
-                    targetState = currentStep,
-                    transitionSpec = {
-                        if (targetState == LoginStep.OTP) {
-                            (slideInHorizontally(
-                                animationSpec = tween(320, easing = FastOutSlowInEasing),
-                                initialOffsetX = { fullWidth -> fullWidth / 4 }
-                            ) + fadeIn(
-                                animationSpec = tween(260)
-                            )).togetherWith(
-                                slideOutHorizontally(
-                                    animationSpec = tween(260, easing = FastOutSlowInEasing),
-                                    targetOffsetX = { fullWidth -> -fullWidth / 4 }
-                                ) + fadeOut(
-                                    animationSpec = tween(200)
-                                )
+            AnimatedContent(
+                targetState = currentStep,
+                transitionSpec = {
+                    if (targetState == LoginStep.OTP) {
+                        (slideInHorizontally(
+                            animationSpec = tween(320, easing = FastOutSlowInEasing),
+                            initialOffsetX = { fullWidth -> fullWidth / 4 }
+                        ) + fadeIn(
+                            animationSpec = tween(260)
+                        )).togetherWith(
+                            slideOutHorizontally(
+                                animationSpec = tween(260, easing = FastOutSlowInEasing),
+                                targetOffsetX = { fullWidth -> -fullWidth / 4 }
+                            ) + fadeOut(
+                                animationSpec = tween(200)
                             )
-                        } else {
-                            (slideInHorizontally(
-                                animationSpec = tween(320, easing = FastOutSlowInEasing),
-                                initialOffsetX = { fullWidth -> -fullWidth / 4 }
-                            ) + fadeIn(
-                                animationSpec = tween(260)
-                            )).togetherWith(
-                                slideOutHorizontally(
-                                    animationSpec = tween(260, easing = FastOutSlowInEasing),
-                                    targetOffsetX = { fullWidth -> fullWidth / 4 }
-                                ) + fadeOut(
-                                    animationSpec = tween(200)
-                                )
+                        )
+                    } else {
+                        (slideInHorizontally(
+                            animationSpec = tween(320, easing = FastOutSlowInEasing),
+                            initialOffsetX = { fullWidth -> -fullWidth / 4 }
+                        ) + fadeIn(
+                            animationSpec = tween(260)
+                        )).togetherWith(
+                            slideOutHorizontally(
+                                animationSpec = tween(260, easing = FastOutSlowInEasing),
+                                targetOffsetX = { fullWidth -> fullWidth / 4 }
+                            ) + fadeOut(
+                                animationSpec = tween(200)
                             )
-                        }
-                    },
-                    label = "login_step_transition",
-                    modifier = Modifier.fillMaxSize()
-                ) { step ->
-                    when (step) {
-                        LoginStep.PHONE -> {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(horizontal = 24.dp)
-                                    .padding(top = 0.dp, bottom = 54.dp)
-                            ) {
+                        )
+                    }
+                },
+                label = "login_step_transition",
+                modifier = Modifier.fillMaxWidth()
+            ) { step ->
+                when (step) {
+                    LoginStep.PHONE -> {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 24.dp)
+                                .padding(top = 0.dp, bottom = 12.dp)
+                        ) {
                                 // "Who are you?" Section
                                 Text(
                                     text = "Who are you?",
@@ -580,7 +597,7 @@ private fun LoginScreenContent(
                                 }
 
                                 // Clear, prominent contrast spacing between 'Who are you?' and 'Enter your phone number'
-                                Spacer(modifier = Modifier.height(36.dp))
+                                Spacer(modifier = Modifier.height(24.dp))
 
                                 Text(
                                     text = "Enter your phone number",
@@ -696,9 +713,9 @@ private fun LoginScreenContent(
                         LoginStep.OTP -> {
                             Column(
                                 modifier = Modifier
-                                    .fillMaxSize()
+                                    .fillMaxWidth()
                                     .padding(horizontal = 24.dp)
-                                    .padding(top = 0.dp, bottom = 54.dp)
+                                    .padding(top = 0.dp, bottom = 12.dp)
                             ) {
                                 Text(
                                     text = "Enter the OTP",
@@ -868,12 +885,17 @@ private fun LoginScreenContent(
                     }
                 }
 
-                // Security / Trust Footer - Locked at the bottom center for BOTH screens
+            // Security / Trust Footer - cleanly positioned below the form, hidden when keyboard is open
+            AnimatedVisibility(
+                visible = !isImeVisible,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 6.dp),
+                        .padding(top = 8.dp, bottom = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     SecurityTrustBadge()
