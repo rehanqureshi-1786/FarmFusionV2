@@ -144,21 +144,20 @@ class TelephonySTT:
 
         # When bot is silent and listening to the caller:
         if not self.is_speaking:
-            self.ambient_noise = min(0.92 * self.ambient_noise + 0.08 * avg_energy, 400.0)
+            self.ambient_noise = min(0.94 * self.ambient_noise + 0.06 * avg_energy, 300.0)
 
-        # Dynamic speech threshold: min 280, max 500
-        speech_threshold = min(max(self.ambient_noise * 1.5, 280.0), 500.0)
+        # Dynamic speech threshold: sensitive to natural phone voice (min 160, max 380)
+        speech_threshold = min(max(self.ambient_noise * 1.3, 160.0), 380.0)
         is_speech_chunk = avg_energy > speech_threshold
 
         if is_speech_chunk:
             self.consecutive_speech_chunks += 1
-            if self.consecutive_speech_chunks >= 3:
-                self.last_speech_time = now
-                if not self.is_speaking:
-                    self.is_speaking = True
-                    self.speech_start_time = now
-                    logger.info("telephony_farmer_speech_started", energy=int(avg_energy), threshold=int(speech_threshold))
-                self.audio_buffer.extend(audio_data)
+            self.last_speech_time = now
+            if not self.is_speaking and self.consecutive_speech_chunks >= 2:
+                self.is_speaking = True
+                self.speech_start_time = now
+                logger.info("telephony_farmer_speech_started", energy=int(avg_energy), threshold=int(speech_threshold))
+            self.audio_buffer.extend(audio_data)
         elif self.is_speaking:
             self.consecutive_speech_chunks = 0
             # Capture trailing pause up to end-of-utterance trigger
@@ -174,19 +173,13 @@ class TelephonySTT:
             if not self.is_outbound_speaking and self.is_speaking and self.last_speech_time > 0:
                 silence_duration = now - self.last_speech_time
 
-                # End of speech detected if silence >= 0.65s and buffer has >= 2400 bytes (300ms)
+                # End of speech detected if silence >= 0.65s and buffer has >= 1600 bytes (200ms)
                 if silence_duration >= 0.65:
-                    if len(self.audio_buffer) >= 2400:
-                        # Check average energy of buffer to reject static hiss
-                        total_e = sum(abs(MULAW_DECODE_TABLE[b]) for b in self.audio_buffer)
-                        avg_buf_e = total_e / max(len(self.audio_buffer), 1)
-                        if avg_buf_e >= 250.0:
-                            chunk_to_transcribe = bytes(self.audio_buffer)
-                            self.clear_buffer()
-                            logger.info("telephony_utterance_ready_for_transcription", bytes_len=len(chunk_to_transcribe), energy=int(avg_buf_e))
-                            asyncio.create_task(self._transcribe_audio_buffer(chunk_to_transcribe))
-                        else:
-                            self.clear_buffer()
+                    if len(self.audio_buffer) >= 1600:
+                        chunk_to_transcribe = bytes(self.audio_buffer)
+                        self.clear_buffer()
+                        logger.info("telephony_utterance_ready_for_transcription", bytes_len=len(chunk_to_transcribe))
+                        asyncio.create_task(self._transcribe_audio_buffer(chunk_to_transcribe))
                     else:
                         self.clear_buffer()
 
@@ -266,6 +259,8 @@ class TelephonySTT:
                     res = await self.http_client.post(url, headers=headers, files=files, data=data)
                     if res.status_code == 200:
                         transcript = res.json().get("transcript", "").strip()
+                    else:
+                        logger.warning("sarvam_stt_non_200", status=res.status_code, text=res.text[:100])
                 except Exception as ex:
                     logger.warning("sarvam_stt_failed", error=str(ex))
 
