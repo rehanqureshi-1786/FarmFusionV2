@@ -260,7 +260,7 @@ class KisanVoiceOrchestrator:
         if groq_k or openrouter_k:
             api_url = "https://api.groq.com/openai/v1/chat/completions" if groq_k else "https://openrouter.ai/api/v1/chat/completions"
             api_key = groq_k or openrouter_k
-            model_name = "llama-3.3-70b-versatile" if groq_k else "google/gemma-3-12b-it"
+            model_name = (settings.groq_model or "qwen/qwen3.8-27b") if groq_k else "google/gemma-3-12b-it"
 
             headers = {
                 "Authorization": f"Bearer {api_key}",
@@ -316,6 +316,7 @@ class KisanVoiceOrchestrator:
                 CHUNK_SIZE = 8000
                 total_len = len(mulaw_audio)
 
+                send_start = time.time()
                 for offset in range(0, total_len, CHUNK_SIZE):
                     if self.is_interrupted:
                         logger.info("telephony_playback_barge_in_interrupted", farmer=self.farmer_name)
@@ -344,6 +345,20 @@ class KisanVoiceOrchestrator:
                     stream_id=self.stream_id,
                     total_bytes=total_len
                 )
+
+                # Wait for phone speaker playback to finish before opening microphone.
+                # Audio duration in seconds = total_len / 8000 samples per sec.
+                # Subtract the time already spent during chunk transmission.
+                duration_sec = total_len / 8000.0
+                elapsed = time.time() - send_start
+                remaining_playback = max(0.0, duration_sec - elapsed)
+                playback_end = time.time() + remaining_playback
+
+                while time.time() < playback_end:
+                    if self.is_interrupted:
+                        break
+                    await asyncio.sleep(0.05)
+
             except Exception as e:
                 logger.warning("telephony_audio_send_failed", error=str(e))
             finally:

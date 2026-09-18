@@ -129,11 +129,11 @@ class TelephonySTT:
 
         # If bot is currently speaking outbound audio:
         # Ignore normal phone line / speakerphone bleed to prevent self-interruption.
-        # Only trigger barge-in if the caller speaks loudly over the bot (>1200 energy for ~300ms).
+        # Trigger barge-in if the caller speaks over the bot (>900 energy for ~160ms).
         if self.is_outbound_speaking:
-            if avg_energy > 1200.0:
+            if avg_energy > 900.0:
                 self.consecutive_speech_chunks += 1
-                if self.consecutive_speech_chunks >= 15 and not self.barge_in_fired:
+                if self.consecutive_speech_chunks >= 8 and not self.barge_in_fired:
                     self.barge_in_fired = True
                     logger.info("telephony_loud_barge_in_triggered", energy=int(avg_energy))
                     if self.on_speech_started_callback:
@@ -174,9 +174,9 @@ class TelephonySTT:
             if not self.is_outbound_speaking and self.is_speaking and self.last_speech_time > 0:
                 silence_duration = now - self.last_speech_time
 
-                # End of speech detected if silence >= 0.65s and buffer has >= 2400 bytes (300ms)
+                # End of speech detected if silence >= 0.65s and buffer has >= 1600 bytes (200ms)
                 if silence_duration >= 0.65:
-                    if len(self.audio_buffer) >= 2400:
+                    if len(self.audio_buffer) >= 1600:
                         chunk_to_transcribe = bytes(self.audio_buffer)
                         self.clear_buffer()
                         logger.info("telephony_utterance_ready_for_transcription", bytes_len=len(chunk_to_transcribe))
@@ -187,39 +187,81 @@ class TelephonySTT:
     async def _transcribe_audio_buffer(self, mulaw_bytes: bytes):
         """Transcribes accumulated mu-law audio via Groq Whisper or Sarvam STT."""
         try:
-            # Convert 8kHz mu-law to 16kHz WAV in non-blocking thread using ffmpeg
-            def _convert():
-                return subprocess.run(
-                    [
-                        "ffmpeg", "-y",
-                        "-f", "mulaw", "-ar", "8000", "-i", "pipe:0",
-                        "-ar", "16000", "-ac", "1",
-                        "-f", "wav", "pipe:1"
-                    ],
-                    input=mulaw_bytes,
-                    capture_output=True,
-                    check=False
-                )
+            # Convert 8kHz mu-law to standard 16kHz seekable RIFF WAV in RAM disk
+            # Using a seekable output file ensures ffmpeg writes standard RIFF ChunkSize & Subchunk2Size,
+            # avoiding the 0xFFFFFFFF unseekable pipe header that caused Sarvam 400 errors and Whisper hallucinations.
+            import uuid
+            ram_dir = "/dev/shm" if os.path.exists("/dev/shm") and os.access("/dev/shm", os.W_OK) else None
+            temp_wav = f"{ram_dir}/stt_{uuid.uuid4().hex[:8]}.wav" if ram_dir else None
 
-            process = await asyncio.to_thread(_convert)
-            wav_bytes = process.stdout
-            if not wav_bytes or process.returncode != 0:
-                logger.warning("stt_ffmpeg_conversion_failed", returncode=process.returncode)
+            def _convert():
+                if temp_wav:
+                    subprocess.run(
+                        [
+                            "ffmpeg", "-y",
+                            "-f", "mulaw", "-ar", "8000", "-i", "pipe:0",
+                            "-ar", "16000", "-ac", "1",
+                            temp_wav
+                        ],
+                        input=mulaw_bytes,
+                        capture_output=True,
+                        check=False
+                    )
+                    if os.path.exists(temp_wav):
+                        with open(temp_wav, "rb") as f:
+                            data = f.read()
+                        try:
+                            os.remove(temp_wav)
+                        except Exception:
+                            pass
+                        return data
+                    return None
+                else:
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
+                        tf_name = tf.name
+                    try:
+                        subprocess.run(
+                            [
+                                "ffmpeg", "-y",
+                                "-f", "mulaw", "-ar", "8000", "-i", "pipe:0",
+                                "-ar", "16000", "-ac", "1",
+                                tf_name
+                            ],
+                            input=mulaw_bytes,
+                            capture_output=True,
+                            check=False
+                        )
+                        with open(tf_name, "rb") as f:
+                            data = f.read()
+                        return data
+                    finally:
+                        if os.path.exists(tf_name):
+                            try:
+                                os.remove(tf_name)
+                            except Exception:
+                                pass
+
+            wav_bytes = await asyncio.to_thread(_convert)
+            if not wav_bytes or len(wav_bytes) < 100:
+                logger.warning("stt_ffmpeg_conversion_failed")
                 return
 
             transcript = ""
             groq_k = self.groq_key or settings.groq_api_key or os.getenv("GROQ_API_KEY")
             sarvam_k = self.sarvam_key or settings.sarvam_api_key or os.getenv("SARVAM_API_KEY")
 
-            # 1. Groq Whisper Large V3 with Indian agricultural vocabulary prompt (~300ms)
+            # 1. Groq Whisper Large V3 with explicit Hindi language parameter (~250ms)
             if groq_k:
                 try:
                     url = "https://api.groq.com/openai/v1/audio/transcriptions"
                     headers = {"Authorization": f"Bearer {groq_k}"}
                     files = {"file": ("speech.wav", wav_bytes, "audio/wav")}
+                    lang_code = self.language[:2] if self.language else "hi"
                     data = {
                         "model": "whisper-large-v3",
-                        "prompt": "किसान खेती मौसम मंडी भाव फसल बारिश गेहूं सरसों कीट रोग खाद Hindi Hinglish"
+                        "language": lang_code,
+                        "prompt": "किसान खेती मौसम मंडी भाव फसल बारिश गेहूं सरसों कीट रोग खाद"
                     }
                     res = await self.http_client.post(url, headers=headers, files=files, data=data)
                     if res.status_code == 200:
@@ -229,7 +271,7 @@ class TelephonySTT:
                 except Exception as ex:
                     logger.warning("groq_whisper_failed", error=str(ex))
 
-            # 2. Sarvam Saaras V3 fallback
+            # 2. Sarvam Saaras V3 fallback (specialized Indian ASR)
             if not transcript and sarvam_k:
                 try:
                     url = "https://api.sarvam.ai/speech-to-text"
